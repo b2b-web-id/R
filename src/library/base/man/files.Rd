@@ -1,6 +1,6 @@
 % File src/library/base/man/files.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2017 R Core Team
 % Distributed under GPL 2 or later
 
 \name{files}
@@ -92,11 +92,11 @@ Sys.junction(from, to)
   to the limitations of the OS's corresponding system call (see
   something like \command{man 2 rename} on a Unix-alike): in particular
   in the interpretation of \sQuote{file}: most platforms will not rename
-  files across file systems.  (On Windows, \code{file.rename} can move
-  files but not directories between volumes.)  On platforms which allow
-  directories to be renamed, typically neither or both of \code{from}
-  and \code{to} must a directory, and if \code{to} exists it must be an
-  empty directory.
+  files from one file system to another.  (On Windows,
+  \code{file.rename} can rename files but not directories across
+  volumes.)  On platforms which allow directories to be renamed,
+  typically neither or both of \code{from} and \code{to} must a
+  directory, and if \code{to} exists it must be an empty directory.
 
   \code{file.append} attempts to append the files named by its
   second argument to those named by its first.  The \R subscript
@@ -113,7 +113,8 @@ Sys.junction(from, to)
   copied.  On a POSIX filesystem the targets of symbolic links will be
   copied rather than the links themselves, and hard links are copied
   separately.  Using \code{copy.date = TRUE} may or may not copy the
-  timestamp exactly: for example, fractional seconds may be omitted.
+  timestamp exactly (for example, fractional seconds may be omitted),
+  but is more likely to do so as from \R 3.4.0.
 
   \code{file.symlink} and \code{file.link} make symbolic and hard links
   on those file systems which support them.  For \code{file.symlink} the
@@ -184,8 +185,7 @@ Sys.junction(from, to)
   insufficient permissions.  Second, the interface needs to know if
   \code{from} is a file or a directory (and it need not yet exist): we
   have implemented this to allow linking from a directory only if it
-  currently exists.  Prior to \R 3.0.3 the paths had to use backslashes
-  (an undocumented restriction of the Windows system call).
+  currently exists.
 
   Care is needed with removing a junction (and most likely also a
   symbolic link): many tools will remove the target and its contents.
@@ -197,7 +197,8 @@ Sys.junction(from, to)
   code.  This is especially important for \code{file.rename}, which has
   OS-specific restrictions (and note that the session temporary
   directory is commonly on a different file system from the working
-  directory).
+  directory): it is only portable to use \code{file.rename} to change
+  file name(s) within a single directory.
 }
 \author{
   Ross Ihaka, Brian Ripley

@@ -1,6 +1,6 @@
 % File src/library/base/man/regex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2017 R Core Team
 % Distributed under GPL 2 or later
 
 \name{regex}
@@ -20,7 +20,7 @@
   strings.  Two types of regular expressions are used in \R,
   \emph{extended} regular expressions (the default) and
   \emph{Perl-like} regular expressions used by \code{perl = TRUE}.
-  There is a also \code{fixed = TRUE} which can be considered to use a
+  There is also \code{fixed = TRUE} which can be considered to use a
   \emph{literal} regular expression.
 
   Other functions which use regular expressions (often via the use of
@@ -32,16 +32,17 @@
   (\emph{do remember that backslashes need to be doubled when entering \R
     character strings}, e.g.\sspace{}from the keyboard).
 
-  Long regular expressions may or may not be accepted: the POSIX
+  Long regular expression patterns may or may not be accepted: the POSIX
   standard only requires up to 256 \emph{bytes}.
 }
 \section{Extended Regular Expressions}{
   This section covers the regular expressions allowed in the default
-  mode of \code{grep}, \code{regexpr}, \code{gregexpr}, \code{sub},
-  \code{gsub} and \code{strsplit}.  They use an implementation of the
-  POSIX 1003.2 standard: that allows some scope for interpretation and
-  the interpretations here are those currently used by \R.  The
-  implementation supports some extensions to the standard.
+  mode of \code{grep}, \code{grepl}, \code{regexpr}, \code{gregexpr},
+  \code{sub}, \code{gsub}, \code{regexec} and \code{strsplit}.  They use
+  an implementation of the POSIX 1003.2 standard: that allows some scope
+  for interpretation and the interpretations here are those currently
+  used by \R.  The implementation supports some extensions to the
+  standard.
 
   Regular expressions are constructed analogously to arithmetic
   expressions, by using various operators to combine smaller
@@ -205,11 +206,11 @@
 
   For complete details please consult the man pages for PCRE (and not
   PCRE2), especially \command{man pcrepattern} and \command{man
-  pcreapi}), on your system or from the sources at
+  pcreapi}, on your system or from the sources at
   \url{http://www.pcre.org}.  (The version in use can be found by
   calling \code{\link{extSoftVersion}}.  It need not be the version
   described in the system's man page.  As PCRE has been feature-frozen
-  for some time, the man pages at
+  for some time (essentially 2012), the man pages at
   \url{http://www.pcre.org/original/doc/html/} should be a good match.)
 
   Perl regular expressions can be computed byte-by-byte or
@@ -263,10 +264,10 @@
   (letter, digit or underscore in the current locale: in UTF-8 mode only
   ASCII letters and digits are considered) respectively, and their
   upper-case versions represent their negation.  Vertical tab was not
-  regarded as a space character in a \code{C} locale before PCRE 8.34
-  (included in \R 3.0.3).  Sequences \samp{\\h}, \samp{\\v}, \samp{\\H}
-  and \samp{\\V} match horizontal and vertical space or the negation.
-  (In UTF-8 mode, these do match non-ASCII Unicode code points.)
+  regarded as a space character in a \code{C} locale before PCRE 8.34.
+  Sequences \samp{\\h}, \samp{\\v}, \samp{\\H} and \samp{\\V} match
+  horizontal and vertical space or the negation.  (In UTF-8 mode, these
+  do match non-ASCII Unicode code points.)
 
   There are additional escape sequences: \samp{\\cx} is
   \samp{cntrl-x} for any \samp{x}, \samp{\\ddd} is the
@@ -335,7 +336,7 @@
   \code{\link{ls}} and \code{\link{strsplit}}.
 
   The TRE documentation at
-  \url{http://laurikari.net/tre/documentation/regex-syntax/}).
+  \url{http://laurikari.net/tre/documentation/regex-syntax/}.
 
   The POSIX 1003.2 standard at
   \url{http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html}

@@ -1,6 +1,6 @@
 % File src/library/base/man/seq.POSIXt.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2017 R Core Team
 % Distributed under GPL 2 or later
 
 \name{seq.POSIXt}
@@ -33,9 +33,9 @@
   }
   The difference between \code{"day"} and \code{"DSTday"} is that the
   former ignores changes to/from daylight savings time and the latter takes
-  the same clock time each day.  (\code{"week"} ignores DST (it is a
-  period of 144 hours), but \code{"7 DSTdays"}) can be used as an
-  alternative.  \code{"month"} and \code{"year"} allow for DST.)
+  the same clock time each day.  \code{"week"} ignores DST (it is a
+  period of 144 hours), but \code{"7 DSTdays"} can be used as an
+  alternative.  \code{"month"} and \code{"year"} allow for DST.
 
   The \link{time zone} of the result is taken from \code{from}: remember
   that GMT means UTC (and not the time zone of Greenwich, England) and so
@@ -47,10 +47,6 @@
 }
 \value{
   A vector of class \code{"POSIXct"}.
-}
-\note{
-  Quarterly increments were specified by \code{by = "3 months"} prior to
-  \R 3.1.0.
 }
 
 \seealso{\code{\link{DateTimeClasses}}}

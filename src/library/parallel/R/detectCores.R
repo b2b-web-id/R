@@ -1,7 +1,7 @@
 #  File src/library/parallel/R/detectCores.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,14 +23,14 @@ detectCores <-
         function(all.tests = FALSE, logical = TRUE) {
             ## result is # cores, logical processors.
             res <- .Call(C_ncpus, FALSE)
-            ifelse(logical, res[2L], res[1L]);
+	    res[if(logical) 2L else 1L]
         }
     } else {
         function(all.tests = FALSE, logical = TRUE) {
             ## Commoner OSes first
+            ## for Linux systems, physical id is 1 for second hyperthread
             systems <-
-                list(linux =
-                     if(logical) "grep processor /proc/cpuinfo 2>/dev/null | wc -l" else "cat /proc/cpuinfo | grep 'cpu cores'| uniq | cut -f2 -d:",
+                list(linux = "grep ^processor /proc/cpuinfo 2>/dev/null | wc -l",
                      ## hw.physicalcpu is not documented for 10.9, but works
                      darwin = if(logical) "/usr/sbin/sysctl -n hw.logicalcpu 2>/dev/null" else "/usr/sbin/sysctl -n hw.physicalcpu 2>/dev/null",
                      solaris = if(logical) "/usr/sbin/psrinfo -v | grep 'Status of.*processor' | wc -l" else "/bin/kstat -p -m cpu_info | grep :core_id | cut -f2 | uniq | wc -l",
@@ -41,11 +41,11 @@ detectCores <-
                 if(all.tests ||
 		   length(grep(paste0("^", names(systems)[i]), R.version$os)))
                     for (cmd in systems[i]) {
-                        a <- try(suppressWarnings(system(cmd, TRUE)),
-                                 silent = TRUE)
-                        if(inherits(a, "try-error")) next
+			if(is.null(a <- tryCatch(suppressWarnings(system(cmd, TRUE)),
+						 error = function(e) NULL)))
+			    next
                         a <- gsub("^ +","", a[1])
-                        if (length(grep("^[1-9]", a))) return(as.integer(a))
+                        if (grepl("^[1-9]", a)) return(as.integer(a))
                     }
             NA_integer_
         }

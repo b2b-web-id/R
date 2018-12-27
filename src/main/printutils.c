@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1999--2017  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1999--2016  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -316,11 +316,12 @@ const char *EncodeReal2(double x, int w, int d, int e)
 
 void z_prec_r(Rcomplex *r, Rcomplex *x, double digits);
 
+#define NB3 NB+3
 const char
 *EncodeComplex(Rcomplex x, int wr, int dr, int er, int wi, int di, int ei,
 	       const char *dec)
 {
-    static char buff[NB];
+    static char buff[NB3];
 
     /* IEEE allows signed zeros; strip these here */
     if (x.r == 0.0) x.r = 0.0;
@@ -346,9 +347,9 @@ const char
 	strcpy(Re, tmp);
 	if ( (flagNegIm = (x.i < 0)) ) x.i = -x.i;
 	Im = EncodeReal0(y.i == 0. ? y.i : x.i, wi, di, ei, dec);
-	snprintf(buff, NB, "%s%s%si", Re, flagNegIm ? "-" : "+", Im);
+	snprintf(buff, NB3, "%s%s%si", Re, flagNegIm ? "-" : "+", Im);
     }
-    buff[NB-1] = '\0';
+    buff[NB3-1] = '\0';
     return buff;
 }
 
@@ -611,7 +612,12 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 
        +2 allows for quotes, +6 for UTF_8 escapes.
      */
-    q = R_AllocStringBuffer(imax2(5*cnt+8, w), buffer);
+    if(5.*cnt + 8 > SIZE_MAX)
+	error(_("too large string (nchar=%d) => 5*nchar + 8 > SIZE_MAX"));
+    size_t q_len = 5*(size_t)cnt + 8;
+    if(q_len < w) q_len = (size_t) w;
+    q = R_AllocStringBuffer(q_len, buffer);
+
     b = w - i - (quote ? 2 : 0); /* total amount of padding */
     if(justify == Rprt_adj_none) b = 0;
     if(b > 0 && justify != Rprt_adj_left) {
@@ -668,7 +674,8 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 
 		    default:
 			/* print in octal */
-			snprintf(buf, 5, "\\%03o", k);
+			// gcc 7 requires cast here
+			snprintf(buf, 5, "\\%03o", (unsigned char)k);
 			for(j = 0; j < 4; j++) *q++ = buf[j];
 			break;
 		    }
@@ -819,7 +826,14 @@ const char *EncodeElement0(SEXP x, int indx, int quote, const char *dec)
 }
 
 /* EncodeChar is a simple wrapper for EncodeString
-   called by error messages to display CHARSXP values */
+   called by error messages to display CHARSXP values.
+
+   The pointer returned by EncodeChar points into an internal buffer
+   which is overwritten by subsequent calls to EncodeChar/EncodeString.
+   It is the responsibility of the caller to copy the result before
+   any subsequent call to EncodeChar/EncodeString may happen. Note that
+   particularly it is NOT safe to pass the result of EncodeChar as 3rd
+   argument to errorcall (errorcall_cpy can be used instead). */
 //attribute_hidden
 const char *EncodeChar(SEXP x)
 {

@@ -1,6 +1,6 @@
 % File src/library/base/man/c.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2017 R Core Team
 % Distributed under GPL 2 or later
 \name{c}
 \title{Combine Values into a Vector or List}
@@ -30,7 +30,7 @@ c(\dots)
 \details{
   The output type is determined from the highest type of the components
   in the hierarchy NULL < raw < logical < integer < double < complex < character
-  < list < expression.  Pairlists are treated as lists, but non-vector
+  < list < expression.  Pairlists are treated as lists, whereas non-vector
   components (such names and calls) are treated as one-element lists
   which cannot be unlisted even if \code{recursive = TRUE}.
 
@@ -43,7 +43,7 @@ c(\dots)
   \code{c} is sometimes used for its side effect of removing attributes
   except names, for example to turn an array into a vector.
   \code{as.vector} is a more intuitive way to do this, but also drops
-  names.  Note too that methods other than the default are not required
+  names.  Note that methods other than the default are not required
   to do this (and they will almost certainly preserve a class attribute).
 
   This is a \link{primitive} function.
@@ -54,7 +54,7 @@ c(\dots)
 }
 \section{S4 methods}{
   This function is S4 generic, but with argument list
-  \code{(x, ..., recursive = FALSE)}.
+  \code{(x, ...)}.
 }
 \references{
   Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
@@ -83,7 +83,7 @@ as.vector(x)
 ## append to a list:
 ll <- list(A = 1, c = "C")
 ## do *not* use
-c(ll, d = 1:3) # which is == c(ll, as.list(c(d = 1:3))
+c(ll, d = 1:3) # which is == c(ll, as.list(c(d = 1:3)))
 ## but rather
 c(ll, d = list(1:3))  # c() combining two lists
 

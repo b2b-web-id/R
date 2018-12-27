@@ -1,6 +1,6 @@
 
-R version 3.3.2 RC (2016-10-26 r71594) -- "Sincere Pumpkin Patch"
-Copyright (C) 2016 The R Foundation for Statistical Computing
+R version 3.4.4 RC (2018-03-08 r74371) -- "Someone to Lean On"
+Copyright (C) 2018 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -259,6 +259,9 @@ n= 30 : 465+0i -15+142.7155i -15+70.56945i -15+46.16525i -15+33.69055i -15+25.98
 > ## Both glibc 2.12 and macOS 10.6 used continuity from above in the first set
 > ## but they seem to assume signed zeros.
 > ## Windows gave incorrect (NaN) values on the cuts.
+> 
+> stopifnot(identical(tanh(356+0i), 1+0i))
+> ## Used to be NaN+0i on Windows
 > 
 > ## Not a regression test, but rather one of the good cases:
 > (cNaN <- as.complex("NaN"))

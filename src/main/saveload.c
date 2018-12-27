@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1997--2017  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2015  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1379,7 +1379,7 @@ static int InIntegerAscii(FILE *fp, SaveLoadData *unused)
 {
     char buf[128];
     int x, res;
-    res = fscanf(fp, SMBUF_SIZED_STRING, buf);
+    res = fscanf(fp, "%127s", buf);
     if(res != 1) error(_("read error"));
     if (strcmp(buf, "NA") == 0)
 	return NA_INTEGER;
@@ -1974,7 +1974,7 @@ SEXP attribute_hidden do_save(SEXP call, SEXP op, SEXP args, SEXP env)
 
     t = s;
     for (j = 0; j < len; j++, t = CDR(t)) {
-	SET_TAG(t, installChar(STRING_ELT(CAR(args), j)));
+	SET_TAG(t, installTrChar(STRING_ELT(CAR(args), j)));
 	tmp = findVar(TAG(t), source);
 	if (tmp == R_UnboundValue)
 	    error(_("object '%s' not found"), EncodeChar(PRINTNAME(TAG(t))));
@@ -2013,7 +2013,7 @@ static SEXP RestoreToEnv(SEXP ans, SEXP aenv)
 	if (TYPEOF(names) != STRSXP || LENGTH(names) != LENGTH(ans))
 	    error(_("not a valid named list"));
 	for (i = 0; i < LENGTH(ans); i++) {
-	    SEXP sym = installChar(STRING_ELT(names, i));
+	    SEXP sym = installTrChar(STRING_ELT(names, i));
 	    obj = VECTOR_ELT(ans, i);
 	    defineVar(sym, obj, aenv);
 	    if(R_seemsOldStyleS4Object(obj))
@@ -2305,7 +2305,7 @@ SEXP attribute_hidden do_saveToConn(SEXP call, SEXP op, SEXP args, SEXP env)
 
     t = s;
     for (j = 0; j < len; j++, t = CDR(t)) {
-	SET_TAG(t, installChar(STRING_ELT(list, j)));
+	SET_TAG(t, installTrChar(STRING_ELT(list, j)));
 	SETCAR(t, findVar(TAG(t), source));
 	tmp = findVar(TAG(t), source);
 	if (tmp == R_UnboundValue)

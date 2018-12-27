@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2016   The R Core Team.
+ *  Copyright (C) 2000-2017   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -364,7 +364,7 @@ int dummy_vfprintf(Rconnection con, const char *format, va_list ap)
 	    }
 	    errno = 0;
 	    ires = Riconv(con->outconv, &ib, &inb, &ob, &onb);
-	    if(ires == (size_t)(-1) && errno == E2BIG) again = TRUE;
+	    again = (ires == (size_t)(-1) && errno == E2BIG);
 	    if(ires == (size_t)(-1) && errno != E2BIG)
 		/* is this safe? */
 		warning(_("invalid char string in output conversion"));
@@ -573,10 +573,16 @@ static Rboolean file_open(Rconnection con)
 	    }
 	} else
 #endif
-	    fp = R_fopen(name, con->mode);
+    fp = R_fopen(name, con->mode);
     } else {  /* use file("stdin") to refer to the file and not the console */
 #ifdef HAVE_FDOPEN
-	fp = fdopen(0, con->mode);
+	int dstdin = dup(0);
+# ifdef Win32
+	if (strchr(con->mode, 'b'))
+	    /* fdopen won't set dstdin to binary mode */
+	    setmode(dstdin, _O_BINARY);
+# endif
+        fp = fdopen(dstdin, con->mode);
 #else
 	warning(_("cannot open file '%s': %s"), name,
 		"fdopen is not supported on this platform");
@@ -633,7 +639,7 @@ static Rboolean file_open(Rconnection con)
 static void file_close(Rconnection con)
 {
     Rfileconn this = con->private;
-    if(con->isopen && strcmp(con->description, "stdin"))
+    if(con->isopen) // && strcmp(con->description, "stdin"))
 	con->status = fclose(this->fp);
     con->isopen = FALSE;
 #ifdef Win32
@@ -2257,7 +2263,7 @@ static size_t clp_read(void *ptr, size_t size, size_t nitems,
     if ((double) size * (double) nitems > INT_MAX)
 	error(_("too large a block specified"));
     used = (request < available) ? request : available;
-    strncpy(ptr, this->buff, used);
+    strncpy(ptr, this->buff + this->pos, used);
     this->pos += used;
     return (size_t) used/size;
 }
@@ -3349,9 +3355,24 @@ SEXP attribute_hidden do_isseekable(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(con->canseek != FALSE);
 }
 
+static void checkClose(Rconnection con)
+{
+    if (con->isopen) {
+        errno = 0;
+    	con->close(con);
+    	if (con->status != NA_INTEGER && con->status < 0) {
+    	    int serrno = errno;
+            if (serrno)
+		warning(_("Problem closing connection:  %s"), strerror(serrno));
+	    else
+		warning(_("Problem closing connection"));
+   	 }
+    }
+}
+
 static void con_close1(Rconnection con)
 {
-    if(con->isopen) con->close(con);
+    checkClose(con);
     if(con->isGzcon) {
 	Rgzconn priv = con->private;
 	con_close1(priv->con);
@@ -3534,23 +3555,29 @@ int Rconn_getline(Rconnection con, char *buf, int bufsize)
     return(nbuf);
 }
 
-
 int Rconn_printf(Rconnection con, const char *format, ...)
 {
     int res;
+    errno = 0;
     va_list(ap);
-
     va_start(ap, format);
     /* Parentheses added for FC4 with gcc4 and -D_FORTIFY_SOURCE=2 */
     res = (con->vfprintf)(con, format, ap);
     va_end(ap);
+    /* PR#17243:  write.table and friends silently failed if the disk was full (or there was another error) */
+    if (res < 0) {
+	if (errno)
+	    error(_("Error writing to connection:  %s"), strerror(errno));
+	else
+	    error(_("Error writing to connection"));
+    }
     return res;
 }
 
 static void con_cleanup(void *data)
 {
     Rconnection con = data;
-    if(con->isopen) con->close(con);
+    checkClose(con);
 }
 
 /* readLines(con = stdin(), n = 1, ok = TRUE, warn = TRUE) */
@@ -3659,7 +3686,8 @@ SEXP attribute_hidden do_readLines(SEXP call, SEXP op, SEXP args, SEXP env)
 no_more_lines:
     if(!wasopen) {endcontext(&cntxt); con->close(con);}
     if(nbuf > 0) { /* incomplete last line */
-	if(con->text && !con->blocking) {
+	if(con->text && !con->blocking &&
+	   (strcmp(con->class, "gzfile") != 0)) {
 	    /* push back the rest */
 	    con_pushback(con, 0, buf);
 	    con->incomplete = TRUE;
@@ -3746,7 +3774,10 @@ SEXP attribute_hidden do_writelines(SEXP call, SEXP op, SEXP args, SEXP env)
 			 translateChar0(STRING_ELT(text, i)), ssep);
     }
 
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {
+    	endcontext(&cntxt);
+    	checkClose(con);
+    }
     return R_NilValue;
 }
 
@@ -4335,7 +4366,10 @@ SEXP attribute_hidden do_writebin(SEXP call, SEXP op, SEXP args, SEXP env)
 	Free(buf);
     }
 
-    if(!wasopen) {endcontext(&cntxt);con->close(con);}
+    if(!wasopen) {
+        endcontext(&cntxt);
+        checkClose(con);
+    }
     if(isRaw) {
 	R_Visible = TRUE;
 	UNPROTECT(1);
@@ -4658,7 +4692,10 @@ SEXP attribute_hidden do_writechar(SEXP call, SEXP op, SEXP args, SEXP env)
 		buf += lenb;
 	}
     }
-    if(!wasopen) {endcontext(&cntxt); con->close(con);}
+    if(!wasopen) {
+        endcontext(&cntxt); 
+        checkClose(con);
+    }
     if(isRaw) {
 	R_Visible = TRUE;
 	UNPROTECT(1);
@@ -4820,9 +4857,9 @@ switch_or_tee_stdout(int icon, int closeOnExit, int tee)
 	    if((icon = SinkCons[R_SinkNumber + 1]) >= 3) {
 		Rconnection con = getConnection(icon);
 		R_ReleaseObject(con->ex_ptr);
-		if(SinkConsClose[R_SinkNumber + 1] == 1) /* close it */
-		    con->close(con);
-		else if (SinkConsClose[R_SinkNumber + 1] == 2) /* destroy it */
+		if(SinkConsClose[R_SinkNumber + 1] == 1) { /* close it */
+		    checkClose(con);    
+		} else if (SinkConsClose[R_SinkNumber + 1] == 2) /* destroy it */
 		    con_destroy(icon);
 	    }
 	}
@@ -5065,6 +5102,9 @@ SEXP attribute_hidden do_url(SEXP call, SEXP op, SEXP args, SEXP env)
     const char *cmeth = CHAR(asChar(CAD4R(args)));
     meth = streql(cmeth, "libcurl"); // 1 if "libcurl", else 0
     defmeth = streql(cmeth, "default");
+#ifndef Win32
+    if(defmeth) meth = 1;
+#endif
     if (streql(cmeth, "wininet")) {
 #ifdef Win32
 	winmeth = 1;  // it already was as this is the default
@@ -5203,7 +5243,8 @@ SEXP attribute_hidden do_url(SEXP call, SEXP op, SEXP args, SEXP env)
 	con->canseek = 0;
     /* This is referenced in do_getconnection, so set up before
        any warning */
-    con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"), R_NilValue));
+    con->ex_ptr = PROTECT(R_MakeExternalPtr(con->id, install("connection"),
+					    R_NilValue));
 
     /* open it if desired */
     if(strlen(open)) {
@@ -5530,7 +5571,7 @@ SEXP attribute_hidden do_gzcon(SEXP call, SEXP op, SEXP args, SEXP rho)
     text = asLogical(CADDDR(args));
     if(text == NA_INTEGER)
         error(_("'text' must be TRUE or FALSE"));
-    
+
     if(incon->isGzcon) {
 	warning(_("this is already a 'gzcon' connection"));
 	return CAR(args);

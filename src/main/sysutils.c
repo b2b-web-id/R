@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995-1996   Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997-2014   The R Core Team
+ *  Copyright (C) 1997-2017   The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -744,6 +744,7 @@ cetype_t getCharCE(SEXP x)
 void * Riconv_open (const char* tocode, const char* fromcode)
 {
 #if defined Win32 || __APPLE__
+// These two support "utf8"
 # ifdef Win32
     const char *cp = "ASCII";
 #  ifndef SUPPORT_UTF8_WIN32 /* Always, at present */
@@ -760,7 +761,11 @@ void * Riconv_open (const char* tocode, const char* fromcode)
     else if(!*fromcode) return iconv_open(tocode, cp);
     else return iconv_open(tocode, fromcode);
 #else
-    return iconv_open(tocode, fromcode);
+// "utf8" is not valid but people keep on using it
+    const char *to = tocode, *from = fromcode;
+    if(strcasecmp(tocode, "utf8") == 0) to = "UTF-8";
+    if(strcasecmp(fromcode, "utf8") == 0) from = "UTF-8";
+    return iconv_open(to, from);
 #endif
 }
 
@@ -882,7 +887,8 @@ next_char:
 # ifndef Win32
 		if((unsigned int) wc < 65536) {
 # endif
-		    snprintf(outbuf, 9, "<U+%04X>", (unsigned int) wc);
+		// gcc 7 objects to this with unsigned int
+		    snprintf(outbuf, 9, "<U+%04X>", (unsigned short) wc);
 		    outbuf += 8; outb -= 8;
 # ifndef Win32
 		} else {
@@ -1435,12 +1441,15 @@ mbtoucs(unsigned int *wc, const char *s, size_t n)
     if (status == (size_t) -1) {
 	switch(errno){
 	case EINVAL:
+	    Riconv_close(cd);
 	    return (size_t) -2;
 	case EILSEQ:
+	    Riconv_close(cd);
 	    return (size_t) -1;
 	case E2BIG:
 	    break;
 	default:
+	    Riconv_close(cd);
 	    errno = EILSEQ;
 	    return (size_t) -1;
 	}

@@ -1,7 +1,7 @@
 #  File src/library/utils/R/sourceutils.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2017 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -26,10 +26,12 @@ removeSource <- function(fn) {
     recurse <- function(part) {
         if (is.name(part)) return(part)  # handles missing arg, PR#15957
         attr(part, "srcref") <- NULL
-        if (is.language(part) && is.recursive(part)) {
-            for (i in seq_along(part))
-            	part[[i]] <- recurse(part[[i]])
-        }
+        attr(part, "wholeSrcref") <- NULL
+        attr(part, "srcfile") <- NULL
+	if (is.language(part) && is.recursive(part)) {
+	    for (i in seq_along(part))
+		part[i] <- list(recurse(part[[i]])) # recurse(*) may be NULL
+	}
         part
     }
     body(fn) <- recurse(body(fn))
@@ -60,9 +62,9 @@ getSrcDirectory <- function(x, unique=TRUE) {
 getSrcref <- function(x) {
     if (inherits(x, "srcref")) return(x)
     if (!is.null(srcref <- attr(x, "srcref"))) return(srcref)
-    if (is.function(x) && !is.null(srcref <- getSrcref(body(x)))) 
+    if (is.function(x) && !is.null(srcref <- getSrcref(body(x))))
 	return(srcref)
-    if (methods::is(x, "MethodDefinition")) 
+    if (methods::is(x, "MethodDefinition"))
 	return(getSrcref(unclass(methods::unRematchDefinition(x))))
     NULL
 }
@@ -114,9 +116,9 @@ substr_with_tabs <- function(x, start, stop, tabsize = 8) {
 }
 
 getParseData <- function(x, includeText = NA) {
-    if (inherits(x, "srcfile")) 
+    if (inherits(x, "srcfile"))
 	srcfile <- x
-    else 
+    else
 	srcfile <- getSrcfile(x)
 
     if (is.null(srcfile))
@@ -147,7 +149,7 @@ getParseData <- function(x, includeText = NA) {
         if (length(gettext))
 	    data$text[gettext] <- getParseText(data, data$id[gettext])
     }
-    data	
+    data
 }
 
 getParseText <- function(parseData, id) {

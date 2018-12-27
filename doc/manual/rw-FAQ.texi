@@ -140,15 +140,15 @@ as changes that are planned to eventually make it into the next
 @node How do I install R for Windows?, How do I check an installation?, Where can I find the latest version?, Installation and Usage
 @section How do I install R for Windows?
 
-Current binary versions of R run on Windows XP or later, including on
+Current binary versions of R are known to run on Windows 7 or later, including on
 64-bit versions: @xref{Can I use R on 64-bit Windows?}. The last version
-known to run on Windows 2000 was 2.12.2.
+known to run on Windows 2000 was 2.12.2.  Windows XP is no longer supported.
 
 @c 2000 went end-of-life 2010-07-13
 @c XP SP3 went end of life 2014-04-08
 
 We only test on versions of Windows currently supported by Microsoft,
-mainly 64-bit Windows 7 and Server 2008.
+mainly 64-bit Windows 7, Windows Server 2008 and Windows 10.
 
 Your file system must allow case-honouring long file names (as is likely
 except perhaps for some network-mounted systems).  An installation takes
@@ -1100,7 +1100,7 @@ C/C++/Fortran code which needs compilation can simply be installed by
 pkgname} at a Windows command prompt.  For packages with code that needs
 compilation you will need to collect and install several tools: you can
 download them via the portal at
-@uref{http://www.murdoch-sutherland.com/Rtools/}.  Once you have done
+@uref{https://cran.r-project.org/bin/windows/Rtools/}.  Once you have done
 so, just run @command{R CMD INSTALL pkgname} at a Windows command
 prompt.  To check the package (including running all the examples on its
 help pages and in its test suite, if any) use @command{R CMD check
@@ -1202,10 +1202,10 @@ installed.  This is part of the R installation, so it should be there.
 
 However, if you have the environment variable @env{MY_TCLTK} set to a
 non-empty value, it is assumed that you want to use a different Tcl/Tk
-8.5.x installation with the path to its @file{bin} directory given by
+8.6.x installation with the path to its @file{bin} directory given by
 value of @env{MY_TCLTK}, and that this is set up correctly (with
-@env{TCL_LIBRARY} set if needed).  Note that you do need 8.5.x and not
-8.4.x nor 8.6.0, and you do need the architecture to match, that is a
+@env{TCL_LIBRARY} set if needed).  Note that you do need 8.6.x and not
+8.5.x nor 8.4.x, and you do need the architecture to match, that is a
 32-bit or 64-bit build of Tcl/Tk to match the R build in use.  (There is
 no guarantee that a 64-bit build will work: it depends on the layout it
 uses.)
@@ -1777,10 +1777,6 @@ drop control back to the debugger does not work with a MinGW version of
 @command{gdb}.  It does often work with the @code{cygwin} version.
 
 @end itemize
-
-See
-@uref{http://www.stats.uwo.ca/@/faculty/@/murdoch/@/software/@/debuggingR/@/gdb.shtml}
-for some further details.
 
 
 @node  How do I include C++ code?, The output from my C code disappears., How do I debug code that I have compiled and dyn.load-ed?, Building from Source

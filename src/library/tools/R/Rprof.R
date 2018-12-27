@@ -37,7 +37,7 @@
             "",
             "If 'file' is omitted 'Rprof.out' is used",
             "",
-            "Report bugs at bugs.r-project.org .", sep = "\n")
+            "Report bugs at <https://bugs.R-project.org>.", sep = "\n")
     }
 
     if (is.null(args)) {
@@ -62,7 +62,7 @@
                 R.version[["major"]], ".",  R.version[["minor"]],
                 " (r", R.version[["svn rev"]], ")\n", sep = "")
             cat("",
-                "Copyright (C) 1997-2013 The R Core Team.",
+                "Copyright (C) 1997-2014 The R Core Team.",
                 "This is free software; see the GNU General Public License version 2",
                 "or later for copying conditions.  There is NO warranty.",
                 sep = "\n")

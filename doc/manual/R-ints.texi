@@ -225,7 +225,9 @@ solely of a simple type such as an atomic vector or function.
 @node Rest of header, The 'data', SEXPTYPEs, SEXPs
 @subsection Rest of header
 
-The @code{sxpinfo} header is defined as a 32-bit C structure by
+Note that the size and structure of the header will change in @R{} 3.5.0.
+
+The @code{sxpinfo} header is currently defined as a 32-bit C structure by
 
 @example
 struct sxpinfo_struct @{
@@ -254,8 +256,8 @@ The @code{trace} bit is used for functions for @code{trace()} and for
 other objects when tracing duplications (see @code{tracemem}).
 
 @findex spare bit
-The @code{spare} bit is used for closures to mark them for one
-time debugging.
+The @code{spare} bit is used for closures to mark them for one-time
+debugging.
 
 @findex named bit
 @findex NAMED
@@ -1051,7 +1053,7 @@ is left brace, which is implemented as a primitive.} are
 
 `Special' primitive and internal functions evaluate their arguments
 internally @emph{after} @code{R_Visible} has been set, and evaluation of
-the arguments (e.g.@: an assignment as in PR#9263)) can change the value
+the arguments (e.g.@: an assignment as in PR#9263) can change the value
 of the flag.
 
 The @code{R_Visible} flag can also get altered during the evaluation of
@@ -1262,7 +1264,7 @@ The rationale behind considering only UTF-8 and Latin-1 was that most
 systems are capable of producing UTF-8 strings and this is the nearest
 we have to a universal format.  For those that do not (for example those
 lacking a powerful enough @code{iconv}), it is likely that they work in
-Latin-1, the old @R{} assumption. The the parser can return a
+Latin-1, the old @R{} assumption. Then the parser can return a
 UTF-8-encoded string if it encounters a @samp{\uxxx} escape for a
 Unicode point that cannot be represented in the current charset.  (This
 needs MBCS support, and was only enabled@footnote{See define
@@ -1289,15 +1291,14 @@ were encoded in Latin-1 rather than Adobe Symbol: this is selected by
 
 Windows has no UTF-8 locales, but rather expects to work with
 UCS-2@footnote{or UTF-16 if support for surrogates is enabled in the OS,
-which it is not normally so at least for Western versions of Windows,
-despite some claims to the contrary on the Microsoft website.} strings.
-@R{} (being written in standard C) would not work internally with UCS-2
-without extensive changes.  The @file{Rgui} console@footnote{but not the
-GraphApp toolkit.} uses UCS-2 internally, but communicates with the @R{}
-engine in the native encoding.  To allow UTF-8 strings to be printed in
-UTF-8 in @file{Rgui.exe}, an escape convention is used (see header file
-@file{rgui_UTF8.h}) which is used by @code{cat}, @code{print} and
-autoprinting.
+which it used not to be when encoding support was added to @R{}.}
+strings.  @R{} (being written in standard C) would not work internally
+with UCS-2 without extensive changes.  The @file{Rgui}
+console@footnote{but not the GraphApp toolkit.} uses UCS-2 internally,
+but communicates with the @R{} engine in the native encoding.  To allow
+UTF-8 strings to be printed in UTF-8 in @file{Rgui.exe}, an escape
+convention is used (see header file @file{rgui_UTF8.h}) by
+@code{cat}, @code{print} and autoprinting.
 
 `Unicode' (UCS-2LE) files are common in the Windows world, and
 @code{readLines} and @code{scan} will read them into UTF-8 strings on
@@ -1972,6 +1973,7 @@ function (pattern, x, ignore.case = FALSE, perl = FALSE, value = FALSE,
 
 @end group
 @end example
+@noindent
 and the use of @code{as.character} allows methods to be dispatched (for
 example, for factors).
 
@@ -2261,7 +2263,7 @@ break  for function  if  next  repeat  return  while
 @noindent
 ).  One could argue about @code{~}, but it is known to the parser and has
 semantics quite unlike a normal function.  And @code{:} is documented
-with different argument names in its two meanings.)
+with different argument names in its two meanings.
 
 The QC functions @code{codoc} and @code{checkS3methods} also make use of
 these environments (effectively placing them in front of base in the
@@ -2510,7 +2512,8 @@ catalogs.
 
 Directory @file{Meta} contains several files in @code{.rds} format, that
 is serialized @R{} objects written by @code{saveRDS}.  All packages
-have files @file{Rd.rds}, @file{hsearch.rds}, @file{links.rds} and
+have files @file{Rd.rds}, @file{hsearch.rds}, @file{links.rds},
+@file{features.rds}, and
 @file{package.rds}.  Packages with namespaces have a file
 @file{nsInfo.rds}, and those with data, demos or vignettes have
 @file{data.rds}, @file{demo.rds} or @file{vignette.rds} files.
@@ -2651,7 +2654,7 @@ mounted onto logical directories under that root), Windows has separate
 roots for each physical or logical file system (`volume'), organized
 under @emph{drives} (with file paths starting @code{D:} for an
 @acronym{ASCII} letter, case-insensitively) and @emph{network shares}
-(with paths like @code{\netname\topdir\myfiles\a file}.  There is a
+(with paths like @code{\netname\topdir\myfiles\a file}).  There is a
 current drive, and path names without a drive part are relative to the
 current drive.  Further, each drive has a current directory, and
 relative paths are relative to that current directory, on a particular
@@ -3419,8 +3422,7 @@ names: the 657 known names are given in the character vector
 Integer or character @code{NA} colours are mapped internally to
 transparent white, as is the character string @code{"NA"}.
 
-The handling of negative colour numbers was undefined (and inconsistent)
-prior to @R{} 3.0.0, which made them an error.  Colours greater than
+Negative colour numbers are an error.  Colours greater than
 @samp{@var{N}} are wrapped around, so that for example with the default
 palette of size 8, colour @samp{10} is colour @samp{2} in the palette.
 
@@ -3565,10 +3567,10 @@ The handling of missing values differs in the two classes of uses.
 Generally these are errors when used in @code{par} but cause the
 corresponding element of the plot to be omitted when used as an element
 of a vector argument.  Originally the interpretation of arguments was
-mainly left to the device, but as from @R{} 3.0.0 some of this is
-pre-empted in the graphics engine (but for example the handling of
-@code{lwd = 0} remains device-specific, with some interpreting it as a
-`thinnest possible' line).
+mainly left to the device, but nowadays some of this is pre-empted in
+the graphics engine (but for example the handling of @code{lwd = 0}
+remains device-specific, with some interpreting it as a `thinnest
+possible' line).
 
 @node Grid graphics,  , Base graphics, Graphics Devices
 @section Grid graphics
@@ -3628,8 +3630,7 @@ standard distribution there are separate applications for 32- and 64-bit
 Intel architectures.
 
 Originally the @R{} sources contained quite a lot of code used only by
-the macOS GUI, but by @R{} 3.0.0 this was been migrated to the
-@command{R.app} sources.
+the macOS GUI, but this was migrated to the @command{R.app} sources.
 
 @command{R.app} starts @R{} as an embedded application with a
 command-line which includes @option{--gui=aqua} (see below).  It uses
@@ -3810,8 +3811,9 @@ check to a log file (@file{00install.out} by default), even when running
 interactively.
 Default: true.
 @item _R_CHECK_VIGNETTES_NLINES_
-Maximum number of lines to show at the bottom of the output when reporting
-errors in running or re-building vignettes.
+Maximum number of lines to show from the bottom of the output when
+reporting errors in running or re-building vignettes. (As from @R{}
+3.4.0, @code{0} means all lines will be shown.)
 Default: 10 for running, 25 for re-building.
 @item _R_CHECK_CODOC_S4_METHODS_
 Control whether @code{codoc()} testing is also performed on S4 methods.
@@ -3920,8 +3922,8 @@ to a valid program, or @command{gs} (or on Windows,
 Default: false (but true for CRAN submission checks).
 @item _R_CHECK_ALWAYS_LOG_VIGNETTE_OUTPUT_
 By default the output from running the @R{} code in the vignettes is
-kept only if there is an error.  As from @R{} 3.2.4 this also applies to
-the @file{build_vignettes.log} log from the re-building of vignettes.
+kept only if there is an error.  This also applies to the
+@file{build_vignettes.log} log from the re-building of vignettes.
 Default: false.
 @item _R_CHECK_CLEAN_VIGN_TEST_
 Should the @file{vign_test} directory be removed if the test is
@@ -3967,9 +3969,10 @@ is available to those who first install recording to a log, then call
 
 @item _R_CHECK_DEPENDS_ONLY_
 @itemx _R_CHECK_SUGGESTS_ONLY_
-If set to a true value, running examples, tests and vignettes is done
-with @code{.libPaths()} containing just a temporary library directory
-and @code{.Library}.  The temporary library is populated by symbolic
+If set to a true value, running examples, tests and
+vignettes@footnote{but not re-building vignettes.} is done with
+@code{.libPaths()} containing just a temporary library directory and
+@code{.Library}.  The temporary library is populated by symbolic
 links@footnote{see the previous footnote.} to the installed copies of
 all the Depends/Imports and (for the second only) Suggests packages
 which are not in @code{.Library}.  (As an exception, packages in a
@@ -3998,6 +4001,10 @@ TRUE}.
 @item _R_CHECK_CRAN_INCOMING_
 Check whether package is suitable for publication on CRAN.
 Default: false, except for CRAN submission checks.
+
+@item _R_CHECK_CRAN_INCOMING_REMOTE_
+Include checks that require remote access among the above.
+Default: same as @code{_R_CHECK_CRAN_INCOMING_}
 
 @item _R_CHECK_XREFS_USE_ALIASES_FROM_CRAN_
 When checking anchored Rd xrefs, use Rd aliases from the CRAN package
@@ -4091,12 +4098,27 @@ If set to a true value, report already registered S3 methods in
 base/recommended packages which are overwritten when this package's
 namespace is loaded. 
 Default: false (but true for CRAN submission checks).
+
+@item _R_CHECK_TESTS_NLINES_
+Number of trailing lines of test output to reproduce in the log.  If
+@code{0} all lines except the @R{} preamble are reproduced.
+Default: 13.
+
+@item _R_CHECK_NATIVE_ROUTINE_REGISTRATION_
+If set to a true value, report if the entry points to register native
+routines and to suppress dynamic search are not found in a package's
+DLL.  (@strong{NB:} this requires system commands @command{nm} and on
+Windows, @command{objdump.exe} to be on the @env{PATH}.  This would be
+normal when using a package with compiled code (which are the only ones
+this checks), but Windows' users should check.)
+Default: false (but true for CRAN submission checks).
 @end vtable
 
 CRAN's submission checks use something like
 
 @example
 _R_CHECK_CRAN_INCOMING_=TRUE
+_R_CHECK_CRAN_INCOMING_REMOTE_=TRUE
 _R_CHECK_VC_DIRS_=TRUE
 _R_CHECK_TIMINGS_=10
 _R_CHECK_INSTALL_DEPENDS_=TRUE
@@ -4128,6 +4150,18 @@ _R_CHECK_FORCE_SUGGESTS_=FALSE
 since some packages do suggest other packages not available on CRAN or
 other commonly-used repositories.
 
+Another variable which enables stricter checks is to set
+@env{R_CHECK_CONSTANTS} to @code{5}.  This checks that
+nothing@footnote{The usual culprits are calls to compiled code
+@emph{via} @code{.Call} or @code{.External} which alter their
+arguments.} changes the values of `constants'@footnote{things which the
+byte compiler assumes do not change, e.g.@: function bodies.} in @R{}
+code.  This is best used in conjunction with setting
+@env{R_JIT_STRATEGY} to @code{3}, which checks code on first use (by
+default most code is only checked after byte-compilation on second use).
+Unfortunately these checks slow down checking of examples, tests and
+vignettes, typically two-fold but in the worst cases at least a
+hundred-fold.
 
 @node R coding standards, Testing R code, Tools, Top
 @chapter R coding standards
@@ -4279,7 +4313,7 @@ if you change internal structures.]
 @node Use of TeX dialects, Current and future directions, Testing R code, Top
 @chapter Use of TeX dialects
 
-Various dialects of TeX and used for different purposes in @R{}.  The
+Various dialects of TeX are used for different purposes in @R{}.  The
 policy is that manuals be written in @samp{texinfo}, and for convenience
 the main and Windows FAQs are also.  This has the advantage that is is
 easy to produce @HTML{} and plain text versions as well as typeset manuals.

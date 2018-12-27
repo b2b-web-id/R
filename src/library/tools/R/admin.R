@@ -1,7 +1,7 @@
 #  File src/library/tools/R/admin.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2017 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -99,6 +99,9 @@ function(dir, outDir, builtStamp=character())
               domain = NA)
     saveInfo <- .split_description(db)
     saveRDS(saveInfo, file.path(outMetaDir, "package.rds"))
+
+    features <- list(internalsID = .Internal(internalsID()))
+    saveRDS(features, file.path(outMetaDir, "features.rds"))
 
     invisible()
 }
@@ -235,7 +238,7 @@ function(dir, outDir)
     codeFiles <- list_files_with_type(codeDir, "code", full.names = FALSE)
 
     collationField <-
-        c(paste("Collate", .OStype(), sep = "."), "Collate")
+        c(paste0("Collate.", .OStype()), "Collate")
     if(any(i <- collationField %in% names(db))) {
         collationField <- collationField[i][1L]
         codeFilesInCspec <- .read_collate_field(db[collationField])
@@ -246,7 +249,7 @@ function(dir, outDir)
             out <- gettextf("\nduplicated files in '%s' field:",
                             collationField)
             out <- paste(out,
-                         paste(" ", badFiles, collapse = "\n"),
+                         paste0("  ", badFiles, collapse = "\n"),
                          sep = "\n")
             stop(out, domain = NA)
         }
@@ -258,7 +261,7 @@ function(dir, outDir)
                             collationField,
                             codeDir)
             out <- paste(out,
-                         paste(" ", badFiles, collapse = "\n"),
+                         paste0("  ", badFiles, collapse = "\n"),
                          sep = "\n")
             stop(out, domain = NA)
         }
@@ -271,7 +274,7 @@ function(dir, outDir)
                             codeDir,
                             collationField)
             out <- paste(out,
-                         paste(" ", badFiles, collapse = "\n"),
+                         paste0("  ", badFiles, collapse = "\n"),
                          sep = "\n")
             stop(out, domain = NA)
         }
@@ -915,7 +918,8 @@ function(dir)
 .test_load_package <- function(pkg_name, lib)
 {
     options(warn = 1)
-    res <- try(suppressPackageStartupMessages(library(pkg_name, lib.loc = lib, character.only = TRUE, logical.return = TRUE)))
+    res <- try(suppressPackageStartupMessages(
+	library(pkg_name, lib.loc = lib, character.only = TRUE, logical.return = TRUE)))
     if (inherits(res, "try-error") || !res)
         stop("loading failed", call. = FALSE)
 }
@@ -943,15 +947,16 @@ checkRdaFiles <- function(paths)
         res[p, "compress"] <- if(all(magic[1:2] == c(0x1f, 0x8b))) "gzip"
         else if(rawToChar(magic[1:3]) == "BZh") "bzip2"
         else if(magic[1L] == 0xFD && rawToChar(magic[2:5]) == "7zXZ") "xz"
-        else if(grepl("RD[ABX][12]", rawToChar(magic), useBytes = TRUE)) "none"
+        else if(grepl("RD[ABX][1-9]", rawToChar(magic), useBytes = TRUE)) "none"
         else "unknown"
         con <- gzfile(p)
         magic <- readChar(con, 5L, useBytes = TRUE)
         close(con)
-        res[p, "ASCII"]  <- if (grepl("RD[ABX][12]", magic, useBytes = TRUE))
-            substr(magic, 3, 3) == "A" else NA
-        ver <- sub("(RD[ABX])([12]*)", "\\2", magic, useBytes = TRUE)
-        res$version <- as.integer(ver)
+        if (grepl("RD[ABX][1-9]", magic, useBytes = TRUE)) {
+            res[p, "ASCII"]  <- substr(magic, 3, 3) == "A"
+            ver <- sub("(RD[ABX])([1-9])", "\\2", magic, useBytes = TRUE)
+            res$version <- as.integer(ver)
+        }
     }
     res
 }

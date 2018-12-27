@@ -1,7 +1,7 @@
 #  File src/library/base/R/datetime.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2017 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -21,11 +21,143 @@ Sys.time <- function() .POSIXct(.Internal(Sys.time()))
 ## overridden on Windows
 Sys.timezone <- function(location = TRUE)
 {
-    tz <- Sys.getenv("TZ", names = FALSE)
-    if(!location || nzchar(tz)) return(Sys.getenv("TZ", unset = NA_character_))
-    lt <- normalizePath("/etc/localtime") # Linux, macOS, ...
-    if (grepl(pat <- "^/usr/share/zoneinfo/", lt)) sub(pat, "", lt)
-    else NA_character_
+    if(!location) {
+        .Deprecated(msg = "Sys.timezone(location = FALSE) is deprecated")
+        return(NA_character_)
+    }
+    tz <- Sys.getenv("TZ")
+    if(nzchar(tz)) return(tz)
+
+    ## At least tzcode and glibc respect TZDIR.
+    ## musl does not mention it, just reads /etc/localtime (as from 1.1.13)
+    ## A search of /usr/share/zoneinfo, /share/zoneinfo, /etc/zoneinfo
+    ## is hardcoded.
+    ## Systems using --with-internal-tzcode will use the database at
+    ## file.path(R.home("share"), "zoneinfo"), but it is a reasonable
+    ## assumption that /etc/localtime is based on the system database.
+    tzdir <- Sys.getenv("TZDIR")
+    if(nzchar(tzdir) && !dir.exists(tzdir)) tzdir <- ""
+    if(!nzchar(tzdir)) { ## See comments in OlsonNames
+        if(dir.exists(tzdir <- "/usr/share/zoneinfo") ||
+           dir.exists(tzdir <- "/share/zoneinfo") ||
+           dir.exists(tzdir <- "/usr/share/lib/zoneinfo") ||
+           dir.exists(tzdir <- "/usrlib/zoneinfo") ||
+           dir.exists(tzdir <- "/usr/local/etc/zoneinfo") ||
+           dir.exists(tzdir <- "/etc/zoneinfo") ||
+           dir.exists(tzdir <- "/usr/etc/zoneinfo")) {
+        } else tzdir <- ""
+    }
+
+    ## First try timedatectl: should work on any modern Linux
+    ## as part of systemd (and probably nowhere else)
+    if (nzchar(Sys.which("timedatectl"))) {
+        inf <- system("timedatectl", intern = TRUE)
+        ## typical format:
+        ## "       Time zone: Europe/London (GMT, +0000)"
+        ## "       Time zone: Europe/Vienna (CET, +0100)"
+        lines <- grep("Time zone: ", inf)
+        if (length(lines)) {
+            tz <- sub(" .*", "", sub(" *Time zone: ", "", inf[lines[1L]]))
+            ## quick sanity check
+            if(nzchar(tzdir)) {
+                if(file.exists(file.path(tzdir, tz)))
+                    return(tz)
+                else warning(sprintf("%s indicates the non-existent timezone name %s",
+                                     sQuote("timedatectl"), sQuote(tz)),
+                             call. = FALSE, immediate. = TRUE, domain = NA)
+           } else
+               return(tz)
+        }
+    }
+
+    ## Debian/Ubuntu Linux do things differently, so try that next.
+    ## Derived loosely from PR#17186
+    ## As the Java sources say
+    ##
+    ## 'There's no spec of the file format available. This parsing
+    ## assumes that there's one line of an Olson tzid followed by a
+    ## '\n', no leading or trailing spaces, no comments.'
+    ##
+    ## but we do trim whitespace and do a sanity check (Java does not)
+    if (grepl("linux", R.Version()$platform, ignore.case = TRUE) &&
+        file.exists("/etc/timezone")) {
+        tz0 <- try(readLines("/etc/timezone"))
+        if(!inherits(tz0, "try-error") && length(tz0) == 1L) {
+            tz <- trimws(tz0)
+            ## quick sanity check
+            if(nzchar(tzdir)) {
+                if(file.exists(file.path(tzdir, tz)))
+                    return(tz)
+                else warning(sprintf("%s indicates the non-existent timezone name %s",
+                                     sQuote("/etc/timezone"), sQuote(tz)),
+                             call. = FALSE, immediate. = TRUE, domain = NA)
+            } else
+                return(tz)
+        }
+    }
+
+    ## non-Debian Linux (if not covered above), macOS, *BSD, ...
+    ## According to the glibc's (at least 2.26)
+    ##   manual/time.texi, it can be configured to use
+    ##   /etc/localtime or /usr/local/etc/localtime
+    ## This should be a symlink,
+    ##   but people including Debian have copied files instead.
+    ## 'man 5 localtime' says (even on Debian)
+    ##  'Because the timezone identifier is extracted from the symlink
+    ##   target name of /etc/localtime, this file may not be a normal
+    ##   file or hardlink.'
+    ## tzcode mentions /usr/local/etc/zoneinfo/localtime
+    ##  as the 'local time zone file' (not seen in the wild)
+    if ((file.exists(lt0 <- "/etc/localtime") ||
+         file.exists(lt0 <- "/usr/local/etc/localtime") ||
+         file.exists(lt0 <- "/usr/local/etc/zoneinfo/localtime")) &&
+        !is.na(lt <- Sys.readlink(lt0)) && nzchar(lt)) { # so it is a symlink
+        tz <- NA_character_
+        ## glibc and macOS < 10.13 this is a link into /usr/share/zoneinfo
+        ## (Debian Etch and later replaced it with a copy,
+        ## as have RHEL/Centos 6.x.)
+        ## macOS 10.13.0 is a link into /usr/share/zoneinfo.default
+        ## macOS 10.13.[12] is a link into /var/db/timezone/zoneinfo,
+        ##  itself a link (with target different on different machines)
+        if ((nzchar(tzdir) && grepl(pat <- paste0("^", tzdir, "/"), lt)) ||
+            grepl(pat <- "^/usr/share/zoneinfo.default/", lt))
+            tz <- sub(pat, "", lt)
+        ## all the locations listed for OlsonNames end in zoneinfo
+        else if(grepl(pat <- ".*/zoneinfo/(.*)", lt))
+            tz <- sub(pat, "\\1", lt)
+        if(!is.na(tz))
+            return(tz)
+        else
+            message("unable to deduce timezone name from ", sQuote(lt))
+    }
+
+    ## Last-gasp (slow, several seconds) fallback: compare a
+    ## non-link lt0 to all the files under tzdir (as Java does).
+    ## This may match more than one tz file: we don't care which.
+    if (nzchar(tzdir) && # we already found lt0
+         (is.na(lt <- Sys.readlink(lt0)) || !nzchar(lt))) {
+        warning(sprintf("Your system is mis-configured: %s is not a symlink",
+                        sQuote(lt0)),
+                call. = FALSE, immediate. = TRUE, domain = NA)
+        if(nzchar(Sys.which("cmp"))) {
+            known <- dir(tzdir, recursive = TRUE)
+            for(tz in known) {
+                status <- system2("cmp", c("-s", lt0, file.path(tzdir, tz)))
+                if (status == 0L) {
+                    warning(sprintf("It is strongly recommended to set envionment variable TZ to %s (or equivalent)",
+                                    sQuote(tz)),
+                            call. = FALSE, immediate. = TRUE, domain = NA)
+                    return(tz)
+                }
+            }
+            warning(sprintf("%s is not identical to any known timezone file",
+                            sQuote(lt0)),
+                    call. = FALSE, immediate. = TRUE, domain = NA)
+        }
+    }
+
+    ## all heuristics have failed, so give up
+    NA_character_
 }
 
 as.POSIXlt <- function(x, tz = "", ...) UseMethod("as.POSIXlt")
@@ -206,33 +338,28 @@ strptime <- function(x, format, tz = "")
 format.POSIXct <- function(x, format = "", tz = "", usetz = FALSE, ...)
 {
     if(!inherits(x, "POSIXct")) stop("wrong class")
+    ## NB identical(tz, "") is *NOT* the same as missing(tz)
     if(missing(tz) && !is.null(tzone <- attr(x, "tzone"))) tz <- tzone
     structure(format.POSIXlt(as.POSIXlt(x, tz), format, usetz, ...),
               names = names(x))
 }
 
-## could handle arrays for max.print
-print.POSIXct <- function(x, ...)
+## could handle arrays for max.print \\ keep in sync with  print.Date() in ./dates.R
+print.POSIXct <-
+print.POSIXlt <- function(x, tz = "", usetz = TRUE, ...)
 {
     max.print <- getOption("max.print", 9999L)
+    FORM <- if(missing(tz)) function(z) format(x, usetz = usetz)
+	    else function(z) format(x, tz = tz, usetz = usetz)
     if(max.print < length(x)) {
-        print(format(x[seq_len(max.print)], usetz = TRUE), ...)
+	print(FORM(x[seq_len(max.print)]), ...)
         cat(' [ reached getOption("max.print") -- omitted',
             length(x) - max.print, 'entries ]\n')
-    } else print(format(x, usetz = TRUE), ...)
+    } else
+	print(if(length(x)) FORM(x) else paste(class(x)[1L], "of length 0"), ...)
     invisible(x)
 }
 
-print.POSIXlt <- function(x, ...)
-{
-    max.print <- getOption("max.print", 9999L)
-    if(max.print < length(x)) {
-        print(format(x[seq_len(max.print)], usetz = TRUE), ...)
-        cat(' [ reached getOption("max.print") -- omitted',
-            length(x) - max.print, 'entries ]\n')
-   } else print(format(x, usetz = TRUE), ...)
-    invisible(x)
-}
 
 summary.POSIXct <- function(object, digits = 15L, ...)
 {
@@ -452,16 +579,16 @@ difftime <-
     z <- unclass(time1) - unclass(time2)
     attr(z, "tzone") <- NULL # it may get copied from args of `-`
     units <- match.arg(units)
-    if(units == "auto") {
-        if(all(is.na(z))) units <- "secs"
-        else {
-            zz <- min(abs(z),na.rm = TRUE)
-            if(is.na(zz) || zz < 60) units <- "secs"
-            else if(zz < 3600) units <- "mins"
-            else if(zz < 86400) units <- "hours"
-            else units <- "days"
-        }
-    }
+    if(units == "auto")
+	units <-
+	    if(all(is.na(z))) "secs"
+	    else {
+		zz <- min(abs(z), na.rm = TRUE)
+		if(!is.finite(zz) || zz < 60) "secs"
+		else if(zz < 3600) "mins"
+		else if(zz < 86400) "hours"
+		else "days"
+	    }
     switch(units,
            "secs" = .difftime(z, units = "secs"),
            "mins" = .difftime(z/60, units = "mins"),
@@ -477,9 +604,9 @@ difftime <-
 as.difftime <- function(tim, format = "%X", units = "auto")
 {
     if (inherits(tim, "difftime")) return(tim)
-    if (is.character(tim)){
+    if (is.character(tim)) {
         difftime(strptime(tim, format = format),
-             strptime("0:0:0", format = "%X"), units = units)
+                 strptime("0:0:0", format = "%X"), units = units)
     } else {
         if (!is.numeric(tim)) stop("'tim' is not character or numeric")
 	if (units == "auto") stop("need explicit units for numeric conversion")
@@ -524,7 +651,7 @@ print.difftime <- function(x, digits = getOption("digits"), ...)
     if(is.array(x) || length(x) > 1L) {
         cat("Time differences in ", attr(x, "units"), "\n", sep = "")
         y <- unclass(x); attr(y, "units") <- NULL
-        print(y)
+	print(y, digits=digits, ...)
     }
     else
         cat("Time difference of ", format(unclass(x), digits = digits), " ",
@@ -647,7 +774,7 @@ Summary.difftime <- function (..., na.rm)
     if(Nargs == 0) {
         .difftime(do.call(.Generic), "secs")
     } else {
-        units <- sapply(x, function(x) attr(x, "units"))
+        units <- sapply(x, attr, "units")
         if(all(units == units[1L])) {
             args <- c(lapply(x, as.vector), na.rm = na.rm)
         } else {
@@ -881,6 +1008,8 @@ julian.POSIXt <- function(x, origin = as.POSIXct("1970-01-01", tz = "GMT"), ...)
     structure(res, "origin" = origin)
 }
 
+## Note that  'abbreviate' works *vectorized* here :
+
 weekdays <- function(x, abbreviate) UseMethod("weekdays")
 weekdays.POSIXt <- function(x, abbreviate = FALSE)
 {
@@ -1009,7 +1138,7 @@ is.numeric.POSIXt <- function(x) FALSE
 
 split.POSIXct <-
 function(x, f, drop = FALSE, ...)
-    lapply(split.default(as.double(x), f, drop = drop), .POSIXct,
+    lapply(split.default(as.double(x), f, drop = drop, ...), .POSIXct,
            tz = attr(x, "tzone"))
 
 xtfrm.POSIXct <- function(x) as.numeric(x)
@@ -1048,9 +1177,16 @@ OlsonNames <- function()
     if(.Platform$OS.type == "windows")
         tzdir <- Sys.getenv("TZDIR", file.path(R.home("share"), "zoneinfo"))
     else {
-        tzdirs <- c(Sys.getenv("TZDIR"),
+        ## Try known locations in turn.
+        ## The list is not exhaustive (mac OS 10.13's
+        ## /usr/share/zoneinfo is a symlink) and there is a risk that
+        ## the wrong one is found.
+        ## We assume that if the second exists that the system was
+        ## configured with --with-internal-tzcode
+        tzdirs <- c(Sys.getenv("TZDIR"), # defaults to ""
                     file.path(R.home("share"), "zoneinfo"),
                     "/usr/share/zoneinfo", # Linux, macOS, FreeBSD
+                    "/share/zoneinfo", # in musl's search
                     "/usr/share/lib/zoneinfo", # Solaris, AIX
                     "/usr/lib/zoneinfo",   # early glibc
                     "/usr/local/etc/zoneinfo", # tzcode default
@@ -1059,9 +1195,11 @@ OlsonNames <- function()
         if (!length(tzdirs)) {
             warning("no Olson database found")
             return(character())
-        } else tzdir <- tzdirs[1]
+        } else tzdir <- tzdirs[1L]
     }
     x <- list.files(tzdir, recursive = TRUE)
-    ## all auxiliary files are l/case.
+    ## some databases have VERSION, some +VERSION, some neither
+    x <- setdiff(x, "VERSION")
+    ## all other auxiliary files are l/case.
     grep("^[ABCDEFGHIJKLMNOPQRSTUVWXYZ]", x, value = TRUE)
 }

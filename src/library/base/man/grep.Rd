@@ -1,6 +1,6 @@
 % File src/library/base/man/grep.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2017 R Core Team
 % Distributed under GPL 2 or later
 
 \name{grep}
@@ -84,14 +84,12 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   Arguments which should be character strings or character vectors are
   coerced to character if possible.
 
-  Each of these functions (apart from \code{regexec}, which currently
-  does not support Perl-style regular expressions) operates in one of
-  three modes:
+  Each of these functions operates in one of three modes:
   \enumerate{
     \item \code{fixed = TRUE}: use exact matching.
     \item \code{perl = TRUE}: use Perl-style regular expressions.
     \item \code{fixed = FALSE, perl = FALSE}: use POSIX 1003.2
-    extended regular expressions.
+    extended regular expressions (the default).
   }
   See the help pages on \link{regular expression} for details of the
   different types of regular expressions.
@@ -111,7 +109,7 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   \code{regexpr} it changes the interpretation of the output.
   It inhibits the conversion of inputs with marked encodings, and is
   forced if any input is found which is marked as \code{"bytes"}
-  see \code{\link{Encoding}}).
+  (see \code{\link{Encoding}}).
 
   Caseless matching does not make much sense for bytes in a multibyte
   locale, and you should expect it only to work for ASCII characters if
@@ -122,7 +120,7 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 
   Invalid inputs in the current locale are warned about up to 5 times.
 
-  Caseless matching with \code{PERL = TRUE} for non-ASCII characters
+  Caseless matching with \code{perl = TRUE} for non-ASCII characters
   depends on the PCRE library being compiled with \sQuote{Unicode
   property support}: an external library might not be.
 }
@@ -140,7 +138,7 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   \code{grepl} returns a logical vector (match or not for each element of
   \code{x}).
 
-  For \code{sub} and \code{gsub} return a character vector of the same
+  \code{sub} and \code{gsub} return a character vector of the same
   length and with the same attributes as \code{x} (after possible
   coercion to character).  Elements of character vectors \code{x} which
   are not substituted will be returned unchanged (including any declared
@@ -154,9 +152,12 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   \eqn{-1} if there is none, with attribute \code{"match.length"}, an
   integer vector giving the length of the matched text (or \eqn{-1} for
   no match).  The match positions and lengths are in characters unless
-  \code{useBytes = TRUE} is used, when they are in bytes.  If named
-  capture is used there are further attributes \code{"capture.start"},
-  \code{"capture.length"} and \code{"capture.names"}.
+  \code{useBytes = TRUE} is used, when they are in bytes (as they are
+  for an ASCII-only matching: in either case an attribute
+  \code{useBytes} with value \code{TRUE} is set on the result).  If
+  named capture is used there are further attributes
+  \code{"capture.start"}, \code{"capture.length"} and
+  \code{"capture.names"}.
 
   \code{gregexpr} returns a list of the same length as \code{text} each
   element of which is of the same form as the return value for
@@ -168,11 +169,16 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   sequence of integers with the starting positions of the match and all
   substrings corresponding to parenthesized subexpressions of
   \code{pattern}, with attribute \code{"match.length"} a vector
-  giving the lengths of the matches (or \eqn{-1} for no match).
+  giving the lengths of the matches (or \eqn{-1} for no match).  The
+  interpretation of positions and length and the attributes follows
+  \code{regexpr}.
+
+  Where matching failed because of resource limits (especially for PCRE)
+  this is regarded as a non-match, usually with a warning.
 }
 
 \section{Warning}{
-  POSIX 1003.2 mode of \code{gsub} and \code{gregexpr} does not
+  The POSIX 1003.2 mode of \code{gsub} and \code{gregexpr} does not
   work correctly with repeated word-boundaries (e.g., \code{pattern =
   "\\b"}).  Use \code{perl = TRUE} for such matches (but that may not
   work as expected with non-ASCII inputs, as the meaning of
@@ -196,17 +202,33 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   checked before matching, and the actual matching will be faster.
   Often byte-based matching suffices in a UTF-8 locale since byte
   patterns of one character never match part of another.
+
+  PCRE-based matching by default puts additional effort into
+  \sQuote{studying} the compiled pattern when \code{x}/\code{text} has
+  length at least 10.  As from \R 3.4.0 that study may use the PCRE JIT
+  compiler on platforms where it is available (see
+  \code{\link{pcre_config}}).  The details are controlled by
+  \code{\link{options}} \code{PCRE_study} and \code{PCRE_use_JIT}.
+  (Some timing comparisons can be seen by running file
+  \file{tests/PCRE.R} in the \R sources (and perhaps installed).)
+  People working with PCRE and very long strings can adjust the maximum
+  size of the JIT stack by setting environment variable
+  \env{R_PCRE_JIT_STACK_MAXSIZE} before JIT is used to a value between
+  \code{1} and \code{1000} in MB: the default is \code{64}.  (Then it
+  would usually be wise to set the \link{option}
+  \code{PCRE_limit_recursion}.)
 }
 
 \source{
   The C code for POSIX-style regular expression matching has changed
-  over the years.  As from \R 2.10.0 the TRE library of Ville Laurikari
-  (\url{http://laurikari.net/tre/}) is used.  The POSIX standard does
-  give some room for interpretation, especially in the handling of
-  invalid regular expressions and the collation of character ranges, so
-  the results will have changed slightly over the years.
+  over the years.  As from \R 2.10.0 (Oct 2009) the TRE library of Ville
+  Laurikari (\url{http://laurikari.net/tre/}) is used.  The POSIX
+  standard does give some room for interpretation, especially in the
+  handling of invalid regular expressions and the collation of character
+  ranges, so the results will have changed slightly over the years.
 
-  For Perl-style matching PCRE (\url{http://www.pcre.org}) is used.
+  For Perl-style matching PCRE (\url{http://www.pcre.org}) is used:
+  again the results may depend (slightly) on the version of PCRE in use. 
 }
 
 \references{
@@ -237,6 +259,13 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   \code{\link{apropos}} uses regexps and has more examples.
 
   \code{\link{grepRaw}} for matching raw vectors.
+  
+  Options \code{PCRE_limit_recursion}, \code{PCRE_study} and
+  \code{PCRE_use_JIT}.
+
+  \code{\link{extSoftVersion}} for the versions of regex and PCRE
+  libraries in use, \code{\link{pcre_config}} for more details for
+  PCRE.
 }
 \examples{
 grep("[a-z]", letters)
@@ -253,11 +282,11 @@ gsub("([ab])", "\\\\1_\\\\1_", "abc and ABC")
 txt <- c("The", "licenses", "for", "most", "software", "are",
   "designed", "to", "take", "away", "your", "freedom",
   "to", "share", "and", "change", "it.",
-   "", "By", "contrast,", "the", "GNU", "General", "Public", "License",
-   "is", "intended", "to", "guarantee", "your", "freedom", "to",
-   "share", "and", "change", "free", "software", "--",
-   "to", "make", "sure", "the", "software", "is",
-   "free", "for", "all", "its", "users")
+  "", "By", "contrast,", "the", "GNU", "General", "Public", "License",
+  "is", "intended", "to", "guarantee", "your", "freedom", "to",
+  "share", "and", "change", "free", "software", "--",
+  "to", "make", "sure", "the", "software", "is",
+  "free", "for", "all", "its", "users")
 ( i <- grep("[gu]", txt) ) # indices
 stopifnot( txt[i] == grep("[gu]", txt, value = TRUE) )
 

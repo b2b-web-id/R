@@ -1,6 +1,6 @@
 % File src/library/base/man/strptime.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2017 R Core Team
 % Distributed under GPL 2 or later
 
 \name{strptime}
@@ -66,11 +66,15 @@ strptime(x, format, tz = "")
 
   Locale-specific conversions to and from character strings are used
   where appropriate and available.  This affects the names of the days
-  and months, the AM/PM indicator (if used) and the separators in
-  formats such as \code{\%x} and \code{\%X}, via the setting of the
-  \code{\link{LC_TIME}} locale category.  The \sQuote{current locale} of
-  the descriptions might mean the locale in use at the start of the \R
-  session or when these functions are first used.
+  and months, the AM/PM indicator (if used) and the separators in output
+  formats such as \code{\%x} and \code{\%X}, \emph{via} the setting of
+  the \code{\link{LC_TIME}} locale category.  The \sQuote{current
+  locale} of the descriptions might mean the locale in use at the start
+  of the \R session or when these functions are first used.  (For input,
+  the locale-specific conversions can be changed by calling
+  \code{\link{Sys.setlocale}} with category \code{LC_TIME} since \R
+  3.1.0 or \code{LC_ALL} since \R 3.4.1.  For output, what happens
+  depends on the OS.)
 
   % strftime is C99: strptime is POSIX.
   The details of the formats are platform-specific, but the following are
@@ -118,13 +122,17 @@ strptime(x, format, tz = "")
     \item{\code{\%n}}{Newline on output, arbitrary whitespace on input.}
     \item{\code{\%p}}{AM/PM indicator in the locale.  Used in
       conjunction with \code{\%I} and \bold{not} with \code{\%H}.  An
-      empty string in some locales (and the behaviour is undefined if
-      used for input in such a locale).
+      empty string in some locales (for example on some OSes,
+      non-English European locales including Russia). The behaviour is
+      undefined if used for input in such a locale.
 
       Some platforms accept \code{\%P} for output, which uses a lower-case
-      version: others will output \code{P}.} 
-    \item{\code{\%r}}{The 12-hour clock time (using the locale's AM or
-      PM).  Only defined in some locales.}
+      version (\code{\%p} may also use lower case): others will output
+      \code{P}.} 
+    \item{\code{\%r}}{For output, the 12-hour clock time (using the
+      locale's AM or PM): only defined in some locales, and on some OSes
+      misleading in locales which do not define an AM/PM indicator.
+      For input, equivalent to \code{\%I:\%M:\%S \%p}.} 
     \item{\code{\%R}}{Equivalent to \code{\%H:\%M}.}
     \item{\code{\%S}}{Second as integer (00--61), allowing for
       up to two leap-seconds (but POSIX-compliant implementations
@@ -165,8 +173,7 @@ strptime(x, format, tz = "")
       For input, only years \code{0:9999} are accepted.}
     \item{\code{\%z}}{Signed offset in hours and minutes
       from UTC, so \code{-0800} is 8 hours behind UTC. Values up to
-      \code{+1400} are accepted as from \R 3.1.1: previous versions only
-      accepted up to \code{+1200}.  (Standard only for output.)} 
+      \code{+1400} are accepted.  (Standard only for output.)} 
     \item{\code{\%Z}}{(Output only.)  Time zone abbreviation as a
       character string (empty if not available).  This may not be reliable
       when a time zone has changed abbreviations over the years.}
@@ -306,19 +313,10 @@ strptime(x, format, tz = "")
   \code{strftime} and formatting/printing uses OS facilities and may
   return nonsensical results for non-existent times at DST transitions.
   
-  Much less comprehensive support for output specifications was provided
-  on Windows before \R 3.1.0.
-  
   In a C locale \code{\%c} is required to be
   \code{"\%a \%b \%e \%H:\%M:\%S \%Y"}.  As Windows does not comply (and
   uses a date format not understood outside N. America), that format is
   used by \R on Windows in all locales.
-  
-  That \code{\%A \%a \%B \%b} on input match both full and abbreviated names
-  caused problems in some locales prior to \R 3.0.3: e.g.\sspace{}in French on
-  macOS \samp{juillet} was matched by \code{jui}, the abbreviation for
-  June.
-  
 }
 
 \references{
@@ -326,9 +324,9 @@ strptime(x, format, tz = "")
   \emph{ISO 8601.  Data elements and interchange formats --
     Information interchange -- Representation of dates and times.}
   For links to versions available on-line see (at the time of writing)
-  \url{http://dotat.at/tmp/ISO_8601-2004_E.pdf} and
+  \url{https://dotat.at/tmp/ISO_8601-2004_E.pdf} and
   \url{http://www.qsl.net/g1smd/isopdf.htm}; for information on the
-  current official version, see \url{http://www.iso.org/iso/iso8601}.
+  current official version, see \url{https://www.iso.org/iso/iso8601}.
 
   The POSIX 1003.1 standard, which is in some respects stricter than ISO 8601.
 }

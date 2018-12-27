@@ -262,9 +262,9 @@ by sending code and bug reports.
 
 Since mid-1997 there has been a core group (the ``R Core Team'') who can
 modify the R source code archive.  The group currently consists of Doug
-Bates, John Chambers, Peter Dalgaard, Seth Falcon, Robert Gentleman,
-Kurt Hornik, Stefano Iacus, Ross Ihaka, Friedrich Leisch, Uwe Ligges,
-Thomas Lumley, Martin Maechler, Duncan Murdoch, Paul Murrell, Martyn
+Bates, John Chambers, Peter Dalgaard, Robert Gentleman,
+Kurt Hornik, Ross Ihaka, Tomas Kalibera, Michael Lawrence, Friedrich Leisch, Uwe Ligges,
+Thomas Lumley, Martin Maechler, Martin Morgan, Paul Murrell, Martyn
 Plummer, Brian Ripley, Deepayan Sarkar, Duncan Temple Lang, Luke
 Tierney, and Simon Urbanek.
 
@@ -459,11 +459,11 @@ respectively.
 
 The @file{bin/windows} directory of a @CRAN{} site contains binaries for
 a base distribution and add-on packages from @CRAN{} to run on Windows
-XP and later (including 64-bit versions of Windows) on ix86 and x86_64
+7 and later (including 64-bit versions of Windows) on ix86 and x86_64
 chips. The Windows version of R was created by Robert Gentleman and
-Guido Masarotto, and is now being developed and maintained by
-@email{murdoch@@stats.uwo.ca, Duncan Murdoch} and
-@email{Brian.Ripley@@R-project.org, Brian D. Ripley}.
+Guido Masarotto, Brian D. Ripley and Duncan Murdoch made substantial 
+contributions and it is now being maintained by
+other members of the R Core team.
 
 The same directory has links to snapshots of the r-patched and r-devel
 versions of R.
@@ -1525,7 +1525,7 @@ for pointers to commercialized versions of R.
 
 @strong{Rweb} is developed and maintained by
 @email{jeff@@math.montana.edu, Jeff Banfield}.  The
-@url{http://www.math.montana.edu/Rweb/, Rweb Home Page} provides access
+@url{https://rweb.stat.umn.edu/Rweb/, Rweb Home Page} provides access
 to all three versions of Rweb---a simple text entry form that returns
 output and graphs, a more sophisticated JavaScript version that provides
 a multiple window environment, and a set of point and click modules that

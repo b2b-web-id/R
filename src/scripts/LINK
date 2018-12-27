@@ -1,11 +1,11 @@
 ##
 ## ${R_HOME}/bin/LINK
 
-revision='$Rev: 63539 $'
+revision='$Rev: 74001 $'
 version=`set - ${revision}; echo ${2}`
 version="R linker front end: ${R_VERSION} (r${version})
 
-Copyright (C) 2000-2013 The R Core Team.
+Copyright (C) 2000-2018 The R Core Team.
 This is free software; see the GNU General Public License version 2
 or later for copying conditions.  There is NO warranty."
 
@@ -23,7 +23,7 @@ Currently only is useful when creating executables, using the C or C++
 compiler for linking.  If FORTRAN code is to be linked, it needs to be
 manually ensured that the linker flags for the FORTRAN are included.
 
-Report bugs at bugs.r-project.org ."
+Report bugs at <https://bugs.R-project.org>."
 
 args=
 while test -n "${1}"; do

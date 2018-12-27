@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2013  R Core Team
+ *  Copyright (C) 2000-2017  R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -146,7 +146,7 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 	    return(0);
 	}
 	/* R --help */
-	snprintf(cmd, CMD_LEN, "%s/%s/Rterm.exe --help", getRHOME(3), BINDIR);
+	snprintf(cmd, CMD_LEN, "\"%s/%s/Rterm.exe\" --help", getRHOME(3), BINDIR);
 	system(cmd);
 	fprintf(stderr, "%s", "\n\nOr: R CMD command args\n\n");
 	rcmdusage(RCMD);
@@ -160,7 +160,7 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 	    fprintf(stdout, "%s", getRHOME(3));
 	    return(0);
 	}
-	snprintf(cmd, CMD_LEN, "%s/%s/Rterm.exe", getRHOME(3), BINDIR);
+	snprintf(cmd, CMD_LEN, "\"\"%s/%s/Rterm.exe\"", getRHOME(3), BINDIR);
 	for (i = cmdarg + 1; i < argc; i++){
 	    strcat(cmd, " ");
 	    if (strlen(cmd) + strlen(argv[i]) > 9900) {
@@ -173,6 +173,8 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 		strcat(cmd, "\"");
 	    } else strcat(cmd, argv[i]);
 	}
+	/* the outermost double quotes are needed for cmd.exe */ 
+	strcat(cmd, "\"");
 	/* R.exe should ignore Ctrl-C, and let Rterm.exe handle it */
 	SetConsoleCtrlHandler(NULL, TRUE);
 	return system(cmd);
@@ -230,7 +232,7 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 "Further arguments starting with a '-' are considered as options as long\n",
 "as '--' was not encountered, and are passed on to the R process, which\n",
 "by default is started with '--restore --save'.\n\n",
-"Report bugs at bugs.r-project.org .");
+"Report bugs at <https://bugs.R-project.org>.");
 		return(0);
 	    }
 	    if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--version")) {
@@ -276,7 +278,8 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 	}
 
 	/* Unix has --restore --save --no-readline */
-	snprintf(cmd, CMD_LEN, "%s/%s/Rterm.exe -f \"%s\" --restore --save",
+	/* cmd is used with CreateProcess, hence no outermost double quotes */
+	snprintf(cmd, CMD_LEN, "\"%s/%s/Rterm.exe\" -f \"%s\" --restore --save",
 		 getRHOME(3), BINDIR, infile);
 	if(strlen(cmd) + strlen(cmd_extra) >= CMD_LEN) {
 	    fprintf(stderr, "command line too long\n");
@@ -381,14 +384,15 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 
 
     if (!strcmp(argv[cmdarg], "INSTALL")) {
+	fprintf(stderr, "In R CMD INSTALL\n");
 	/* Unix has --no-restore except for MM's undocumented --use-vanilla */
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.install_packages() R_DEFAULT_PACKAGES= LC_COLLATE=C --no-restore --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.install_packages() R_DEFAULT_PACKAGES= LC_COLLATE=C --no-restore --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "REMOVE")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -f \"%s/share/R/REMOVE.R\" R_DEFAULT_PACKAGES=NULL --no-restore --slave --args",
+		 "\"\"%s/%s/Rterm.exe\" -f \"%s/share/R/REMOVE.R\" R_DEFAULT_PACKAGES=NULL --no-restore --slave --args",
 		 getRHOME(3), BINDIR, getRHOME(3));
 	for (i = cmdarg + 1; i < argc; i++){
 	    strcat(cmd, " ");
@@ -403,20 +407,22 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 		strcat(cmd, "\"");
 	    } else strcat(cmd, argv[i]);
 	}
+	/* the outermost double quotes are needed for cmd.exe */ 
+	strcat(cmd, "\"");
 	return(system(cmd));
     } else if (!strcmp(argv[cmdarg], "build")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.build_packages() R_DEFAULT_PACKAGES= LC_COLLATE=C --no-restore --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.build_packages() R_DEFAULT_PACKAGES= LC_COLLATE=C --no-restore --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "check")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.check_packages() R_DEFAULT_PACKAGES= LC_COLLATE=C --no-restore --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.check_packages() R_DEFAULT_PACKAGES= LC_COLLATE=C --no-restore --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "Rprof")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.Rprof() R_DEFAULT_PACKAGES=utils LC_COLLATE=C --vanilla --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.Rprof() R_DEFAULT_PACKAGES=utils LC_COLLATE=C --vanilla --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
    } else if (!strcmp(argv[cmdarg], "texify")) {
@@ -425,55 +431,55 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 	    return(1);
 	}
 	snprintf(cmd, CMD_LEN,
-		 "texify.exe -I %s/share/texmf/tex/latex -I %s/share/texmf/bibtex/bst", getRHOME(3), getRHOME(3));
+		 "texify.exe -I \"%s/share/texmf/tex/latex\" -I \"%s/share/texmf/bibtex/bst\"", getRHOME(3), getRHOME(3));
 	PROCESS_CMD(" ");
     } else if (!strcmp(argv[cmdarg], "SHLIB")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.SHLIB() R_DEFAULT_PACKAGES=NULL --no-restore --slave --no-site-file --no-init-file --args",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.SHLIB() R_DEFAULT_PACKAGES=NULL --no-restore --slave --no-site-file --no-init-file --args",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD(" ");
     } else if (!strcmp(argv[cmdarg], "Rdiff")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.Rdiff() R_DEFAULT_PACKAGES=NULL --vanilla --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.Rdiff() R_DEFAULT_PACKAGES=NULL --vanilla --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "Rdconv")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.Rdconv() R_DEFAULT_PACKAGES= LC_COLLATE=C --vanilla --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.Rdconv() R_DEFAULT_PACKAGES= LC_COLLATE=C --vanilla --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "Rd2txt")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::.Rdconv() R_DEFAULT_PACKAGES= LC_COLLATE=C --vanilla --slave --args nextArg-tnextArgtxt",
+		 "\"%s/%s/Rterm.exe\" -e tools:::.Rdconv() R_DEFAULT_PACKAGES= LC_COLLATE=C --vanilla --slave --args nextArg-tnextArgtxt",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "Rd2pdf")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe -e tools:::..Rd2pdf() R_DEFAULT_PACKAGES= LC_ALL=C --vanilla --slave --args ",
+		 "\"%s/%s/Rterm.exe\" -e tools:::..Rd2pdf() R_DEFAULT_PACKAGES= LC_ALL=C --vanilla --slave --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "Sweave")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe --no-restore --slave -e utils:::.Sweave() --args ",
+		 "\"%s/%s/Rterm.exe\" --no-restore --slave -e utils:::.Sweave() --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else if (!strcmp(argv[cmdarg], "Stangle")) {
 	snprintf(cmd, CMD_LEN,
-		 "%s/%s/Rterm.exe --vanilla --slave -e utils:::.Stangle() --args ",
+		 "\"%s/%s/Rterm.exe\" --vanilla --slave -e utils:::.Stangle() --args ",
 		 getRHOME(3), BINDIR);
 	PROCESS_CMD("nextArg");
     } else {
 	/* not one of those handled internally */
 	p = argv[cmdarg];
 	if (!strcmp(p, "config"))
-	    snprintf(cmd, CMD_LEN, "sh %s/bin/config.sh", RHome);
+	    snprintf(cmd, CMD_LEN, "\"sh \"%s/bin/config.sh\"", RHome);
 	else if (!strcmp(p, "open"))
-	    snprintf(cmd, CMD_LEN, "%s/%s/open.exe", RHome, BINDIR);
+	    snprintf(cmd, CMD_LEN, "\"\"%s/%s/open.exe\"", RHome, BINDIR);
 	else {
 	    /* RHOME/BINDIR is first in the path, so looks there first */
-	    if (!strcmp(".sh", p + strlen(p) - 3)) strcpy(cmd, "sh ");
-	    else if (!strcmp(".pl", p + strlen(p) - 3)) strcpy(cmd, "perl ");
-	    else strcpy(cmd, "");
+	    if (!strcmp(".sh", p + strlen(p) - 3)) strcpy(cmd, "\"sh ");
+	    else if (!strcmp(".pl", p + strlen(p) - 3)) strcpy(cmd, "\"perl ");
+	    else strcpy(cmd, "\"");
 	    strcat(cmd, p);
 	}
 
@@ -489,6 +495,8 @@ int rcmdfn (int cmdarg, int argc, char **argv)
 		strcat(cmd, "\"");
 	    } else strcat(cmd, argv[i]);
 	}
+	/* the outermost double quotes are needed for cmd.exe */ 
+	strcat(cmd, "\"");
 	/* printf("cmd is %s\n", cmd); */
 	status = system(cmd);
     }

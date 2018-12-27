@@ -9,11 +9,11 @@ fi
 DYLIB_EXT=`${R_HOME}/bin/R CMD config DYLIB_EXT`
 tools_classpath=${R_SHARE_DIR}/java
 
-revision='$Rev: 71249 $'
+revision='$Rev: 74001 $'
 version=`set - ${revision}; echo ${2}`
 version="R Java configurator: ${R_VERSION} (r${version})
 
-Copyright (C) 2002-2015 The R Core Team.
+Copyright (C) 2002-2018 The R Core Team.
 This is free software; see the GNU General Public License version 2
 or later for copying conditions.  There is NO warranty."
 
@@ -52,7 +52,7 @@ javareconf cannot detect automatically:
   JAVA_LIBS      libraries (as linker flags) necessary to compile
                  JNI programs
 
-Report bugs at bugs.r-project.org ."
+Report bugs at <https://bugs.R-project.org>."
 
 
 dry_run=no
@@ -197,7 +197,9 @@ custom_JAVA_LD_LIBRARY_PATH="${JAVA_LD_LIBRARY_PATH}"
 # sys-dependent tweaks to JNI flags
 hostos=`uname 2>/dev/null`
 if test "${hostos}" = "Darwin"; then
-     pref=`echo "${JAVA_HOME}" | grep "/Home$"`
+     ## This changed for Java 9.
+     ## pref=`echo "${JAVA_HOME}" | grep "/Home$"`
+     pref=`echo "${JAVA_HOME}" | grep "^/System/Library"`
      if test "${pref}" = "${JAVA_HOME}"; then 
        echo "System Java on macOS"
        JAVA_CPPFLAGS="-I/System/Library/Frameworks/JavaVM.framework/Headers"

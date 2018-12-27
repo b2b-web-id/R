@@ -217,7 +217,7 @@ static SEXP deparse1WithCutoff(SEXP call, Rboolean abbrev, int cutoff,
 	    {0, 0, 0, 0, /*startline = */TRUE, 0,
 	     NULL,
 	     /*DeparseBuffer=*/{NULL, 0, BUFSIZE},
-	     DEFAULT_Cutoff, FALSE, 0, TRUE, FALSE, INT_MAX, TRUE, 0};
+	     DEFAULT_Cutoff, FALSE, 0, TRUE, FALSE, INT_MAX, TRUE, 0, FALSE};
     localData.cutoff = cutoff;
     localData.backtick = backtick;
     localData.opts = opts;
@@ -231,8 +231,8 @@ static SEXP deparse1WithCutoff(SEXP call, Rboolean abbrev, int cutoff,
     if (nlines > 0) {
 	localData.linenumber = localData.maxlines = nlines;
     } else {
-	if (R_BrowseLines > 0)  /* enough to determine linenumber */
-	    localData.maxlines = R_BrowseLines + 1;
+        if (R_BrowseLines > 0)  /* enough to determine linenumber */
+            localData.maxlines = R_BrowseLines + 1;
 	deparse2(call, svec, &localData);
 	localData.active = TRUE;
 	if(R_BrowseLines > 0 && localData.linenumber > R_BrowseLines) {
@@ -418,7 +418,7 @@ SEXP attribute_hidden do_dump(SEXP call, SEXP op, SEXP args, SEXP rho)
     opts = asInteger(CADDDR(args));
     /* <NOTE>: change this if extra options are added */
     if(opts == NA_INTEGER || opts < 0 || opts > 1024)
-	errorcall(call, _("'opts' should be small non-negative integer"));
+	error(_("'opts' should be small non-negative integer"));
     evaluate = asLogical(CAD4R(args));
     if (!evaluate) opts |= DELAYPROMISES;
 
@@ -747,11 +747,11 @@ static Rboolean parenthesizeCaller(SEXP s)
 static void deparse2buff(SEXP s, LocalParseData *d)
 {
     PPinfo fop;
-    Rboolean lookahead = FALSE, lbreak = FALSE, parens, fnarg = d->fnarg, 
+    Rboolean lookahead = FALSE, lbreak = FALSE, parens, fnarg = d->fnarg,
              outerparens, doquote;
     SEXP op, t;
     int localOpts = d->opts, i, n;
-    
+
     d->fnarg = FALSE;
 
     if (!d->active) return;
@@ -992,10 +992,10 @@ static void deparse2buff(SEXP s, LocalParseData *d)
 		    break;
 		case PP_SUBSET:
 		    if ((parens = needsparens(fop, CAR(s), 1)))
-			print2buff("(", d);		
+			print2buff("(", d);
 		    deparse2buff(CAR(s), d);
 		    if (parens)
-			print2buff(")", d);		    
+			print2buff(")", d);
 		    if (PRIMVAL(SYMVALUE(op)) == 1)
 			print2buff("[", d);
 		    else
@@ -1308,6 +1308,7 @@ static void print2buff(const char *strng, LocalParseData *d)
  */
 
 #define NB 1000  /* Same as printutils.c */
+#define NB2 2*NB+25
 static const char *EncodeNonFiniteComplexElement(Rcomplex x, char* buff)
 {
     int w, d, e, wi, di, ei;
@@ -1321,8 +1322,8 @@ static const char *EncodeNonFiniteComplexElement(Rcomplex x, char* buff)
     strcpy(Re, EncodeReal0(x.r, w, d, e, "."));
     strcpy(Im, EncodeReal0(x.i, wi, di, ei, "."));
 
-    snprintf(buff, NB, "complex(real=%s, imaginary=%s)", Re, Im);
-    buff[NB-1] = '\0';
+    snprintf(buff, NB2, "complex(real=%s, imaginary=%s)", Re, Im);
+    buff[NB2-1] = '\0';
     return buff;
 }
 
@@ -1451,7 +1452,7 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	    } else if(TYPEOF(vector) == CPLXSXP &&
 		      (ISNAN(COMPLEX(vector)[i].r) || !R_FINITE(COMPLEX(vector)[i].i)) ) {
 		if (!buff)
-		    buff = alloca(NB);
+		    buff = alloca(NB2);
 		strp = EncodeNonFiniteComplexElement(COMPLEX(vector)[i], buff);
 	    } else if (allNA && TYPEOF(vector) == STRSXP &&
 		       STRING_ELT(vector, i) == NA_STRING) {
@@ -1495,7 +1496,7 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	    } else if (TYPEOF(vector) == CPLXSXP && (d->opts & DIGITS16)) {
 		Rcomplex z =  COMPLEX(vector)[i];
 		if (R_FINITE(z.r) && R_FINITE(z.i)) {
-		    snprintf(hex, 64, "%.17g + %17gi", z.r, z.i);
+		    snprintf(hex, 64, "%.17g%+.17gi", z.r, z.i);
 		    strp = hex;
 		} else
 		    strp = EncodeElement(vector, i, quote, '.');
@@ -1519,7 +1520,7 @@ static void src2buff1(SEXP srcref, LocalParseData *d)
     const void *vmax = vmaxget();
     PROTECT(srcref);
 
-    PROTECT(srcref = lang2(install("as.character"), srcref));
+    PROTECT(srcref = lang2(R_AsCharacterSymbol, srcref));
     PROTECT(srcref = eval(srcref, R_BaseEnv));
     n = length(srcref);
     for(i = 0 ; i < n ; i++) {
