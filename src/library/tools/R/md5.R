@@ -16,8 +16,10 @@
 #  A copy of the GNU General Public License is available at
 #  https://www.R-project.org/Licenses/
 
-md5sum <- function(files)
+md5sum <- function(files) {
+    files <- path.expand(files)
     structure(.Call(C_Rmd5, files), names=files)
+}
 
 .installMD5sums <- function(pkgDir, outDir = pkgDir)
 {
@@ -51,7 +53,7 @@ checkMD5sums <- function(package, dir)
     x <- x[names(x) != "MD5"]
     nmx <- names(x)
     res <- TRUE
-    not.here <- !(nmxx %in% nmx)
+    not.here <- (nmxx %notin% nmx)
     if(any(not.here)) {
         res <- FALSE
         if (sum(not.here) > 1L)

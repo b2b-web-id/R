@@ -62,7 +62,7 @@ function(dataDir, contents)
     ## Note that NROW(contents) might be 0.
     if(length(datasets) && NROW(contents)) {
         aliasIndices <-
-            rep(1 : NROW(contents), lengths(contents$Aliases))
+            rep.int(seq_len(NROW(contents)), lengths(contents$Aliases))
         idx <- match(datasets, unlist(contents$Aliases), 0L)
         dataIndex[which(idx != 0L), 2L] <-
             contents[aliasIndices[idx], "Title"]
@@ -134,9 +134,9 @@ function(demoDir)
                                   info_from_build[ , 2L]),
                              1L],
              missing_from_demos =
-             info_from_index[!info_from_index[ , 1L]
-                             %in% info_from_build[ , 1L],
-                             1L])
+                 info_from_index[info_from_index[ , 1L] %notin%
+                                 info_from_build[ , 1L],
+                                 1L])
     class(bad_entries) <- "check_demo_index"
     bad_entries
 }

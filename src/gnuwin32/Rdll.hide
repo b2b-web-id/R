@@ -62,8 +62,6 @@
  ProfileEvent
  RExitContext
  R_BCNodeStackBase
- R_BCNodeStackEnd
- R_BCNodeStackTop
  R_BrowseLevel
  R_BrowseLines
  R_BrowserLastCommand
@@ -403,7 +401,6 @@
  Rf_stringSuffix
  Rf_strmat2intmat
  Rf_substituteList
- Rf_tsConform
  Rf_tspgets
  Rf_ucstomb
  Rf_unbindVar

@@ -1,12 +1,12 @@
 % File src/library/base/man/gc.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{gc}
 \title{Garbage Collection}
 \usage{
-gc(verbose = getOption("verbose"), reset = FALSE)
+gc(verbose = getOption("verbose"), reset = FALSE, full = TRUE)
 gcinfo(verbose)
 }
 \alias{gc}
@@ -16,6 +16,8 @@ gcinfo(verbose)
     statistics about cons cells and the space allocated for vectors.}
   \item{reset}{logical; if \code{TRUE} the values for maximum space used
     are reset to the current values.}
+  \item{full}{logical; if \code{TRUE} a full collection is performed;
+    otherwise only more recently allocated objects may be collected.}
 }
 \description{
   A call of \code{gc} causes a garbage collection to take place.
@@ -26,14 +28,15 @@ gcinfo(verbose)
 \details{
   A call of \code{gc} causes a garbage collection to take place.
   This will also take place automatically without user intervention, and the
-  primary purpose of calling \code{gc} is for the report on memory usage.
+  primary purpose of calling \code{gc} is for the report on memory
+  usage.  For an accurate report \code{full = TRUE} should be used.
 
-  However, it can be useful to call \code{gc} after a large object
+  It can be useful to call \code{gc} after a large object
   has been removed, as this may prompt \R to return memory to the
   operating system.
 
   \R allocates space for vectors in multiples of 8 bytes: hence the
-  report of \code{"Vcells"}, a relict of an earlier allocator (that used
+  report of \code{"Vcells"}, a relic of an earlier allocator (that used
   a vector heap).
 
   When \code{gcinfo(TRUE)} is in force, messages are sent to the message

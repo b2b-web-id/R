@@ -11,23 +11,29 @@
 /* Define to 1 if using `alloca.c'. */
 #undef C_ALLOCA
 
+/* C stack direction: 1 (down) or -1 (up) */
+#undef C_STACK_DIRECTION
+
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #undef ENABLE_NLS
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
-#undef F77_DUMMY_MAIN
-
-/* Define to a macro mangling the given C identifier (in lower and upper
-   case), which must not contain underscores, for linking with Fortran. */
-#undef F77_FUNC
-
-/* As F77_FUNC, but for C identifiers containing underscores. */
-#undef F77_FUNC_
+#undef FC_DUMMY_MAIN
 
 /* Define if F77 and FC dummy `main' functions are identical. */
 #undef FC_DUMMY_MAIN_EQ_F77
+
+/* Define to a macro mangling the given C identifier (in lower and upper
+   case), which must not contain underscores, for linking with Fortran. */
+#undef FC_FUNC
+
+/* As FC_FUNC, but for C identifiers containing underscores. */
+#undef FC_FUNC_
+
+/* C type used for Fortran character lengths */
+#undef FC_LEN_T
 
 /* Define to 1 if you have the `access' function. */
 #undef HAVE_ACCESS
@@ -254,9 +260,6 @@
 /* Define to 1 if you have the `dlsym' function. */
 #undef HAVE_DLSYM
 
-/* Define to 1 if you have the <dl.h> header file. */
-#undef HAVE_DL_H
-
 /* Define to 1 if you have the <elf.h> header file. */
 #undef HAVE_ELF_H
 
@@ -379,6 +382,9 @@
 
 /* Define if you have the `iconvlist' function. */
 #undef HAVE_ICONVLIST
+
+/* Define if `iconv' accepts "CP1252". */
+#undef HAVE_ICONV_CP1252
 
 /* Define to 1 if you have the <iconv.h> header file. */
 #undef HAVE_ICONV_H
@@ -576,6 +582,9 @@
 /* Define to 1 if you have pangocairo. */
 #undef HAVE_PANGOCAIRO
 
+/* Define if your system has pcre2. */
+#undef HAVE_PCRE2
+
 /* Define to 1 if you have the <pcre.h> header file. */
 #undef HAVE_PCRE_H
 
@@ -604,6 +613,9 @@
 
 /* Define to 1 if you have the `pown' function. */
 #undef HAVE_POWN
+
+/* Define if have support for POSIX threads. */
+#undef HAVE_PTHREAD
 
 /* Define if the <pthread.h> defines PTHREAD_MUTEX_RECURSIVE. (For intl) */
 #undef HAVE_PTHREAD_MUTEX_RECURSIVE
@@ -635,9 +647,6 @@
 
 /* Define to 1 if you have the `realpath' function. */
 #undef HAVE_REALPATH
-
-/* Define to 1 if you have the `rint' function. */
-#undef HAVE_RINT
 
 /* Define to 1 if you have the `rintl' function. */
 #undef HAVE_RINTL
@@ -674,6 +683,9 @@
 
 /* Define to 1 if you have the `setlocale' function. */
 #undef HAVE_SETLOCALE
+
+/* Define to 1 if you have the `setrlimit' function. */
+#undef HAVE_SETRLIMIT
 
 /* Define to 1 if you have the `sigaction' function. */
 #undef HAVE_SIGACTION
@@ -805,11 +817,20 @@
    to be built. */
 #undef HAVE_TCLTK
 
+/* Define to 1 if you have the <thread.h> header file. */
+#undef HAVE_THREAD_H
+
+/* Define to 1 if you have the `thr_stksegment' function. */
+#undef HAVE_THR_STKSEGMENT
+
 /* Define this if libtiff is available. */
 #undef HAVE_TIFF
 
 /* Define to 1 if you have the <tiffio.h> header file. */
 #undef HAVE_TIFFIO_H
+
+/* Define to 1 if you have the `tilde_expand_word' function. */
+#undef HAVE_TILDE_EXPAND_WORD
 
 /* Define to 1 if you have the `times' function. */
 #undef HAVE_TIMES
@@ -1015,6 +1036,9 @@
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
+
+/* PCRE2 code unit width wanted. */
+#undef PCRE2_CODE_UNIT_WIDTH
 
 /* Define if <inttypes.h> exists and defines unusable PRI* macros. (For intl)
    */

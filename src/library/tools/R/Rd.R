@@ -33,7 +33,7 @@ function(file, encoding = "unknown")
 
     aliases <- .Rd_get_metadata(Rd, "alias")
     concepts <- .Rd_get_metadata(Rd, "concept")
-    keywords <- .Rd_get_metadata(Rd, "keyword")
+    keywords <- .Rd_get_metadata(Rd, "keyword") %w/o% .Rd_keywords_auto
 
     ## Could be none or more than one ... argh.
     Rd_type <- .Rd_get_doc_type(Rd)
@@ -152,8 +152,8 @@ function(contents, packageName, outFile)
     if(is.data.frame(contents))
         contents <-
             cbind(contents$Name,
-                  sapply(contents$Aliases, paste, collapse = " "),
-                  sapply(contents$Keywords, paste, collapse = " "),
+                  vapply(contents$Aliases, paste, "", collapse = " "),
+                  vapply(contents$Keywords, paste, "", collapse = " "),
                   contents$Title)
     else
         contents <-
@@ -191,8 +191,9 @@ function(contents, type = NULL)
     }
 
     ## Drop all Rd objects marked as 'internal' from the index.
-    idx <- is.na(sapply(keywords, function(x) match("internal", x)))
-
+    idx <- (vapply(keywords,
+                   function(x) match("internal", x, 0L),
+                   0L) == 0L)
     index <- contents[idx, c("Name", "Title"), drop = FALSE]
     if(nrow(index)) {
         ## If a \name is not a valid \alias, replace it by the first
@@ -250,7 +251,7 @@ function(RdFiles, outFile = "", type = NULL,
 ### * Rd_db
 
 Rd_db <-
-function(package, dir, lib.loc = NULL)
+function(package, dir, lib.loc = NULL, stages = "build")
 {
     ## Build an Rd 'data base' from an installed package or the unpacked
     ## package sources as a list containing the parsed Rd objects.
@@ -294,8 +295,8 @@ function(package, dir, lib.loc = NULL)
             eof_pos <-
                 grep("^\\\\eof$", lines, perl = TRUE, useBytes = TRUE)
             db <- split(lines[-eof_pos],
-                        rep(seq_along(eof_pos),
-                            times = diff(c(0, eof_pos)))[-eof_pos])
+                        rep.int(seq_along(eof_pos),
+                                diff(c(0, eof_pos)))[-eof_pos])
         } else return(structure(list(), names = character()))
 
         ## NB: we only get here for pre-2.10.0 installs
@@ -331,7 +332,7 @@ function(package, dir, lib.loc = NULL)
             dir <- file_path_as_absolute(dir)
         built_file <- file.path(dir, "build", "partial.rdb")
         db <- .build_Rd_db(dir,
-                           stages = "build",
+                           stages = stages,
                            built_file = built_file)
         if(length(db)) {
             first <- nchar(file.path(dir, "man")) + 2L
@@ -398,10 +399,10 @@ function(dir = NULL, files = NULL,
         ## Files in the db in need of updating:
         indf <- (files %in% db_names) & file_test("-nt", files, db_file)
         ## Also files not in the db:
-        indf <- indf | !(files %in% db_names)
+        indf <- indf | (files %notin% db_names)
 
         ## Db elements missing from files:
-        ind <- !(db_names %in% files) | (db_names %in% files[indf])
+        ind <- (db_names %notin% files) | (db_names %in% files[indf])
 	if(any(ind))
             db <- db[!ind]
 	files <- files[indf]
@@ -515,6 +516,11 @@ function(x, kind)
     else
         unique(trimws(sapply(x, as.character)))
 }
+
+### * .Rd_keywords_auto
+
+.Rd_keywords_auto <-
+    c("~kwd1", "~kwd2", "~~ other possible keyword(s) ~~")
 
 ### * .Rd_get_section
 
@@ -829,7 +835,7 @@ function(filebase, key = NULL)
             lazyLoadDBfetch(vals[key][[1L]], datafile, compressed, envhook)
 
         if(length(key)) {
-            if(! key %in% vars)
+            if(key %notin% vars)
                 stop(gettextf("No help on %s found in RdDB %s",
                               sQuote(key), sQuote(filebase)),
                      domain = NA)
@@ -887,10 +893,15 @@ initialRdMacros <- function(pkglist = NULL,
     	others <- trimws(unlist(strsplit(pkglist, ",")))
 
     	for (p in others) {
-    	    if (dir.exists(system.file("help/macros", package = p)))
+            if((fp <- system.file(package = p)) == "")
+                warning(gettextf("Rd macro package '%s' is not installed.",
+                                 p),
+                        call. = FALSE)
+            else if(dir.exists(file.path(fp, "help", "macros")))
     	    	macros <- loadPkgRdMacros(system.file(package = p), macros)
     	    else
-    	    	warning(gettextf("No Rd macros in package '%s'.", p), call. = FALSE)
+    	    	warning(gettextf("No Rd macros in package '%s'.", p),
+                        call. = FALSE)
         }
     } else if (is.character(macros))
     	macros <- loadRdMacros(file = macros)

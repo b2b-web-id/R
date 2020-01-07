@@ -1,6 +1,6 @@
 % File src/library/base/man/Random.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Random}
@@ -27,9 +27,9 @@
 \usage{
 \special{.Random.seed <- c(rng.kind, n1, n2, \dots)}
 
-RNGkind(kind = NULL, normal.kind = NULL)
+RNGkind(kind = NULL, normal.kind = NULL, sample.kind = NULL)
 RNGversion(vstr)
-set.seed(seed, kind = NULL, normal.kind = NULL)
+set.seed(seed, kind = NULL, normal.kind = NULL, sample.kind = NULL)
 }
 \arguments{
   \item{kind}{character or \code{NULL}.  If \code{kind} is a character
@@ -39,10 +39,15 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
   \item{normal.kind}{character string or \code{NULL}.  If it is a character
     string, set the method of Normal generation.  Use \code{"default"}
     to return to the \R default.  \code{NULL} makes no change.}
+  \item{sample.kind}{character string or \code{NULL}.  If it is a character
+    string, set the method of discrete uniform generation (used in 
+    \code{\link{sample}}, for instance).  Use \code{"default"} to return to 
+    the \R default.  \code{NULL} makes no change.}
   \item{seed}{a single value, interpreted as an integer, or \code{NULL}
     (see \sQuote{Details}).}
   \item{vstr}{a character string containing a version number,
-    e.g., \code{"1.6.2"}}
+    e.g., \code{"1.6.2"}.  The default RNG configuration of the current
+    \R version is used if \code{vstr} is greater than the current version.} 
   \item{rng.kind}{integer code in \code{0:k} for the above \code{kind}.}
   \item{n1, n2, \dots}{integers.  See the details for how many are required
     (which depends on \code{rng.kind}).}
@@ -85,11 +90,16 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
     is \bold{not} exactly the same as that in recent versions of S-PLUS.}
 
     \item{\code{"Mersenne-Twister"}:}{
-      From Matsumoto and Nishimura (1998). A twisted GFSR with period
+      From Matsumoto and Nishimura (1998); code updated in 2002.
+      A twisted GFSR with period
       \eqn{2^{19937} - 1}{2^19937 - 1} and equidistribution in 623
       consecutive dimensions (over the whole period).  The \sQuote{seed} is a
       624-dimensional set of 32-bit integers plus a current position in
       that set.
+
+      R uses its own initialization method due to B. D. Ripley and is
+      not affected by the initialization issue in the 1998 code of
+      Matsumoto and Nishimura addressed in a 2002 update.
     }
 
     \item{\code{"Knuth-TAOCP-2002"}:}{
@@ -148,6 +158,12 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
   whenever it is selected (even if it is the current normal generator)
   and when \code{kind} is changed.
 
+  \code{sample.kind} can be \code{"Rounding"} or \code{"Rejection"},
+  or partial matches to these.  The former was the default in versions
+  prior to 3.6.0:  it made \code{\link{sample}} noticeably non-uniform
+  on large populations, and should only be used for reproduction of old
+  results.  See \PR{17494} for a discussion. 
+
   \code{set.seed} uses a single integer argument to set as many seeds
   as are required.  It is intended as a simple way to get quite different
   seeds by specifying small integer arguments, and also as a way to get
@@ -158,7 +174,8 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
   called with \code{seed = NULL} it re-initializes (see \sQuote{Note})
   as if no seed had yet been set.
 
-  The use of \code{kind = NULL} or \code{normal.kind = NULL} in
+  The use of \code{kind = NULL}, \code{normal.kind = NULL} or 
+  \code{sample.kind = NULL} in
   \code{RNGkind} or \code{set.seed} selects the currently-used
   generator (including that used in the previous session if the
   workspace has been restored): if no generator has been used it selects
@@ -193,17 +210,19 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
   element \emph{codes} the kind of RNG and normal generator. The lowest
   two decimal digits are in \code{0:(k-1)}
   where \code{k} is the number of available RNGs.  The hundreds
-  represent the type of normal generator (starting at \code{0}).
+  represent the type of normal generator (starting at \code{0}), and
+  the ten thousands represent the type of discrete uniform sampler.
 
   In the underlying C, \code{.Random.seed[-1]} is \code{unsigned};
   therefore in \R \code{.Random.seed[-1]} can be negative, due to
   the representation of an unsigned integer by a signed integer.
 
-  \code{RNGkind} returns a two-element character vector of the RNG and
-  normal kinds selected \emph{before} the call, invisibly if either
-  argument is not \code{NULL}.  A type starts a session as the default,
-  and is selected either by a call to \code{RNGkind} or by setting
-  \code{.Random.seed} in the workspace.
+  \code{RNGkind} returns a three-element character vector of the RNG,
+  normal and sample kinds selected \emph{before} the call, invisibly if 
+  either argument is not \code{NULL}.  A type starts a session as the 
+  default, and is selected either by a call to \code{RNGkind} or by setting
+  \code{.Random.seed} in the workspace. (NB: prior to \R 3.6.0 the first
+  two kinds were returned in a two-element character vector.)
 
   \code{RNGversion} returns the same information as \code{RNGkind} about
   the defaults in a specific \R version.
@@ -211,66 +230,79 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
   \code{set.seed} returns \code{NULL}, invisibly.
 }
 \references{
-  Ahrens, J. H. and Dieter, U. (1973)
+  Ahrens, J. H. and Dieter, U. (1973).
   Extensions of Forsythe's method for random sampling from the normal
   distribution.
-  \emph{Mathematics of Computation} \bold{27}, 927-937.
+  \emph{Mathematics of Computation}, \bold{27}, 927--937.
 
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
+  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
   \emph{The New S Language}.
-  Wadsworth & Brooks/Cole.  (\code{set.seed}, storing in \code{.Random.seed}.)
+  Wadsworth & Brooks/Cole.
+  (\code{set.seed}, storing in \code{.Random.seed}.)
 
-  Box, G. E. P. and Muller, M. E. (1958) A note on the generation of normal
-  random deviates.  \emph{Annals of Mathematical Statistics} \bold{29},
-  610--611.
+  Box, G. E. P. and Muller, M. E. (1958).
+  A note on the generation of normal random deviates.
+  \emph{Annals of Mathematical Statistics}, \bold{29}, 610--611.
+  \doi{10.1214/aoms/1177706645}.
 
-  De Matteis, A. and Pagnutti, S. (1993)
-  \emph{Long-range Correlation Analysis of the Wichmann-Hill Random
-      Number Generator}, Statist. Comput., \bold{3}, 67--70.
+  De Matteis, A. and Pagnutti, S. (1993).
+  Long-range Correlation Analysis of the Wichmann-Hill Random Number
+  Generator.
+  \emph{Statistics and Computing}, \bold{3}, 67--70.
+  \doi{10.1007/BF00153065}.
 
-  Kinderman, A. J. and Ramage, J. G. (1976)
+  Kinderman, A. J. and Ramage, J. G. (1976).
   Computer generation of normal random variables.
-  \emph{Journal of the American Statistical Association} \bold{71},
-  893-896.
+  \emph{Journal of the American Statistical Association}, \bold{71},
+  893--896.
+  \doi{10.2307/2286857}.
 
-  Knuth, D. E. (1997)
-  \emph{The Art of Computer Programming.} Volume 2, third edition.\cr
+  Knuth, D. E. (1997).
+  \emph{The Art of Computer Programming}.
+  Volume 2, third edition.\cr
   Source code at \url{http://www-cs-faculty.stanford.edu/~knuth/taocp.html}.
 
-  Knuth, D. E. (2002)
-  \emph{The Art of Computer Programming.} Volume 2, third edition, ninth
-  printing.
+  Knuth, D. E. (2002).
+  \emph{The Art of Computer Programming}.
+  Volume 2, third edition, ninth printing.
 
-  L'Ecuyer, P. (1999) Good parameters and implementations for combined
-  multiple recursive random number generators. \emph{Operations
-  Research} \bold{47}, 159--164.
+  L'Ecuyer, P. (1999).
+  Good parameters and implementations for combined multiple recursive
+  random number generators.
+  \emph{Operations Research}, \bold{47}, 159--164.
+  \doi{10.1287/opre.47.1.159}.
 
-  Marsaglia, G. (1997) \emph{A random number generator for C.} Discussion
-  paper, posting on Usenet newsgroup \code{sci.stat.math} on
+  Marsaglia, G. (1997).
+  \emph{A random number generator for C}.
+  Discussion paper, posting on Usenet newsgroup \code{sci.stat.math} on
   September 29, 1997.
 
-  Marsaglia, G. and Zaman, A. (1994) Some portable very-long-period
-  random number generators. \emph{Computers in Physics}, \bold{8},
-  117--121.
+  Marsaglia, G. and Zaman, A. (1994).
+  Some portable very-long-period random number generators.
+  \emph{Computers in Physics}, \bold{8}, 117--121.
+  \doi{10.1063/1.168514}.
 
-  Matsumoto, M. and Nishimura, T. (1998)
+  Matsumoto, M. and Nishimura, T. (1998).
   Mersenne Twister: A 623-dimensionally equidistributed uniform
   pseudo-random number generator,
   \emph{ACM Transactions on Modeling and Computer Simulation},
   \bold{8}, 3--30.\cr
   Source code formerly at \code{http://www.math.keio.ac.jp/~matumoto/emt.html}.\cr
   Now see \url{http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/c-lang.html}.
-  
-  Reeds, J., Hubert, S. and Abrahams, M. (1982--4) C implementation of
-  SuperDuper, University of California at Berkeley.  (Personal
-  communication from Jim Reeds to Ross Ihaka.)
 
-  Wichmann, B. A.  and Hill, I. D. (1982)
-  \emph{Algorithm AS 183: An Efficient and Portable Pseudo-random Number
-    Generator}, Applied Statistics, \bold{31}, 188--190; Remarks:
+  Reeds, J., Hubert, S. and Abrahams, M. (1982--4).
+  C implementation of SuperDuper, University of California at Berkeley.
+  (Personal communication from Jim Reeds to Ross Ihaka.)
+
+  Wichmann, B. A.  and Hill, I. D. (1982).
+  Algorithm AS 183: An Efficient and Portable Pseudo-random Number
+  Generator.
+  \emph{Applied Statistics}, \bold{31}, 188--190; Remarks:
   \bold{34}, 198 and \bold{35}, 89.
+  \doi{10.2307/2347988}.
 }
-\author{of RNGkind: Martin Maechler. Current implementation, B. D. Ripley}
+\author{of RNGkind: Martin Maechler. Current implementation, B. D. Ripley
+  with modifications by Duncan Murdoch.}
 
 \seealso{
   \code{\link{sample}} for random sampling with and without replacement.
@@ -278,14 +310,19 @@ set.seed(seed, kind = NULL, normal.kind = NULL)
   \link{Distributions} for functions for random-variate generation from
   standard distributions.
 }
-\examples{\donttest{
+\examples{
 require(stats)
 
-## the default random seed is 626 integers, so only print a few
-runif(1); .Random.seed[1:6]; runif(1); .Random.seed[1:6]
-## If there is no seed, a "random" new one is created:
-rm(.Random.seed); runif(1); .Random.seed[1:6]
+## Seed the current RNG, i.e., set the RNG status
+set.seed(42); u1 <- runif(30)
+set.seed(42); u2 <- runif(30) # the same because of identical RNG status:
+stopifnot(identical(u1, u2))
 
+\donttest{## the default random seed is 626 integers, so only print a few
+ runif(1); .Random.seed[1:6]; runif(1); .Random.seed[1:6]
+ ## If there is no seed, a "random" new one is created:
+ rm(.Random.seed); runif(1); .Random.seed[1:6]
+}
 ok <- RNGkind()
 RNGkind("Wich")  # (partial string matching on 'kind')
 
@@ -298,6 +335,7 @@ next.WHseed <- function(i.seed = .Random.seed[-1])
   { (a.WH * i.seed) \%\% p.WH }
 my.runif1 <- function(i.seed = .Random.seed)
   { ns <- next.WHseed(i.seed[-1]); sum(ns / p.WH) \%\% 1 }
+set.seed(1998-12-04)# (when the next lines were added to the souRce)
 rs <- .Random.seed
 (WHs <- next.WHseed(rs[-1]))
 u <- runif(1)
@@ -315,10 +353,12 @@ RNGkind()
 ## Reset:
 RNGkind(ok[1])
 
+RNGversion(getRversion()) # the default version for this R version
+
 ## ----
 sum(duplicated(runif(1e6))) # around 110 for default generator
 ## and we would expect about almost sure duplicates beyond about
 qbirthday(1 - 1e-6, classes = 2e9) # 235,000
-}}
+}
 \keyword{distribution}
 \keyword{sysdata}

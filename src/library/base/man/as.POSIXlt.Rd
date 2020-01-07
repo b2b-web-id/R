@@ -1,6 +1,6 @@
 % File src/library/base/man/as.POSIXlt.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{as.POSIX*}
@@ -31,33 +31,42 @@
 as.POSIXct(x, tz = "", \dots)
 as.POSIXlt(x, tz = "", \dots)
 
-\method{as.POSIXlt}{character}(x, tz = "", format, \dots)
-
+\method{as.POSIXlt}{character}(x, tz = "", format,
+           tryFormats = c("\%Y-\%m-\%d \%H:\%M:\%OS",
+                          "\%Y/\%m/\%d \%H:\%M:\%OS",
+                          "\%Y-\%m-\%d \%H:\%M",
+                          "\%Y/\%m/\%d \%H:\%M",
+                          "\%Y-\%m-\%d",
+                          "\%Y/\%m/\%d"),
+           optional = FALSE, \dots)
+\method{as.POSIXlt}{default}(x, tz = "",
+           optional = FALSE, \dots)
 \method{as.POSIXlt}{numeric}(x, tz = "", origin, \dots)
 
 \method{as.double}{POSIXlt}(x, \dots)
 }
 \arguments{
-  \item{x}{An object to be converted.}
-  \item{tz}{A time zone specification to be used for the conversion,
+  \item{x}{\R  object to be converted.}
+  \item{tz}{time zone specification to be used for the conversion,
     \emph{if one is required}.  System-specific (see \link{time zones}),
     but \code{""} is the current time zone, and \code{"GMT"} is UTC
-    (Universal Time, Coordinated). Invalid values are most commonly
+    (Universal Time, Coordinated).  Invalid values are most commonly
     treated as UTC, on some platforms with a warning.}
   \item{\dots}{further arguments to be passed to or from other methods.}
   \item{format}{character string giving a date-time format as used
     by \code{\link{strptime}}.}
+  \item{tryFormats}{\code{\link{character}} vector of \code{format}
+    strings to try if \code{format} is not specified.}
+  \item{optional}{\code{\link{logical}} indicating to return \code{NA}
+    (instead of signalling an error) if the format guessing does not succeed.}
   \item{origin}{a date-time object, or something which can be coerced by
     \code{as.POSIXct(tz = "GMT")} to such an object.}
 }
 \details{
   The \code{as.POSIX*} functions convert an object to one of the two
   classes used to represent date/times (calendar dates plus time to the
-  nearest second).  They can convert a wide variety of objects,
-  including objects of the other class and of classes \code{"Date"},
-  \code{"date"} (from package \pkg{\link[date:as.date]{date}}),
-  \code{"chron"} and \code{"dates"} (from package
-  \pkg{\link[chron]{chron}}) to these classes.  Dates without times are
+  nearest second).  They can convert objects of the other class and of
+  class \code{"Date"} to these classes.  Dates without times are
   treated as being at midnight UTC.
 
   They can also convert character strings of the formats
@@ -119,6 +128,12 @@ as.POSIXct(strptime("2010-10-31 01:30:00", "\%Y-\%m-\%d \%H:\%M:\%S"))
   zero, even though current year numbering (and zero) is a much later
   concept (525 AD for year numbers from 1 AD).
 
+  Conversions between \code{"POSIXlt"} and \code{"POSIXct"} of future
+  times are speculative except in UTC.  The main uncertainty is in the
+  use of and transitions to/from DST (most systems will assume the
+  continuation of current rules but these can be changed at short
+  notice).
+
   If you want to extract specific aspects of a time (such as the day of
   the week) just convert it to class \code{"POSIXlt"} and extract the
   relevant component(s) of the list, or if you want a character
@@ -128,7 +143,7 @@ as.POSIXct(strptime("2010-10-31 01:30:00", "\%Y-\%m-\%d \%H:\%M:\%S"))
   If a time zone is needed and that specified is invalid on your system,
   what happens is system-specific but attempts to set it will probably
   be ignored.
-  
+
   Conversion from character needs to find a suitable format unless one
   is supplied (by trying common formats in turn): this can be slow for
   long inputs.

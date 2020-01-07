@@ -1,6 +1,6 @@
 % File src/library/datasets/man/crimtab.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2007 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{crimtab}
@@ -64,18 +64,22 @@
   thanks to Jean R. Lobry and \enc{Anne-Béatrice}{Anne-Beatrice} Dufour.
 }
 \references{
-  Garson, J.G. (1900)
+  Garson, J.G. (1900).
   The metric system of identification of criminals, as used in in Great
   Britain and Ireland.
   \emph{The Journal of the Anthropological Institute of Great Britain
-    and Ireland} \bold{30}, 161--198.
+    and Ireland}, \bold{30}, 161--198.
+  \doi{10.2307/2842627}.
 
-  MacDonell, W.R. (1902)
+  MacDonell, W.R. (1902).
   On criminal anthropometry and the identification of criminals.
-  \emph{Biometrika} \bold{1}, 2, 177--227.
+  \emph{Biometrika}, \bold{1}(2), 177--227.
+  \doi{10.2307/2331487}.
 
-  Student (1908) The probable error of a mean.
-  \emph{Biometrika} \bold{6}, 1--25.
+  Student (1908).
+  The probable error of a mean.
+  \emph{Biometrika}, \bold{6}, 1--25.
+  \doi{10.2307/2331554}.
 }
 \examples{
 require(stats)
@@ -117,7 +121,7 @@ zobs <- (h.mean - mean(d.hei[,"height"]))/h.sd
 
 # 6) Replace infinite values by +/- 6 as in Student's paper:
 
-zobs[infZ <- is.infinite(zobs)] # 3 of them
+zobs[infZ <- is.infinite(zobs)] # none of them 
 zobs[infZ] <- 6 * sign(zobs[infZ])
 
 # 7) Plot the distribution:

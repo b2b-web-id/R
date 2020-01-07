@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1999--2017  The R Core Team
+ *  Copyright (C) 1999--2019  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -93,19 +93,19 @@ R_size_t R_Decode2Long(char *p, int *ierr)
 	REprintf("R_Decode2Long(): v=%ld\n", v);
     // NOTE: currently, positive *ierr are not differentiated in the callers:
     if(p[0] == 'G') {
-	if((Giga * (double)v) > R_SIZE_T_MAX) { *ierr = 4; return(v); }
+	if((Giga * (double)v) > (double) R_SIZE_T_MAX) { *ierr = 4; return(v); }
 	return (R_size_t) Giga * v;
     }
     else if(p[0] == 'M') {
-	if((Mega * (double)v) > R_SIZE_T_MAX) { *ierr = 1; return(v); }
+	if((Mega * (double)v) > (double) R_SIZE_T_MAX) { *ierr = 1; return(v); }
 	return (R_size_t) Mega * v;
     }
     else if(p[0] == 'K') {
-	if((1024 * (double)v) > R_SIZE_T_MAX) { *ierr = 2; return(v); }
+	if((1024 * (double)v) > (double) R_SIZE_T_MAX) { *ierr = 2; return(v); }
 	return (1024*v);
     }
     else if(p[0] == 'k') {
-	if((1000 * (double)v) > R_SIZE_T_MAX) { *ierr = 3; return(v); }
+	if((1000 * (double)v) > (double) R_SIZE_T_MAX) { *ierr = 3; return(v); }
 	return (1000*v);
     }
     else {
@@ -399,15 +399,18 @@ int Rstrwid(const char *str, int slen, cetype_t ienc, int quote)
 	int res;
 	mbstate_t mb_st;
 	wchar_t wc;
-	unsigned int k; /* not wint_t as it might be signed */
+	Rwchar_t k; /* not wint_t as it might be signed */
 
 	if(ienc != CE_UTF8)  mbs_init(&mb_st);
 	for (i = 0; i < slen; i++) {
 	    res = (ienc == CE_UTF8) ? (int) utf8toucs(&wc, p):
 		(int) mbrtowc(&wc, p, MB_CUR_MAX, NULL);
 	    if(res >= 0) {
-		k = wc;
-		if(0x20 <= k && k < 0x7f && iswprint(wc)) {
+		if (ienc == CE_UTF8 && IS_HIGH_SURROGATE(wc))
+		    k = utf8toucs32(wc, p);
+		else
+		    k = wc;
+		if(0x20 <= k && k < 0x7f && iswprint((wint_t)k)) {
 		    switch(wc) {
 		    case L'\\':
 			len += 2;
@@ -439,12 +442,8 @@ int Rstrwid(const char *str, int slen, cetype_t ienc, int quote)
 		    }
 		    p++;
 		} else {
-		    len += iswprint((wint_t)wc) ? Ri18n_wcwidth(wc) :
-#ifdef Win32
-			6;
-#else
-		    (k > 0xffff ? 10 : 6);
-#endif
+		    len += iswprint((wint_t)k) ? Ri18n_wcwidth(wc) :
+		    	(k > 0xffff ? 10 : 6);
 		    i += (res - 1);
 		    p += res;
 		}
@@ -514,8 +513,8 @@ int Rstrlen(SEXP s, int quote)
    If 'quote' is non-zero the result should be quoted (and internal quotes
    escaped and NA strings handled differently).
 
-   EncodeString is called from EncodeElement, cat() (for labels when
-   filling), to (auto)print character vectors, arrays, names and
+   EncodeString is called from EncodeElement, EncodeChar, cat() (for labels
+   when filling), to (auto)print character vectors, arrays, names and
    CHARSXPs.  It is also called by do_encodeString, but not from
    format().
  */
@@ -544,47 +543,50 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 			strlen(CHAR(R_print.na_string_noquote)));
 	quote = 0;
     } else {
+	if(IS_BYTES(s)) {
+	    ienc = CE_NATIVE;
 #ifdef Win32
-	if(WinUTF8out) {
+	    if (WinUTF8out)
+		ienc = CE_UTF8;
+#endif
+	    p = CHAR(s);
+	    cnt = (int) strlen(p);
+	    const char *q;
+	    char *pp = R_alloc(4*cnt+1, 1), *qq = pp, buf[5];
+	    for (q = p; *q; q++) {
+		unsigned char k = (unsigned char) *q;
+		if (k >= 0x20 && k < 0x80) {
+		    *qq++ = *q;
+		    if (quote && *q == '"') cnt++;
+		} else {
+		    snprintf(buf, 5, "\\x%02x", k);
+		    for(j = 0; j < 4; j++) *qq++ = buf[j];
+		    cnt += 3;
+		}
+	    }
+	    *qq = '\0';
+	    p = pp;
+	    i = cnt;
+#ifdef Win32
+	} else if(WinUTF8out) {
 	    if(ienc == CE_UTF8) {
 		p = CHAR(s);
 		i = Rstrlen(s, quote);
 		cnt = LENGTH(s);
 	    } else {
-		p = translateChar0(s);
+		p = translateCharUTF8(s);
 		if(p == CHAR(s)) {
 		    i = Rstrlen(s, quote);
 		    cnt = LENGTH(s);
 		} else {
 		    cnt = strlen(p);
-		    i = Rstrwid(p, cnt, CE_NATIVE, quote);
+		    i = Rstrwid(p, cnt, CE_UTF8, quote);
 		}
-		ienc = CE_NATIVE;
+		ienc = CE_UTF8;
 	    }
-	} else
 #endif
-	{
-	    if(IS_BYTES(s)) {
-		ienc = CE_NATIVE;
-		p = CHAR(s);
-		cnt = (int) strlen(p);
-		const char *q;
-		char *pp = R_alloc(4*cnt+1, 1), *qq = pp, buf[5];
-		for (q = p; *q; q++) {
-		    unsigned char k = (unsigned char) *q;
-		    if (k >= 0x20 && k < 0x80) {
-			*qq++ = *q;
-			if (quote && *q == '"') cnt++;
-		    } else {
-			snprintf(buf, 5, "\\x%02x", k);
-			for(j = 0; j < 4; j++) *qq++ = buf[j];
-			cnt += 3;
-		    }
-		}
-		*qq = '\0';
-		p = pp;
-		i = cnt;
-	    } else if (useUTF8 && ienc == CE_UTF8) {
+	} else {
+	    if (useUTF8 && ienc == CE_UTF8) {
 		p = CHAR(s);
 		i = Rstrlen(s, quote);
 		cnt = LENGTH(s);
@@ -612,7 +614,7 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 
        +2 allows for quotes, +6 for UTF_8 escapes.
      */
-    if(5.*cnt + 8 > SIZE_MAX)
+    if(5.*cnt + 8 > (double) SIZE_MAX)
 	error(_("too large string (nchar=%d) => 5*nchar + 8 > SIZE_MAX"));
     size_t q_len = 5*(size_t)cnt + 8;
     if(q_len < w) q_len = (size_t) w;
@@ -642,10 +644,13 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 	    res = (int)((ienc == CE_UTF8) ? utf8toucs(&wc, p):
 			mbrtowc(&wc, p, MB_CUR_MAX, NULL));
 	    if(res >= 0) { /* res = 0 is a terminator */
-		k = wc;
+		if (ienc == CE_UTF8 && IS_HIGH_SURROGATE(wc))
+		    k = utf8toucs32(wc, p);
+		else
+		    k = wc;
 		/* To be portable, treat \0 explicitly */
 		if(res == 0) {k = 0; wc = L'\0';}
-		if(0x20 <= k && k < 0x7f && iswprint(wc)) {
+		if(0x20 <= k && k < 0x7f && iswprint((wint_t) k)) {
 		    switch(wc) {
 		    case L'\\': *q++ = '\\'; *q++ = '\\'; p++; break;
 		    case L'\'':
@@ -688,14 +693,12 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 			   device concerned. */
 			for(j = 0; j < res; j++) *q++ = *p++;
 		    } else {
-#ifndef Win32
-# ifndef __STDC_ISO_10646__
+# if !defined (__STDC_ISO_10646__) && !defined (Win32)
 			Unicode_warning = TRUE;
 # endif
 			if(k > 0xffff)
 			    snprintf(buf, 11, "\\U%08x", k);
 			else
-#endif
 			    snprintf(buf, 11, "\\u%04x", k);
 			j = (int) strlen(buf);
 			memcpy(q, buf, j);
@@ -704,7 +707,6 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 		    }
 		    i += (res - 1);
 		}
-
 	    } else { /* invalid char */
 		snprintf(q, 5, "\\x%02x", *((unsigned char *)p));
 		q += 4; p++;
@@ -752,16 +754,12 @@ const char *EncodeString(SEXP s, int w, int quote, Rprt_adj justify)
 		    }
 		p++;
 	    } else {  /* 8 bit char */
-#ifdef Win32 /* It seems Windows does not know what is printable! */
-		*q++ = *p++;
-#else
 		if(!isprint((int)*p & 0xff)) {
 		    /* print in octal */
 		    snprintf(buf, 5, "\\%03o", (unsigned char) *p);
 		    for(j = 0; j < 4; j++) *q++ = buf[j];
 		    p++;
 		} else *q++ = *p++;
-#endif
 	    }
 	}
 
@@ -789,34 +787,34 @@ const char *EncodeElement(SEXP x, int indx, int quote, char cdec)
     return EncodeElement0(x, indx, quote, dec);
 }
 
-const char *EncodeElement0(SEXP x, int indx, int quote, const char *dec)
+const char *EncodeElement0(SEXP x, R_xlen_t indx, int quote, const char *dec)
 {
     int w, d, e, wi, di, ei;
     const char *res;
 
     switch(TYPEOF(x)) {
     case LGLSXP:
-	formatLogical(&LOGICAL(x)[indx], 1, &w);
-	res = EncodeLogical(LOGICAL(x)[indx], w);
+	formatLogical(&LOGICAL_RO(x)[indx], 1, &w);
+	res = EncodeLogical(LOGICAL_RO(x)[indx], w);
 	break;
     case INTSXP:
-	formatInteger(&INTEGER(x)[indx], 1, &w);
-	res = EncodeInteger(INTEGER(x)[indx], w);
+	formatInteger(&INTEGER_RO(x)[indx], 1, &w);
+	res = EncodeInteger(INTEGER_RO(x)[indx], w);
 	break;
     case REALSXP:
-	formatReal(&REAL(x)[indx], 1, &w, &d, &e, 0);
-	res = EncodeReal0(REAL(x)[indx], w, d, e, dec);
+	formatReal(&REAL_RO(x)[indx], 1, &w, &d, &e, 0);
+	res = EncodeReal0(REAL_RO(x)[indx], w, d, e, dec);
 	break;
     case STRSXP:
-	formatString(&STRING_PTR(x)[indx], 1, &w, quote);
+	formatString(&STRING_PTR_RO(x)[indx], 1, &w, quote);
 	res = EncodeString(STRING_ELT(x, indx), w, quote, Rprt_adj_left);
 	break;
     case CPLXSXP:
-	formatComplex(&COMPLEX(x)[indx], 1, &w, &d, &e, &wi, &di, &ei, 0);
-	res = EncodeComplex(COMPLEX(x)[indx], w, d, e, wi, di, ei, dec);
+	formatComplex(&COMPLEX_RO(x)[indx], 1, &w, &d, &e, &wi, &di, &ei, 0);
+	res = EncodeComplex(COMPLEX_RO(x)[indx], w, d, e, wi, di, ei, dec);
 	break;
     case RAWSXP:
-	res = EncodeRaw(RAW(x)[indx], "");
+	res = EncodeRaw(RAW_RO(x)[indx], "");
 	break;
     default:
 	res = NULL; /* -Wall */

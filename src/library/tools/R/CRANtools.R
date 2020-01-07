@@ -55,7 +55,7 @@ function(packages, results = NULL, details = NULL, issues = NULL)
 
     summarize_results <- function(p, r) {
         if(!NROW(r)) return(character())
-        tab <- table(r$Status)[c("ERROR", "WARN", "NOTE", "OK")]
+        tab <- table(r$Status)[c("FAIL", "ERROR", "WARN", "NOTE", "OK")]
         tab <- tab[!is.na(tab)]
         paste(c(sprintf("Current CRAN status: %s",
                         paste(sprintf("%s: %s", names(tab), tab),
@@ -132,10 +132,12 @@ function(packages, results = NULL, details = NULL, issues = NULL)
 
     summarize_issues <- function(i) {
         if(!length(i)) return(character())
-        ## No need for hyperrefs: these can be obtained from the package
-        ## check results page already pointed to by summarize_results().
-        sprintf("Additional issues: %s",
-                paste(unique(i$kind), collapse = " "))
+        ## In principle the hyperrefs can be obtained from the package
+        ## check results page already pointed to by summarize_results(),
+        ## but this is not convenient for plain text processing ...
+        paste(c("Additional issues:",
+                sprintf("  %s <%s>", i$kind, i$href)),
+              collapse = "\n")
     }
 
     summarize <- function(p, r, d, i) {
@@ -198,12 +200,12 @@ function()
 
     results <- CRAN_check_results()
     details <- CRAN_check_details()
-    mtnotes <- CRAN_memtest_notes()
+    issues <- CRAN_check_issues()
 
     split(format(summarize_CRAN_check_status(pdb[ind, "Package"],
                                              results,
                                              details,
-                                             mtnotes),
+                                             issues),
                  header = TRUE),
           maintainer[ind])
 }
@@ -480,7 +482,7 @@ function()
     db <- CRAN_rdxrefs_db()
     ## Flatten:
     db <- cbind(do.call(rbind, db),
-                rep.int(names(db), sapply(db, NROW)))
+                rep.int(names(db), vapply(db, NROW, 0L)))
     colnames(db) <- c(colnames(db)[1L : 2L], "S_File", "S_Package")
     unique(cbind(db, .expand_anchored_Rd_xrefs(db)))
 }
@@ -528,10 +530,14 @@ function()
     ## CRAN but still be available from somewhere else.  The code below
     ## catches availability in standard repositories, but not in
     ## additional repositories.
-    archived <- setdiff(names(CRAN_archive_db()),
-                        c(rownames(utils::available.packages(filters = list())),
-                          unlist(.get_standard_package_names(),
-                                 use.names = FALSE)))
+    repos <- .get_standard_repository_URLs() # CRAN and BioC
+    ## Previous versions used getOption("repos").
+    archived <-
+        setdiff(names(CRAN_archive_db()),
+                c(rownames(utils::available.packages(filters = list(),
+                                                     repos = repos)),
+                  unlist(.get_standard_package_names(),
+                         use.names = FALSE)))
     y$xrefs_likely_to_archived_CRAN_packages <-
         db[!is.na(match(db[, "T_Package"], archived)), , drop = FALSE]
 
@@ -617,7 +623,10 @@ function(packages, db = NULL, collapse = TRUE)
 CRAN_package_reverse_dependencies_and_views <-
 function(packages)
 {
-    a <- utils::available.packages(filters = list())
+    repos <- getOption("repos")
+    ## Alternatively, use .get_standard_repository_URLs()
+    
+    a <- utils::available.packages(filters = list(), repos = repos)
 
     v <- read_CRAN_object(CRAN_baseurl_for_src_area(),
                           "src/contrib/Views.rds")
@@ -625,7 +634,7 @@ function(packages)
                  mapply(cbind,
                         Package =
                         lapply(v, function(e) e$packagelist$name),
-                        View = sapply(v, "[[", "name")))
+                        View = vapply(v, "[[", "name", FUN.VALUE = "")))
     v <- split(v[, 2L], v[, 1L])
 
     r <- package_dependencies(packages, a, reverse = TRUE)
@@ -633,6 +642,19 @@ function(packages)
                                reverse = TRUE, recursive = TRUE)
     rrs <- package_dependencies(packages, a, "Suggests",
                                 reverse = TRUE, recursive = TRUE)
+
+    ## For formatting reverse dependencies, for now indicate non-CRAN
+    ## ones by adding a '*'.
+    expansions <- unique(c(unlist(r, use.names = FALSE),
+                           unlist(rr, use.names = FALSE),
+                           unlist(rrs, use.names = FALSE)))
+    names(expansions) <- expansions
+    if("CRAN" %in% names(repos)) {
+        ind <- !startsWith(a[match(expansions, a[, "Package"]),
+                             "Repository"],
+                           repos["CRAN"])
+        expansions[ind] <- paste0(expansions[ind], "*")
+    }
 
     rxrefs <- CRAN_Rd_xref_reverse_dependencies(packages)
 
@@ -643,12 +665,16 @@ function(packages)
     y <- lapply(packages,
                 function(p) {
                     c(Package = p,
-                      "Reverse depends" = fmt(r[[p]]),
+                      "Reverse depends" =
+                          fmt(expansions[r[[p]]]),
                       "Additional recursive reverse depends" =
-                          fmt(setdiff(rr[[p]], r[[p]])),
-                      "Reverse recursive suggests" = fmt(rrs[[p]]),
-                      "Reverse Rd xref depends" = fmt(rxrefs[[p]]),
-                      "Views" = fmt(v[[p]]))
+                          fmt(expansions[setdiff(rr[[p]], r[[p]])]),
+                      "Reverse recursive suggests" =
+                          fmt(expansions[rrs[[p]]]),
+                      "Reverse Rd xref depends" =
+                          fmt(rxrefs[[p]]),
+                      "Views" =
+                          fmt(v[[p]]))
                 })
     y <- as.data.frame(do.call(rbind, y), stringsAsFactors = FALSE)
     class(y) <- c("CRAN_package_reverse_dependencies_and_views",
@@ -692,20 +718,30 @@ function(packages, which = c("Depends", "Imports", "LinkingTo"),
 CRAN_package_dependencies_with_dates <-
 function(packages)
 {
-    a <- utils::available.packages(filters = list(),
-                                   repos = .get_standard_repository_URLs()["CRAN"])
-    p <- CRAN_package_db()
+    repos <- .get_standard_repository_URLs() # CRAN and BioC
+    a <- utils::available.packages(filters = list(), repos = repos)
+
+    pc <- CRAN_package_db()
+    pb <- NULL                          # Compute if necessary ...
+    
     d <- package_dependencies(packages, a, which = "most")
-    ## Note that we currently keep the base packages dependencies, which
-    ## have no date.  We could (perhaps at least optionally) do
-    ##   base_packages <- .get_standard_package_names()["base"]
-    ## and then use
-    ##   e <- setdiff(as.character(e), base_packages)
-    ## in the code below.
+    ## We currently keep the base packages dependencies, which have no
+    ## date.  Hence, filter these out ...
+    base_packages <- .get_standard_package_names()[["base"]]
     lapply(d,
            function(e) {
-               e <- as.character(e)
-               d <- as.Date(p[match(e, p[, "Package"]), "Published"])
+               e <- setdiff(as.character(e), base_packages)
+               i <- match(e, pc[, "Package"])
+               d <- pc[i, "Published"]
+               if(any(j <- is.na(i))) {
+                   eb <- e[j]
+                   if(is.null(pb))
+                       pb <<- BioC_package_db()
+                   ib <- match(eb, pb[, "Package"])
+                   d[j] <- pb[ib, "Date/Publication"]
+                   e[j] <- paste0(eb, "*")
+               }
+               d <- as.Date(d)
                o <- order(d, decreasing = TRUE)
                data.frame(Package = e[o], Date = d[o],
                           stringsAsFactors = FALSE)
@@ -737,3 +773,26 @@ function(lst, dir, verbose = FALSE)
     invisible()
 }
 
+CRAN_package_URL <- function(p)
+    paste0("https://CRAN.R-project.org/package=", p)
+
+CRAN_package_check_URL <- function(p)
+    sprintf("https://CRAN.R-project.org/web/checks/check_results_%s.html",
+            p)
+
+BioC_package_db <-
+function()     
+{
+    urls <- .get_standard_repository_URLs()
+    urls <- urls[startsWith(names(urls), "BioC")]
+    if(!length(urls)) return(NULL)
+    info <- lapply(urls, function(u) {
+                       con <- url(paste0(u, "/VIEWS"))
+                       on.exit(close(con))
+                       read.dcf(con)
+                   })
+    Reduce(function(u, v) merge(u, v, all = TRUE),
+           lapply(info,
+                  as.data.frame,
+                  stringsAsFactors = FALSE))
+}

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1998-2018  The R Core Team.
  *  Copyright (C) 1995-1998  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2017  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -100,6 +100,9 @@ static SEXP seq_colon(double n1, double n2, SEXP call)
     if(r >= R_XLEN_T_MAX)
 	errorcall(call, _("result would be too long a vector"));
 
+    if (n1 == (R_xlen_t) n1 && n2 == (R_xlen_t) n2)
+	return R_compact_intrange((R_xlen_t) n1, (R_xlen_t) n2);
+
     SEXP ans;
     R_xlen_t n = (R_xlen_t)(r + 1 + FLT_EPSILON);
 
@@ -115,18 +118,10 @@ static SEXP seq_colon(double n1, double n2, SEXP call)
 	}
     }
     if (useInt) {
-	int in1 = (int)(n1);
-	ans = allocVector(INTSXP, n);
 	if (n1 <= n2)
-	    for (R_xlen_t i = 0; i < n; i++) {
-//		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-		INTEGER(ans)[i] = (int)(in1 + i);
-	    }
+	    ans = R_compact_intrange((R_xlen_t) n1, (R_xlen_t)(n1 + n - 1));
 	else
-	    for (R_xlen_t i = 0; i < n; i++) {
-//		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-		INTEGER(ans)[i] = (int)(in1 - i);
-	    }
+	    ans = R_compact_intrange((R_xlen_t) n1, (R_xlen_t)(n1 - n + 1));
     } else {
 	ans = allocVector(REALSXP, n);
 	if (n1 <= n2)
@@ -225,7 +220,7 @@ static SEXP rep2(SEXP s, SEXP ncopy)
 	    SEXP elt = lazy_duplicate(VECTOR_ELT(s, i)); \
 	    for (j = (R_xlen_t) it[i]; j > 0; j--) \
 		SET_VECTOR_ELT(a, n++, elt); \
-	    if (j > 1) SET_NAMED(elt, 2); \
+	    if (j > 1) ENSURE_NAMEDMAX(elt); \
 	} \
 	break; \
     case RAWSXP: \
@@ -352,6 +347,9 @@ SEXP attribute_hidden do_rep_int(SEXP call, SEXP op, SEXP args, SEXP rho)
     R_xlen_t nc;
     SEXP a;
 
+    if (DispatchOrEval(call, op, "rep.int", args, rho, &a, 0, 0))
+      return(a);
+
     if (!isVector(ncopy))
 	error(_("invalid type (%s) for '%s' (must be a vector)"),
 	      type2char(TYPEOF(ncopy)), "times");
@@ -408,6 +406,10 @@ SEXP attribute_hidden do_rep_len(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP a, s, len;
 
     checkArity(op, args);
+
+    if (DispatchOrEval(call, op, "rep_len", args, rho, &a, 0, 0))
+      return(a);
+
     s = CAR(args);
 
     if (!isVector(s) && s != R_NilValue)
@@ -680,7 +682,8 @@ SEXP attribute_hidden do_rep(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    warningcall(call, "'x' is NULL so the result will be NULL");
 	SEXP a;
 	PROTECT(a = duplicate(x));
-	if(len != NA_INTEGER && len > 0) a = xlengthgets(a, len);
+	if(len != NA_INTEGER && len > 0 && x != R_NilValue)
+	    a = xlengthgets(a, len);
 	UNPROTECT(3);
 	return a;
     }
@@ -893,8 +896,7 @@ SEXP attribute_hidden do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 		   reduced below 1/INT_MAX this is the same as the
 		   next, so this is future-proofing against longer integers.
 		*/
-		/* seq.default gives integer result from
-		   from + (0:n)*by
+		/* as seq.default also returns integer for from + (0:n)*by
 		*/
 		nn = (R_xlen_t) n;
 		ans = allocVector(INTSXP, nn+1);
@@ -955,8 +957,9 @@ SEXP attribute_hidden do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(!R_FINITE(rfrom)) errorcall(call, _("'%s' must be a finite number"), "from");
 	if(!R_FINITE(rby))   errorcall(call, _("'%s' must be a finite number"), "by");
 	rto = rfrom + (double)(lout-1)*rby;
-	if(rby == (int)rby && rfrom <= INT_MAX && rfrom >= INT_MIN
-	   && rto <= INT_MAX && rto >= INT_MIN) {
+	if(rby == (int)rby && rfrom == (int)rfrom
+	   && rfrom <= INT_MAX && rfrom >= INT_MIN
+	   &&  rto  <= INT_MAX &&  rto  >= INT_MIN) {
 	    ans = allocVector(INTSXP, lout);
 	    for(i = 0; i < lout; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -974,8 +977,9 @@ SEXP attribute_hidden do_seq(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    rfrom = rto - (double)(lout-1)*rby;
 	if(!R_FINITE(rto)) errorcall(call, _("'%s' must be a finite number"), "to");
 	if(!R_FINITE(rby)) errorcall(call, _("'%s' must be a finite number"), "by");
-	if(rby == (int)rby && rfrom <= INT_MAX && rfrom >= INT_MIN
-	   && rto <= INT_MAX && rto >= INT_MIN) {
+	if(rby == (int)rby && rto == (int)rto
+	   && rfrom <= INT_MAX && rfrom >= INT_MIN
+	   &&  rto  <= INT_MAX &&  rto  >= INT_MIN) {
 	    ans = allocVector(INTSXP, lout);
 	    for(i = 0; i < lout; i++) {
 //		if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
@@ -1026,30 +1030,14 @@ SEXP attribute_hidden do_seq_along(SEXP call, SEXP op, SEXP args, SEXP rho)
     else
 	len = xlength(CAR(args));
 
-#ifdef LONG_VECTOR_SUPPORT
-    if (len > INT_MAX) {
-	ans = allocVector(REALSXP, len);
-	double *p = REAL(ans);
-	for(R_xlen_t i = 0; i < len; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    p[i] = (double) (i+1);
-	}
-    } else
-#endif
-    {
-	ans = allocVector(INTSXP, len);
-	int *p = INTEGER(ans);
-	for(int i = 0; i < len; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    p[i] = i+1;
-	}
-    }
-    return ans;
+    if (len == 0)
+	return allocVector(INTSXP, 0);
+    else
+	return R_compact_intrange(1, len);
 }
 
 SEXP attribute_hidden do_seq_len(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP ans;
     R_xlen_t len;
 
     checkArity(op, args);
@@ -1062,6 +1050,8 @@ SEXP attribute_hidden do_seq_len(SEXP call, SEXP op, SEXP args, SEXP rho)
     double dlen = asReal(CAR(args));
     if(!R_FINITE(dlen) || dlen < 0)
 	errorcall(call, _("argument must be coercible to non-negative integer"));
+    if(dlen >= R_XLEN_T_MAX)
+    	errorcall(call, _("result would be too long a vector"));
     len = (R_xlen_t) dlen;
 #else
     len = asInteger(CAR(args));
@@ -1069,23 +1059,8 @@ SEXP attribute_hidden do_seq_len(SEXP call, SEXP op, SEXP args, SEXP rho)
 	errorcall(call, _("argument must be coercible to non-negative integer"));
 #endif
 
- #ifdef LONG_VECTOR_SUPPORT
-    if (len > INT_MAX) {
-	ans = allocVector(REALSXP, len);
-	double *p = REAL(ans);
-	for(R_xlen_t i = 0; i < len; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    p[i] = (double) (i+1);
-	}
-    } else
-#endif
-    {
-	ans = allocVector(INTSXP, len);
-	int *p = INTEGER(ans);
-	for(int i = 0; i < len; i++) {
-//	    if ((i+1) % NINTERRUPT == 0) R_CheckUserInterrupt();
-	    p[i] = i+1;
-	}
-    }
-    return ans;
+    if (len == 0)
+	return allocVector(INTSXP, 0);
+    else
+	return R_compact_intrange(1, len);
 }

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996, 1997  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 2000-2017	    The R Core Team
+ *  Copyright (C) 2000-2018	    The R Core Team
  *  Copyright (C) 2005		    The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@
    That OS defines the imaginary type, but GCC does not.
    Probably needed elsewhere, e.g. AIX, HP-UX (PR#15083)
    And use on Win32/64 suppresses warnings.
-   The warning is also seen on macOS 10.5, but not later.
+   The warning was also seen on macOS 10.5, but not later.
 */
 #if defined(__GNUC__) && (defined(__sun__) || defined(__hpux__) || defined(Win32))
 # undef  I
@@ -37,7 +37,7 @@
    Note: this could use the C11 CMPLX() macro.
    As could mycpow, z_tan and some of the substitutes.
  */
-static R_INLINE double complex toC99(Rcomplex *x)
+static R_INLINE double complex toC99(const Rcomplex *x)
 {
 #if __GNUC__
     double complex ans = (double complex) 0; /* -Wall */
@@ -48,7 +48,6 @@ static R_INLINE double complex toC99(Rcomplex *x)
     return x->r + x->i * I;
 #endif
 }
-#define C99_COMPLEX2(x, i) toC99(COMPLEX(x) + (i))
 
 static R_INLINE void
 SET_C99_COMPLEX(Rcomplex *x, R_xlen_t i, double complex value)

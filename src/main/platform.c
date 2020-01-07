@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998--2017 The R Core Team
+ *  Copyright (C) 1998--2019 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -216,6 +216,12 @@ int static R_strieql(const char *a, const char *b)
 # include <langinfo.h>
 #endif
 
+static char native_enc[R_CODESET_MAX + 1];
+const char attribute_hidden *R_nativeEncoding(void)
+{
+    return native_enc;
+}
+
 /* retrieves information about the current locale and
    sets the corresponding variables (known_to_be_utf8,
    known_to_be_latin1, utf8locale, latin1locale and mbcslocale) */
@@ -224,7 +230,9 @@ void attribute_hidden R_check_locale(void)
     known_to_be_utf8 = utf8locale = FALSE;
     known_to_be_latin1 = latin1locale = FALSE;
     mbcslocale = FALSE;
+    strcpy(native_enc, "ASCII");
 #ifdef HAVE_LANGINFO_CODESET
+    /* not on Windows */
     {
 	char  *p = nl_langinfo(CODESET);
 	/* more relaxed due to Darwin: CODESET is case-insensitive and
@@ -238,6 +246,14 @@ void attribute_hidden R_check_locale(void)
 	if (*p == 0 && MB_CUR_MAX == 6)
 	    known_to_be_utf8 = utf8locale = TRUE;
 # endif
+	if (utf8locale)
+	    strcpy(native_enc, "UTF-8");
+	else if (latin1locale)
+	    strcpy(native_enc, "ISO-8859-1");
+	else {
+	    strncpy(native_enc, p, R_CODESET_MAX);
+	    native_enc[R_CODESET_MAX] = 0;
+	}
     }
 #endif
     mbcslocale = MB_CUR_MAX > 1;
@@ -248,10 +264,16 @@ void attribute_hidden R_check_locale(void)
 	if (p && isdigit(p[1])) localeCP = atoi(p+1); else localeCP = 0;
 	/* Not 100% correct, but CP1252 is a superset */
 	known_to_be_latin1 = latin1locale = (localeCP == 1252);
+	if (localeCP) {
+	    /* CP1252 when latin1locale is true */
+	    snprintf(native_enc, R_CODESET_MAX, "CP%d", localeCP);
+	    native_enc[R_CODESET_MAX] = 0;
+	}
     }
 #endif
 #if defined(SUPPORT_UTF8_WIN32) /* never at present */
     utf8locale = mbcslocale = TRUE;
+    strcpy(native_enc, "UTF-8");
 #endif
 }
 
@@ -1420,7 +1442,7 @@ SEXP attribute_hidden do_fileaccess(SEXP call, SEXP op, SEXP args, SEXP rho)
 		access(R_ExpandFileName(translateChar(STRING_ELT(fn, i))),
 		       modemask);
 #endif
-	} else INTEGER(ans)[i] = FALSE;
+	} else INTEGER(ans)[i] = -1; /* treat NA as non-existent file */
     UNPROTECT(1);
     return ans;
 }
@@ -1742,7 +1764,9 @@ SEXP attribute_hidden do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 	/* assume we can set LC_CTYPE iff we can set the rest */
 	if ((p = setlocale(LC_CTYPE, l))) {
 	    setlocale(LC_COLLATE, l);
-	    resetICUcollator();
+	    /* disable the collator when setting to C to take
+	       precedence over R_ICU_LOCALE */
+	    resetICUcollator(!strcmp(l, "C"));
 	    setlocale(LC_MONETARY, l);
 	    setlocale(LC_TIME, l);
 	    dt_invalidate_locale();
@@ -1752,10 +1776,15 @@ SEXP attribute_hidden do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 	break;
     }
     case 2:
+    {
+	const char *l = CHAR(STRING_ELT(locale, 0));
 	cat = LC_COLLATE;
-	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
-	resetICUcollator();
+	p = setlocale(cat, l);
+	/* disable the collator when setting to C to take
+	   precedence over R_ICU_LOCALE */
+	resetICUcollator(!strcmp(l, "C"));
 	break;
+    }
     case 3:
 	cat = LC_CTYPE;
 	p = setlocale(cat, CHAR(STRING_ELT(locale, 0)));
@@ -1896,7 +1925,13 @@ SEXP attribute_hidden do_pathexpand(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (i = 0; i < n; i++) {
 	SEXP tmp = STRING_ELT(fn, i);
 	if (tmp != NA_STRING) {
+#ifndef Win32
 	    tmp = markKnown(R_ExpandFileName(translateChar(tmp)), tmp);
+#else
+/* Windows can have files and home directories that aren't representable in the native encoding (e.g. latin1), so
+   we need to translate everything to UTF8.  */
+	    tmp = mkCharCE(R_ExpandFileNameUTF8(translateCharUTF8(tmp)), CE_UTF8);
+#endif
 	}
 	SET_STRING_ELT(ans, i, tmp);
     }
@@ -2186,7 +2221,7 @@ SEXP attribute_hidden do_dircreate(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     SEXP  path;
     wchar_t *p, dir[MAX_PATH];
-    int res, show, recursive, serrno = 0;
+    int res, show, recursive, serrno = 0, maybeshare;
 
     checkArity(op, args);
     path = CAR(args);
@@ -2207,18 +2242,22 @@ SEXP attribute_hidden do_dircreate(SEXP call, SEXP op, SEXP args, SEXP env)
     while (*p == L'\\' && wcslen(dir) > 1 && *(p-1) != L':') *p-- = L'\0';
     if (recursive) {
 	p = dir;
-	/* skip leading \\share */
+	maybeshare = 0;
+	/* skip leading \\server\\share, \\share */
+	/* FIXME: is \\share (still) possible? */
 	if (*p == L'\\' && *(p+1) == L'\\') {
 	    p += 2;
 	    p = wcschr(p, L'\\');
+	    maybeshare = 1; /* the next element may be a share name */
 	}
 	while ((p = wcschr(p+1, L'\\'))) {
 	    *p = L'\0';
 	    if (*(p-1) != L':') {
 		res = _wmkdir(dir);
 		serrno = errno;
-		if (res && serrno != EEXIST) goto end;
+		if (res && serrno != EEXIST && !maybeshare) goto end;
 	    }
+	    maybeshare = 0;
 	    *p = L'\\';
 	}
     }
@@ -2295,10 +2334,21 @@ static int do_copy(const wchar_t* from, const wchar_t* name, const wchar_t* to,
 	wsprintfW(dest, L"%ls%ls", to, name);
 	/* We could set the mode (only the 200 part matters) later */
 	res = _wmkdir(dest);
-	if (res && errno != EEXIST) {
-	    warning(_("problem creating directory %ls: %s"),
-		    dest, strerror(errno));
-	    return 1;
+	if (res) {
+	    if (errno == EEXIST) {
+		struct _stati64 dsb;
+		if (over && _wstati64(dest, &dsb) == 0 &&
+		   (dsb.st_mode & S_IFDIR) == 0) {
+
+		    warning(_("cannot overwrite non-directory %ls with directory %ls"),
+		            dest, this);
+		    return 1;
+		}
+	    } else {
+		warning(_("problem creating directory %ls: %s"),
+		          dest, strerror(errno));
+		return 1;
+	    }
 	}
 	// NB Windows' mkdir appears to require \ not /.
 	if ((dir = _wopendir(this)) != NULL) {
@@ -2353,8 +2403,10 @@ static int do_copy(const wchar_t* from, const wchar_t* name, const wchar_t* to,
 	  nfail++;
 	  goto copy_error;
 	}
-	if(fp1) fclose(fp1); fp1 = NULL;
-	if(fp2) fclose(fp2); fp2 = NULL;
+	if(fp1) fclose(fp1);
+	fp1 = NULL;
+	if(fp2) fclose(fp2);
+	fp2 = NULL;
 	/* FIXME: perhaps manipulate mode as we do in Sys.chmod? */
 	if(perms) _wchmod(dest, sb.st_mode & 0777);
 	if(dates) copyFileTime(this, dest);
@@ -2534,10 +2586,21 @@ static int do_copy(const char* from, const char* name, const char* to,
 	   we will fail to create files in that directory, so defer
 	   setting mode */
 	res = mkdir(dest, 0700);
-	if (res && errno != EEXIST) {
-	    warning(_("problem creating directory %s: %s"),
-		    this, strerror(errno));
-	    return 1;
+	if (res) {
+	    if (errno == EEXIST) {
+		struct stat dsb;
+		if (over && stat(dest, &dsb) == 0 &&
+		   (dsb.st_mode & S_IFDIR) == 0) {
+
+		    warning(_("cannot overwrite non-directory %s with directory %s"),
+		            dest, this);
+		    return 1;
+		}
+	    } else {
+		warning(_("problem creating directory %s: %s"),
+		        this, strerror(errno));
+		return 1;
+	    }
 	}
 	strcat(dest, "/");
 	if ((dir = opendir(this)) != NULL) {
@@ -2634,17 +2697,18 @@ SEXP attribute_hidden do_filecopy(SEXP call, SEXP op, SEXP args, SEXP rho)
 	dates = asLogical(CAR(args));
 	if (dates == NA_LOGICAL)
 	    error(_("invalid '%s' argument"), "copy.dates");
-	strncpy(dir,
-		R_ExpandFileName(translateChar(STRING_ELT(to, 0))),
-		PATH_MAX);
+	const char* q = R_ExpandFileName(translateChar(STRING_ELT(to, 0)));
+	if(strlen(q) > PATH_MAX - 2) // allow for '/' and terminator
+	    error(_("invalid '%s' argument"), "to");
+	strncpy(dir, q, PATH_MAX);
 	dir[PATH_MAX - 1] = '\0';
 	if (*(dir + (strlen(dir) - 1)) !=  '/')
-	    strncat(dir, "/", PATH_MAX);
+	    strcat(dir, "/");
 	for (i = 0; i < nfiles; i++) {
 	    if (STRING_ELT(fn, i) != NA_STRING) {
 		strncpy(from,
 			R_ExpandFileName(translateChar(STRING_ELT(fn, i))),
-			PATH_MAX);
+			PATH_MAX - 1);
 		from[PATH_MAX - 1] = '\0';
 		size_t ll = strlen(from);
 		if (ll) {  // people do pass ""
@@ -2653,7 +2717,7 @@ SEXP attribute_hidden do_filecopy(SEXP call, SEXP op, SEXP args, SEXP rho)
 		    if(*p == '/') *p = '\0';
 		    p = strrchr(from, '/') ;
 		    if (p) {
-			strncpy(name, p+1, PATH_MAX);
+			strncpy(name, p+1, PATH_MAX - 1);
 			name[PATH_MAX - 1] = '\0';
 			*(p+1) = '\0';
 		    } else {
@@ -2794,26 +2858,23 @@ SEXP attribute_hidden do_sysumask(SEXP call, SEXP op, SEXP args, SEXP env)
 
 SEXP attribute_hidden do_readlink(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP paths, ans;
-    int n;
-#ifdef HAVE_READLINK
-    char buf[PATH_MAX+1];
-    ssize_t res;
-    int i;
-#endif
-
     checkArity(op, args);
-    paths = CAR(args);
+    SEXP paths = CAR(args);
     if(!isString(paths))
 	error(_("invalid '%s' argument"), "paths");
-    n = LENGTH(paths);
-    PROTECT(ans = allocVector(STRSXP, n));
+    int n = LENGTH(paths);
+    SEXP ans = PROTECT(allocVector(STRSXP, n));
 #ifdef HAVE_READLINK
-    for (i = 0; i < n; i++) {
+    char buf[PATH_MAX+1];
+    for (int i = 0; i < n; i++) {
 	memset(buf, 0, PATH_MAX+1);
-	res = readlink(R_ExpandFileName(translateChar(STRING_ELT(paths, i))),
-		       buf, PATH_MAX);
-	if (res >= 0) SET_STRING_ELT(ans, i, mkChar(buf));
+	ssize_t res = 
+	    readlink(R_ExpandFileName(translateChar(STRING_ELT(paths, i))),
+		     buf, PATH_MAX);
+	if (res == PATH_MAX) {
+	    SET_STRING_ELT(ans, i, mkChar(buf));
+	    warning("possible truncation of value for element %d", i + 1);
+	} else if (res >= 0) SET_STRING_ELT(ans, i, mkChar(buf));
 	else if (errno == EINVAL) SET_STRING_ELT(ans, i, mkChar(""));
 	else SET_STRING_ELT(ans, i,  NA_STRING);
     }
@@ -2881,32 +2942,54 @@ SEXP attribute_hidden
 do_setFileTime(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     checkArity(op, args);
-    const char *fn = translateChar(STRING_ELT(CAR(args), 0));
-    double ftime = asReal(CADR(args));
+    const char *fn;
+    double ftime;
     int res;
+    R_xlen_t n, m;
+    SEXP paths, times, ans;
+    const void *vmax;
 
-#ifdef Win32
-    res  = winSetFileTime(fn, ftime);
-#elif defined(HAVE_UTIMENSAT)
-    struct timespec times[2];
+    paths = CAR(args);
+    if (!isString(paths))
+	error(_("invalid '%s' argument"), "path");
+    n = XLENGTH(paths);
+    PROTECT(times = coerceVector(CADR(args), REALSXP));
+    m = XLENGTH(times);
+    if (!m && n) error(_("'%s' must be of length at least one"), "time");
+    
+    PROTECT(ans = allocVector(LGLSXP, n));
+    vmax = vmaxget();
+    for(R_xlen_t i = 0; i < n; i++) {
+	fn = translateChar(STRING_ELT(paths, i));
+	ftime = REAL(times)[i % m];
+	#ifdef Win32
+	    res = winSetFileTime(fn, ftime);
+	#elif defined(HAVE_UTIMENSAT)
+	    struct timespec times[2];
 
-    times[0].tv_sec = times[1].tv_sec = (int)ftime;
-    times[0].tv_nsec = times[1].tv_nsec = (int)(1e9*(ftime - (int)ftime));
+	    times[0].tv_sec = times[1].tv_sec = (int)ftime;
+	    times[0].tv_nsec = times[1].tv_nsec = (int)(1e9*(ftime - (int)ftime));
 
-    res = utimensat(AT_FDCWD, fn, times, 0) == 0;
-#elif defined(HAVE_UTIMES)
-    struct timeval times[2];
+	    res = utimensat(AT_FDCWD, fn, times, 0) == 0;
+	#elif defined(HAVE_UTIMES)
+	    struct timeval times[2];
 
-    times[0].tv_sec = times[1].tv_sec = (int)ftime;
-    times[0].tv_usec = times[1].tv_usec = (int)(1e6*(ftime - (int)ftime));
-    res = utimes(fn, times) == 0;
-#elif defined(HAVE_UTIME)
-    struct utimbuf settime;
+	    times[0].tv_sec = times[1].tv_sec = (int)ftime;
+	    times[0].tv_usec = times[1].tv_usec = (int)(1e6*(ftime - (int)ftime));
 
-    settime.actime = settime.modtime = (int)ftime;
-    res = utime(fn, &settime) == 0;
-#endif
-    return ScalarLogical(res);
+	    res = utimes(fn, times) == 0;
+	#elif defined(HAVE_UTIME)
+	    struct utimbuf settime;
+
+	    settime.actime = settime.modtime = (int)ftime;
+	    res = utime(fn, &settime) == 0;
+	#endif
+	LOGICAL(ans)[i] = (res == 0) ? FALSE : TRUE;
+	fn = NULL;
+	vmaxset(vmax); // throws away result of translateChar
+    }
+    UNPROTECT(2); /* times, ans */
+    return ans;
 }
 
 #ifdef Win32

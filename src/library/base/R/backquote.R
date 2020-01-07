@@ -1,7 +1,7 @@
 #  File src/library/base/R/backquote.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2012 The R Core Team
+#  Copyright (C) 1995-2017 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 ## quote() is .Primitive
 
-### PR15077: need to substitute in a length-one pairlist, so
+### PR#15077: need to substitute in a length-one pairlist, so
 ### handle pairlists first
 bquote <- function(expr, where=parent.frame())
 {
@@ -32,4 +32,4 @@ bquote <- function(expr, where=parent.frame())
 }
 
 ## utility we've used ourselves
-enquote <- function(cl) as.call(list(as.name("quote"), cl))
+enquote <- function(cl) as.call(list(quote(base::quote), cl))

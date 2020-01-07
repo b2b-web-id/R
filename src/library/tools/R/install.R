@@ -1,7 +1,7 @@
 #  File src/library/tools/R/install.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2019 The R Core Team
 #
 # NB: also copyright dates in Usages.
 #
@@ -28,10 +28,29 @@
 ## be what commandArgs(TRUE) would return, that is a character vector
 ## of (space-delimited) terms that would be passed to R CMD INSTALL.  E.g.
 ##
-## tools:::.install_packages(c("--preclean", "--no-multiarch", "tree"))
+if(FALSE) {
+    tools:::.install_packages(c("--preclean", "--no-multiarch",
+				"tree"))
+    ## or
+
+    status <- tryCatch(
+	tools:::.install_packages(c("--no-clean-on-error", "--no-multiarch",
+				    "tree"), no.q = TRUE)
+      , error = function(e) as.numeric(sub(".* exit status *", "",
+					   conditionMessage(e))))
+    ## or
+
+    debugonce(tools:::.install_packages)
+    tools:::.install_packages(c("-c", "--debug", "--no-clean-on-error", "--no-multiarch",
+                                "tree"))
+    ## and then (after about 40 x [Enter]) when do_install is defined:
+    debug(do_install) ## and 'c'
+}
+
+
 
 ##' @return ...
-.install_packages <- function(args = NULL, no.q = interactive())
+.install_packages <- function(args = NULL, no.q = interactive(), warnOption = 1)
 {
     ## calls system() on Windows for
     ## sh (configure.win/cleanup.win) make zip
@@ -50,9 +69,9 @@
 
     do_exit <-
 	if(no.q)
-	    function(status = 1L) stop(".install_packages() exit status ", status)
+	    function(status) stop(".install_packages() exit status ", status)
 	else
-	    function(status = 1L) q("no", status = status, runLast = FALSE)
+	    function(status) q("no", status = status, runLast = FALSE)
 
     do_exit_on_error <- function(status = 1L)
     {
@@ -77,7 +96,8 @@
                 } else {
                     ## some shells require that they be run in a known dir
                     setwd(startdir)
-                    system(paste("mv", shQuote(lp), shQuote(pkgdir)))
+                    if(system(paste("mv -f", shQuote(lp), shQuote(pkgdir))))
+                        message("  restoration failed\n")
                 }
             }
         }
@@ -129,7 +149,10 @@
                              perl = TRUE))
     }
 
-    options(warn = 1)
+    if(getOption("warn") < warnOption) {
+        op <- options(warn = warnOption)
+        on.exit(options(op), add=TRUE)
+    }
     invisible(Sys.setlocale("LC_COLLATE", "C")) # discard output
 
     if (WINDOWS) {
@@ -148,7 +171,7 @@
             "sources, or to gzipped package 'tar' archives.  The library tree",
             "to install to can be specified via '--library'.  By default, packages are",
             "installed in the library tree rooted at the first directory in",
-            ".libPaths() for an R session run in the current environment",
+            ".libPaths() for an R session run in the current environment.",
             "",
             "Options:",
             "  -h, --help		print short help message and exit",
@@ -185,16 +208,24 @@
             "      --with-keep.source",
             "      --without-keep.source",
             "			use (or not) 'keep.source' for R code",
+            "      --with-keep.parse.data",
+            "      --without-keep.parse.data",
+            "			use (or not) 'keep.parse.data' for R code",
             "      --byte-compile	byte-compile R code",
             "      --no-byte-compile	do not byte-compile R code",
+            "      --staged-install	install to a temporary directory and then move",
+            "                   	to the target directory (default)",
+            "      --no-staged-install	install directly to the target directory",
             "      --no-test-load	skip test of loading installed package",
             "      --no-clean-on-error	do not remove installed package on error",
             "      --merge-multiarch	multi-arch by merging (from a single tarball only)",
+            "      --use-vanilla	do not read any Renviron or Rprofile files",
            "\nfor Unix",
             "      --configure-args=ARGS",
             "			set arguments for the configure scripts (if any)",
             "      --configure-vars=VARS",
             "			set variables for the configure scripts (if any)",
+            "      --strip           strip shared object(s)",
             "      --dsym            (macOS only) generate dSYM directory",
             "      --built-timestamp=STAMP",
             "                   set timestamp for Built: entry in DESCRIPTION",
@@ -228,8 +259,8 @@
         full
     }
 
-    ## used for LazyData, KeepSource, ByteCompile, Biarch
-    parse_description_field <- function(desc, field, default = TRUE)
+    ## used for LazyData, KeepSource, ByteCompile, Biarch, StagedInstall
+    parse_description_field <- function(desc, field, default)
 	str_parse_logic(desc[field], default = default,
 			otherwise = quote(
 			    errmsg("invalid value of ", field, " field in DESCRIPTION")))
@@ -249,13 +280,15 @@
     ## 'pkg' is the absolute path to package sources.
     do_install <- function(pkg)
     {
-        if (WINDOWS && grepl("\\.zip$", pkg)) {
+        if (WINDOWS && endsWith(pkg, ".zip")) {
             pkg_name <- basename(pkg)
             pkg_name <- sub("\\.zip$", "", pkg_name)
             pkg_name <- sub("_[0-9.-]+$", "", pkg_name)
+            reuse_lockdir <- lock && !pkglock
             if (pkglock)
                 lock <- "pkglock"
-            utils:::unpackPkgZip(pkg, pkg_name, lib, libs_only, lock)
+            utils:::unpackPkgZip(pkg, pkg_name, lib, libs_only, lock,
+                                 reuse_lockdir = reuse_lockdir)
             return()
         }
 
@@ -399,7 +432,7 @@
 
         if (file.exists(file.path(instdir, "DESCRIPTION"))) {
             if (nzchar(lockdir))
-                system(paste("mv", shQuote(instdir),
+                system(paste("mv -f", shQuote(instdir),
                              shQuote(file.path(lockdir, pkg))))
             dir.create(instdir, recursive = TRUE, showWarnings = FALSE)
         }
@@ -489,6 +522,13 @@
                 message('installing to ', dest, domain = NA)
                 dir.create(dest, recursive = TRUE, showWarnings = FALSE)
                 file.copy(files, dest, overwrite = TRUE)
+                if((do_strip || config_val_to_logical(Sys.getenv("_R_SHLIB_STRIP_",
+                                                                 "false"))) &&
+                   nzchar(strip_cmd <- Sys.getenv("R_STRIP_SHARED_LIB"))) {
+                    system(paste(c(strip_cmd,
+                                   shQuote(file.path(dest, files))),
+                                 collapse = " "))
+                }
                 ## not clear if this is still necessary, but sh version did so
 		if (!WINDOWS)
 		    Sys.chmod(file.path(dest, files), dmode)
@@ -534,6 +574,300 @@
             } else return(TRUE)
         }
 
+        ## Patch hardcoded paths in shared objects/dynamic libraries
+        ## so that they can be moved to a different directory.
+        ## Not used on WINDOWS.
+        patch_rpaths <- function()
+        {
+            slibs <- list.files(instdir, recursive = TRUE, all.files = TRUE,
+                                full.names = TRUE)
+            slibs <- grep("(\\.sl$)|(\\.so$)|(\\.dylib$)|(\\.dll$)", slibs,
+                          value = TRUE)
+            if (!length(slibs)) return()
+
+            have_file <- nzchar(Sys.which("file"))
+            ## file reports macOS dylibs as 'dynamically linked shared library'
+            if (have_file) {
+                ## RcppParallel has .so files containing ASCII text
+                ## (linker script) which make the tools below produce
+                ## a lot of error messages. However, some docker
+                ## installations do not have "file" utility.
+                ## Solaris' "file" does not use 'shared'.
+                ##
+                ## On macOS, a single "dylib" file can have a shared object
+                ## for multiple architectures, so multiple lines with
+                ## "shared"/"dynamically linked"
+                are_shared <- vapply(slibs,
+                    function(l) any(grepl("(shared|dynamically linked)",
+                                    system(paste("file", shQuote(l)), intern = TRUE))),
+                    NA)
+                slibs <- slibs[are_shared]
+                if (!length(slibs)) return()
+            }
+
+            starsmsg(stars, "checking absolute paths in shared objects and dynamic libraries")
+
+            uname <- system("uname -a", intern = TRUE)
+            os <- sub(" .*", "", uname)
+            have_chrpath <- nzchar(Sys.which("chrpath"))
+            have_patchelf <- nzchar(Sys.which("patchelf"))
+            have_readelf <- nzchar(Sys.which("readelf"))
+            have_macos_clt <- identical(os, "Darwin") &&
+                              nzchar(Sys.which("otool")) &&
+                              nzchar(Sys.which("install_name_tool"))
+            have_solaris_elfedit <- identical(os, "SunOS") &&
+                                    nzchar(Sys.which("elfedit"))
+
+            hardcoded_paths <- FALSE
+            failed_fix <- FALSE
+
+            # paths below are protected from the shell, but special
+            # characters/spaces should not be used, because they cannot be
+            # reproduced correctly in the outputs from external tools
+
+            if (have_solaris_elfedit) {
+                ## Solaris only
+                ## changes both rpath and DT_NEEDED paths
+                for (l in slibs) {
+                    out <- suppressWarnings(
+                        system(paste("elfedit -re dyn:value", shQuote(l)), intern = TRUE))
+                    out <- grep("^[ \t]*\\[[0-9]+\\]", out, value = TRUE)
+                    re <- "^[ \t]*\\[([0-9]+)\\][ \t]+([^ \t]+)[ \t]+([^ \t]+)[ \t]*(.*)"
+                    paths <- gsub(re, "\\4", out)
+                    idxs <- gsub(re, "\\1", out)
+                    old_paths <- paths
+                    # "\\$ORIGIN/.."
+                    paths <- gsub(instdir, final_instdir, paths, fixed = TRUE)
+                    changed <- paths != old_paths
+                    paths <- paths[changed]
+                    old_paths <- old_paths[changed]
+                    idxs <- idxs[changed]
+                    for (i in seq_along(paths)) {
+                        hardcoded_paths <- TRUE
+                        qp <- gsub('([" \\])', "\\\\\\1", paths[i])
+                        qp <- gsub("'", "\\\\'", qp)
+                        cmd <- paste("elfedit -e \"dyn:value -dynndx -s",
+                                     idxs[i], qp, "\"", shQuote(l))
+                        message(cmd)
+                        ret <- suppressWarnings(system(cmd, intern = FALSE))
+                        if (ret == 0)
+                            message("NOTE: fixed path ", old_paths[i])
+                    }
+                    out <- suppressWarnings(
+                        system(paste("elfedit -re dyn:value", shQuote(l)), intern = TRUE))
+                    out <- grep("^[ \t]*\\[", out, value = TRUE)
+                    paths <- gsub(re, "\\4", out)
+                    if (any(grepl(instdir, paths, fixed = TRUE)))
+                        failed_fix <- TRUE
+                }
+            } else if (have_macos_clt) {
+                ## macOS only
+                for (l in slibs) {
+                    ## change identification name of the library
+                    out <- suppressWarnings(
+                        system(paste("otool -D", shQuote(l)), intern = TRUE))
+                    out <- out[-1L] # first line is l (includes instdir)
+                    oldid <- out
+                    if (length(oldid) == 1 &&
+                        grepl(instdir, oldid, fixed = TRUE)) {
+
+                        hardcoded_paths <- TRUE
+                        newid <- gsub(instdir, final_instdir, oldid,
+                                      fixed = TRUE)
+                        cmd <- paste("install_name_tool -id", shQuote(newid),
+                                     shQuote(l))
+                        message(cmd)
+                        ret <- suppressWarnings(system(cmd, intern = FALSE))
+                        if (ret == 0)
+                            ## NOTE: install_name does not signal an error in
+                            ## some cases
+                            message("NOTE: fixed library identification name ",
+                                    oldid)
+                    }
+
+                    ## change paths to other libraries
+                    out <- suppressWarnings(
+                        system(paste("otool -L", shQuote(l)), intern = TRUE))
+                    paths <- grep("\\(compatibility", out, value = TRUE)
+                    paths <- gsub("^[ \t]*(.*) \\(compatibility.*", "\\1",
+                                  paths)
+                    old_paths <- paths
+                    # "@loader_path/.."
+                    paths <- gsub(instdir, final_instdir, paths,
+                                  fixed = TRUE)
+                    changed <- paths != old_paths
+                    paths <- paths[changed]
+                    old_paths <- old_paths[changed]
+                    for(i in seq_along(paths)) {
+                        hardcoded_paths <- TRUE
+                        cmd <- paste("install_name_tool -change",
+                                     shQuote(old_paths[i]), shQuote(paths[i]),
+                                     shQuote(l))
+                        message(cmd)
+                        ret <- suppressWarnings(system(cmd, intern = FALSE))
+                        if (ret == 0)
+                            ## NOTE: install_name does not signal an error in
+                            ## some cases
+                            message("NOTE: fixed library path ",
+                                    old_paths[i])
+                    }
+                    out <- suppressWarnings(
+                        system(paste("otool -L", shQuote(l)), intern = TRUE))
+                    out <- grep("\\(compatibility", out, value = TRUE)
+                    if (any(grepl(instdir, out, fixed = TRUE)))
+                        failed_fix <- TRUE
+
+                    ## change rpath entries
+                    out <- suppressWarnings(
+                        system(paste("otool -l", shQuote(l)), intern = TRUE))
+                    out <- grep("(^[ \t]*cmd )|(^[ \t]*path )", out,
+                                value = TRUE)
+                    rpidx <- grep("cmd LC_RPATH$", out)
+                    if (length(rpidx)) {
+                        paths <- gsub("^[ \t]*path ", "", out[rpidx+1])
+                        paths <- gsub("(.*) \\(offset .*", "\\1", paths)
+                        old_paths <- paths
+                        # "@loader_path/.."
+                        paths <- gsub(instdir, final_instdir, paths,
+                                               fixed = TRUE)
+                        changed <- paths != old_paths
+                        paths <- paths[changed]
+                        old_paths <- old_paths[changed]
+                        for(i in seq_along(paths)) {
+                            hardcoded_paths <- TRUE
+                            cmd <- paste("install_name_tool -rpath",
+                                         shQuote(old_paths[i]),
+                                         shQuote(paths[i]),
+                                         shQuote(l))
+                            message(cmd)
+                            ret <- suppressWarnings(system(cmd))
+                            if (ret == 0)
+                                message("NOTE: fixed rpath ",
+                                        old_paths[i])
+                        }
+                    }
+
+                    ## check no hard-coded paths are left
+                    out <- suppressWarnings(
+                        system(paste("otool -l", shQuote(l)), intern = TRUE))
+                    out <- out[-1L] # first line is l (includes instdir)
+                    if (any(grepl(instdir, out, fixed = TRUE)))
+                        failed_fix <- TRUE
+                }
+            } else if (have_patchelf) {
+                ## probably Linux
+                for(l in slibs) {
+                    # fix rpath
+                    rpath <- suppressWarnings(
+                        system(paste("patchelf --print-rpath", shQuote(l)),
+                               intern = TRUE))
+                    old_rpath <- rpath
+                    # "\\$ORIGIN/.."
+                    rpath <- gsub(instdir, final_instdir, rpath,
+                                  fixed = TRUE)
+                    if (length(rpath) && nzchar(rpath) && old_rpath != rpath) {
+                        hardcoded_paths <- TRUE
+                        cmd <- paste("patchelf", "--set-rpath",
+                                         shQuote(rpath), shQuote(l))
+                        message(cmd)
+                        ret <- suppressWarnings(system(cmd))
+                        if (ret == 0)
+                            message("NOTE: fixed rpath ", old_rpath)
+                        rpath <- suppressWarnings(
+                            system(paste("patchelf --print-rpath",
+                                         shQuote(l)), intern = TRUE))
+                        if (any(grepl(instdir, rpath, fixed = TRUE)))
+                            failed_fix <- TRUE
+                    }
+                    # fix DT_NEEDED
+                    if (have_readelf) {
+                        out <- suppressWarnings(
+                            system(paste("readelf -d", shQuote(l)), intern = TRUE))
+                        re0 <- "0x.*\\(NEEDED\\).*Shared library:"
+                        out <- grep(re0, out, value = TRUE)
+                        re <- "^[ \t]*0x[0-9]+[ \t]+\\(NEEDED\\)[ \t]+Shared library:[ \t]*\\[(.*)\\]"
+                        paths <- gsub(re, "\\1", out)
+                        old_paths <- paths
+                        # "\\$ORIGIN/.."
+                        paths <- gsub(instdir, final_instdir, paths,
+                                      fixed = TRUE)
+                        changed <- paths != old_paths
+                        paths <- paths[changed]
+                        old_paths <- old_paths[changed]
+                        for(i in seq_along(paths)) {
+                            cmd <- paste("patchelf --replace-needed",
+                                         shQuote(old_paths[i]),
+                                         shQuote(paths[i]),
+                                         shQuote(l))
+                            message(cmd)
+                            ret <- suppressWarnings(system(cmd))
+                            if (ret == 0)
+                                message("NOTE: fixed library path ",
+                                        old_paths[i])
+                        }
+                        out <- suppressWarnings(
+                            system(paste("readelf -d", shQuote(l)), intern = TRUE))
+                        out <- grep(re0, out, value = TRUE)
+                        if (any(grepl(instdir, out, fixed = TRUE)))
+                            failed_fix <- TRUE
+                    }
+                }
+            } else if (have_chrpath) {
+                ## Linux (possibly Solaris, but there elfedit should be
+                ## available, instead); only fixes rpaths, not DT_NEEDED
+                for(l in slibs) {
+                    out <- suppressWarnings(
+                        system(paste("chrpath", shQuote(l)), intern = TRUE))
+
+                    # when multiple rpaths are present, there is a single
+                    # RUNPATH= line with the paths separated by :
+                    rpath <- grep(".*PATH=", out, value=TRUE)
+                    rpath <- gsub(".*PATH=", "", rpath)
+                    old_rpath <- rpath
+                    # "\\$ORIGIN/.."
+                    rpath <- gsub(instdir, final_instdir, rpath, fixed = TRUE)
+                    if (length(rpath) && nzchar(rpath) && old_rpath != rpath) {
+                        hardcoded_paths <- TRUE
+                        cmd <- paste("chrpath", "-r", shQuote(rpath),
+                                     shQuote(l))
+                        message(cmd)
+                        ret <- suppressWarnings(system(cmd))
+                        if (ret == 0)
+                            message("NOTE: fixed rpath ", old_rpath)
+                        out <- suppressWarnings(
+                            system(paste("chrpath", shQuote(l)), intern = TRUE))
+                        rpath <- grep(".*PATH=", out, value = TRUE)
+                        rpath <- gsub(".*PATH=", "", rpath)
+                        if (any(grepl(instdir, rpath, fixed = TRUE)))
+                            failed_fix <- TRUE
+                    }
+                }
+            }
+            if (hardcoded_paths)
+                message("WARNING: shared objects/dynamic libraries with hard-coded temporary installation paths")
+            if (failed_fix)
+                errmsg("some hard-coded temporary paths could not be fixed")
+
+            if (have_readelf) {
+                ## check again, needed mostly on Linux (chrpath may not be
+                ## available or there may be DT_NEEDED entries with absolute
+                ## paths); ldd is not suitable because it interprets $ORIGIN
+                for(l in slibs) {
+                    out <- suppressWarnings(
+                        system(paste("readelf -d", shQuote(l)), intern = TRUE))
+                    out <- grep("^[ \t]*0x", out, value = TRUE)
+                    if (any(grepl(instdir, out, fixed = TRUE))) {
+                        ## give path relative to installation dir
+                        ll <- sub(file.path(instdir, ""), "", l, fixed = TRUE)
+                        errmsg("absolute paths in ",
+                               sQuote(ll),
+                               " include the temporary installation directory:",
+                               " please report to the package maintainer",
+                               " and use ", sQuote("--no-staged-install"))
+                    }
+                }
+            }
+        }
         ## Make the destination directories available to the developer's
         ## installation scripts (e.g. configure)
         Sys.setenv(R_LIBRARY_DIR = lib)
@@ -631,13 +965,55 @@
                               copy.date = TRUE)
                     if (more_than_libs) unlink(instdir, recursive = TRUE)
                 } else if (more_than_libs)
-                    system(paste("mv", shQuote(instdir),
+                    system(paste("mv -f ", shQuote(instdir),
                                  shQuote(file.path(lockdir, pkg_name))))
                 else
                     file.copy(instdir, lockdir, recursive = TRUE,
                               copy.date = TRUE)
             } else if (more_than_libs) unlink(instdir, recursive = TRUE)
+            if (more_than_libs && dir.exists(instdir))
+                # On Windows, a DLL cannot be unlinked if in use
+                errmsg("cannot remove earlier installation, is it in use?")
             dir.create(instdir, recursive = TRUE, showWarnings = FALSE)
+        }
+
+        pkg_staged_install <- SI <-
+            parse_description_field(desc, "StagedInstall", default = NA)
+        if (is.na(pkg_staged_install)) pkg_staged_install <- staged_install
+        if (pkg_staged_install && libs_only) {
+            pkg_staged_install <- FALSE
+            message("not using staged install with --libs-only")
+        }
+        if (pkg_staged_install && !lock) {
+            pkg_staged_install <- FALSE
+            message("staged installation is only possible with locking")
+        }
+
+        if (pkg_staged_install) {
+            starsmsg(stars, "using staged installation")
+            final_instdir <- instdir
+            final_lib <- lib
+            final_rpackagedir <- Sys.getenv("R_PACKAGE_DIR")
+            final_rlibs <- Sys.getenv("R_LIBS")
+            final_libpaths <- .libPaths()
+
+            instdir <- file.path(lockdir, "00new", pkg_name)
+            Sys.setenv(R_PACKAGE_DIR = instdir)
+            dir.create(instdir, recursive = TRUE, showWarnings = FALSE)
+            lib <- file.path(lockdir, "00new")
+
+            rlibs <- if (nzchar(final_rlibs))
+                         paste(lib, final_rlibs, sep = .Platform$path.sep)
+                     else
+                         lib
+            Sys.setenv(R_LIBS = rlibs)
+            .libPaths(c(lib, final_libpaths))
+        } else {
+            if(isFALSE(SI))
+                starsmsg(stars,
+                         "using non-staged installation via StagedInstall field")
+            else if (Sys.getenv("_R_INSTALL_SUPPRESS_NO_STAGED_MESSAGE_") != "yes")
+                starsmsg(stars, "using non-staged installation")
         }
 
         if (preclean) run_clean()
@@ -740,7 +1116,7 @@
                     message("  running 'src/Makefile.win' ...", domain = NA)
                     res <- system(paste("make --no-print-directory",
                                         paste("-f", shQuote(makefiles), collapse = " ")))
-                    if (res == 0) shlib_install(instdir, rarch)
+                    if (res == 0L) shlib_install(instdir, rarch)
                     else has_error <- TRUE
                 } else { ## no src/Makefile.win
                     srcs <- dir(pattern = "\\.([cfmM]|cc|cpp|f90|f95|mm)$",
@@ -758,18 +1134,16 @@
                         ## for now, hardcode some exceptions
                         ## These are packages which have arch-independent
                         ## code in configure.win
-                        if(!pkg_name %in% c("AnalyzeFMRI", "CORElearn",
-                                            "PearsonDS", "PKI", "RGtk2",
-                                            "RNetCDF", "RODBC", "RSclient",
-                                            "Rcpp", "Runuran", "SQLiteMap",
-                                            "XML", "arulesSequences",
-                                            "cairoDevice", "diversitree",
-                                            "foreign", "fastICA", "glmnet",
-                                            "gstat", "igraph", "jpeg", "png",
-                                            "proj4", "randtoolbox", "rgdal",
-                                            "rngWELL", "rphast", "rtfbs",
-                                            "sparsenet", "tcltk2", "tiff",
-                                            "udunits2"))
+                        if(pkg_name %notin%
+                           c("AnalyzeFMRI", "CORElearn", "PearsonDS",
+                             "PKI", "RGtk2", "RNetCDF", "RODBC",
+                             "RSclient", "Rcpp", "Runuran", "SQLiteMap",
+                             "XML", "arulesSequences", "cairoDevice",
+                             "diversitree", "foreign", "fastICA",
+                             "glmnet", "gstat", "igraph", "jpeg", "png",
+                             "proj4", "randtoolbox", "rgdal", "rngWELL",
+                             "rphast", "rtfbs", "sparsenet", "tcltk2",
+                             "tiff", "udunits2"))
                             one_only <- sum(nchar(readLines("../configure.win", warn = FALSE), "bytes")) > 0
                         if(one_only && !force_biarch) {
                             if(parse_description_field(desc, "Biarch", FALSE))
@@ -816,7 +1190,7 @@
                                    makevars_user())
                     res <- system(paste(MAKE,
                                         paste("-f", shQuote(makefiles), collapse = " ")))
-                    if (res == 0) shlib_install(instdir, rarch)
+                    if (res == 0L) shlib_install(instdir, rarch)
                     else has_error <- TRUE
                     setwd(owd)
                 } else { ## no src/Makefile
@@ -829,7 +1203,7 @@
                     archs <- Sys.glob("*")
                     setwd(wd2)
                     if (length(allfiles)) {
-                        ## if there is a configure script we install only the main
+                        ## if there is an executable configure script we install only the main
                         ## sub-architecture
                         if (!multiarch || length(archs) <= 1 ||
                             file_test("-x", "../configure")) {
@@ -875,8 +1249,7 @@
             if (length(dirs)) {
                 descfile <- file.path(instdir, "DESCRIPTION")
                 olddesc <- readLines(descfile, warn = FALSE)
-                olddesc <- grep("^Archs:", olddesc,
-                                invert = TRUE, value = TRUE, useBytes = TRUE)
+                olddesc <- filtergrep("^Archs:", olddesc, useBytes = TRUE)
                 newdesc <- c(olddesc,
                              paste("Archs:", paste(dirs, collapse = ", "))
                              )
@@ -1045,8 +1418,7 @@
             length(dir("inst", all.files = TRUE)) > 2L) {
 	    starsmsg(stars, "inst")
             i_dirs <- list.dirs("inst")[-1L] # not inst itself
-            i_dirs <- grep(.vc_dir_names_re, i_dirs,
-                           invert = TRUE, value = TRUE)
+            i_dirs <- filtergrep(.vc_dir_names_re, i_dirs)
             ## This ignores any restrictive permissions in the source
             ## tree, since the later .Call(C_dirchmod) call will
             ## fix the permissions.
@@ -1058,27 +1430,22 @@
                 ignore[nzchar(ignore)]
             } else character()
             for(e in ignore)
-                i_dirs <- grep(e, i_dirs, perl = TRUE, invert = TRUE,
-                               value = TRUE, ignore.case = TRUE)
+                i_dirs <- filtergrep(e, i_dirs, perl = TRUE, ignore.case = TRUE)
             lapply(gsub("^inst", instdir, i_dirs),
                    function(p) dir.create(p, FALSE, TRUE)) # be paranoid
             i_files <- list.files("inst", all.files = TRUE,
                                   full.names = TRUE, recursive = TRUE)
-            i_files <- grep(.vc_dir_names_re, i_files,
-                            invert = TRUE, value = TRUE)
+            i_files <- filtergrep(.vc_dir_names_re, i_files)
             for(e in ignore)
-                i_files <- grep(e, i_files, perl = TRUE, invert = TRUE,
-                                value = TRUE, ignore.case = TRUE)
+                i_files <- filtergrep(e, i_files, perl = TRUE, ignore.case = TRUE)
             i_files <- i_files %w/o% c("inst/doc/Rplots.pdf",
                                        "inst/doc/Rplots.ps")
-            i_files <- grep("inst/doc/.*[.](log|aux|bbl|blg|dvi)$",
-                            i_files, perl = TRUE, invert = TRUE,
-                            value = TRUE, ignore.case = TRUE)
+            i_files <- filtergrep("inst/doc/.*[.](log|aux|bbl|blg|dvi)$",
+                                  i_files, perl = TRUE, ignore.case = TRUE)
             ## Temporary kludge
-            if (!dir.exists("vignettes") && ! pkgname %in% c("RCurl"))
-                i_files <- grep("inst/doc/.*[.](png|jpg|jpeg|gif|ps|eps)$",
-                                i_files, perl = TRUE, invert = TRUE,
-                                value = TRUE, ignore.case = TRUE)
+            if (!dir.exists("vignettes") && pkgname %notin% c("RCurl"))
+                i_files <- filtergrep("inst/doc/.*[.](png|jpg|jpeg|gif|ps|eps)$",
+                                      i_files, perl = TRUE, ignore.case = TRUE)
             i_files <- i_files %w/o% "Makefile"
             i2_files <- gsub("^inst", instdir, i_files)
             file.copy(i_files, i2_files)
@@ -1108,7 +1475,7 @@
 	if (install_R && dir.exists("R") && length(dir("R"))) {
             BC <- if (!is.na(byte_compile)) byte_compile
                   else
-                      parse_description_field(desc, "ByteCompile", default = FALSE)
+                      parse_description_field(desc, "ByteCompile", default = TRUE)
             rcps <- Sys.getenv("R_COMPILE_PKGS")
             rcp <- switch(rcps,
                           "TRUE"=, "true"=, "True"=, "yes"=, "Yes"= 1,
@@ -1120,35 +1487,57 @@
                 starsmsg(stars,
                          "byte-compile and prepare package for lazy loading")
                 ## need to disable JIT
-                Sys.setenv(R_ENABLE_JIT = 0L)
-                compiler::enableJIT(0)
-                compiler::compilePKGS(1L)
-                compiler::setCompilerOptions(suppressAll = FALSE)
-                compiler::setCompilerOptions(suppressUndefined = TRUE)
-            } else
+                cmd <- c("Sys.setenv(R_ENABLE_JIT = 0L)",
+		    "invisible(compiler::enableJIT(0))",
+                    "invisible(compiler::compilePKGS(1L))",
+                    "compiler::setCompilerOptions(suppressAll = FALSE)",
+                    "compiler::setCompilerOptions(suppressUndefined = TRUE)",
+                    "compiler::setCompilerOptions(suppressNoSuperAssignVar = TRUE);")
+            } else {
                 starsmsg(stars, "preparing package for lazy loading")
+                cmd <- ""
+            }
             keep.source <-
                 parse_description_field(desc, "KeepSource",
                                         default = keep.source)
+            ## Some people change current directory in their R profile, but
+            ##   at least .getRequiredPackages needs to find the DESCRIPTION
+            ##   file
+            cmd <- append(cmd, paste0("setwd(", quote_path(getwd()), ")"))
 	    ## Something above, e.g. lazydata,  might have loaded the namespace
-	    if (isNamespaceLoaded(pkg_name))
-		unloadNamespace(pkg_name)
+            cmd <- append(cmd,
+                paste0("if (isNamespaceLoaded(\"",pkg_name, "\"))",
+                           " unloadNamespace(\"", pkg_name, "\")"))
             deps_only <-
                 config_val_to_logical(Sys.getenv("_R_CHECK_INSTALL_DEPENDS_", "FALSE"))
-            if(deps_only) {
-                env <- setRlibs(LinkingTo = TRUE)
-                libs0 <- .libPaths()
-		env <- sub("^.*=", "", env[1L])
-                .libPaths(c(lib0, env))
-            } else libs0 <- NULL
-	    res <- try({
-                suppressPackageStartupMessages(.getRequiredPackages(quietly = TRUE))
-                makeLazyLoading(pkg_name, lib, keep.source = keep.source)
-            })
-            if (BC) compiler::compilePKGS(0L)
-	    if (inherits(res, "try-error"))
+            env <- if (deps_only) setRlibs(LinkingTo = TRUE, quote = TRUE)
+                   else ""
+
+            ## needed for some packages (AnnotationDbi) that install other
+            ## packages during their tests (otherwise system profile fails
+            ## because it cannot find the tests startup file)
+            env <- paste(env, "R_TESTS=")
+            cmd <- append(cmd,
+                "suppressPackageStartupMessages(.getRequiredPackages(quietly = TRUE))")
+            if (pkg_staged_install)
+                set.install.dir <- paste0(", set.install.dir = ",
+                                          quote_path(final_instdir))
+            else
+                set.install.dir <- ""
+            cmd <- append(cmd,
+                paste0("tools:::makeLazyLoading(\"", pkg_name, "\", ",
+                                                    "\"", lib, "\", ",
+                                "keep.source = ", keep.source, ", ",
+                        "keep.parse.data = ", keep.parse.data,
+                                              set.install.dir, ")"))
+            opts <- paste(if(deps_only) "--vanilla" else "--no-save",
+                          "--slave")
+            cmd <- paste(cmd, collapse="\n")
+            out <- R_runR(cmd, opts, env = env)
+            if(length(out))
+                cat(paste(c(out, ""), collapse = "\n"))
+            if(length(attr(out, "status")))
 		pkgerrmsg("lazy loading failed", pkg_name)
-            if (!is.null(libs0)) .libPaths(libs0)
 	}
 
 	if (install_help) {
@@ -1217,24 +1606,29 @@
 
         if (clean) run_clean()
 
-        if (test_load) {
+        do_test_load <- function(extra_cmd = NULL) {
             ## Do this in a separate R process, in case it crashes R.
-	    starsmsg(stars, "testing if installed package can be loaded")
+
             ## FIXME: maybe the quoting as 'lib' is not quite good enough
             ## On a Unix-alike this calls system(input=)
             ## and that uses a temporary file and redirection.
             cmd <- paste0("tools:::.test_load_package('", pkg_name, "', ", quote_path(lib), ")")
+            if (!is.null(extra_cmd))
+              cmd <- paste0(cmd, "\n", extra_cmd)
             ## R_LIBS was set already, but Rprofile/Renviron may change it
             ## R_runR is in check.R
             deps_only <-
                 config_val_to_logical(Sys.getenv("_R_CHECK_INSTALL_DEPENDS_", "FALSE"))
             env <- if (deps_only) setRlibs(lib0, self = TRUE, quote = TRUE) else ""
+            ## FIXME: clear R_TESTS?
+            tlim <- get_timeout(Sys.getenv("_R_INSTALL_TEST_LOAD_ELAPSED_TIMEOUT_"))
             if (length(test_archs) > 1L) {
                 msgs <- character()
                 opts <- "--no-save --slave"
                 for (arch in test_archs) {
                     starsmsg("***", "arch - ", arch)
-                    out <- R_runR(cmd, opts, env = env, arch = arch)
+                    out <- R_runR(cmd, opts, env = env, arch = arch,
+                                  timeout = tlim)
                     if(length(attr(out, "status")))
                         msgs <- c(msgs, arch)
                     if(length(out))
@@ -1248,16 +1642,84 @@
             } else {
                 opts <- paste(if(deps_only) "--vanilla" else "--no-save",
                               "--slave")
-                out <- R_runR(cmd, opts, env = env)
-                if(length(out))
+                out <- R_runR(cmd, opts, env = env, timeout = tlim)
+                if(length(out)) {
                     cat(paste(c(out, ""), collapse = "\n"))
+                }
                 if(length(attr(out, "status")))
                     errmsg("loading failed") # does not return
             }
         }
+
+        if (test_load) {
+            if (pkg_staged_install)
+	        starsmsg(stars,
+                    "testing if installed package can be loaded from temporary location")
+            else
+	        starsmsg(stars, "testing if installed package can be loaded")
+            do_test_load()
+        }
+
+        if (pkg_staged_install) {
+            if (WINDOWS) {
+                unlink(final_instdir, recursive = TRUE) # needed for file.rename
+                if (!file.rename(instdir, final_instdir)) {
+                    message("WARNING: moving package to final location failed, copying instead")
+                    file.copy(instdir, dirname(final_instdir), recursive = TRUE,
+                              copy.date = TRUE)
+                    unlink(instdir, recursive = TRUE)
+                }
+            } else {
+                patch_rpaths()
+
+                unlink(final_instdir, recursive = TRUE)
+		  # needed for mv on some file systems, even though
+		  # according to POSIX mv should work when the target is an
+		  # empty directory
+                owd <- setwd(startdir)
+                status <- system(paste("mv -f",
+                                       shQuote(instdir),
+                                       shQuote(dirname(final_instdir))))
+                if (status) errmsg("  moving to final location failed")
+                setwd(owd)
+            }
+            instdir <- final_instdir
+            lib <- final_lib
+            Sys.setenv(R_PACKAGE_DIR = final_rpackagedir)
+            Sys.setenv(R_LIBS = final_rlibs)
+	    .libPaths(final_libpaths)
+
+            if (test_load) {
+                starsmsg(stars,
+                    "testing if installed package can be loaded from final location")
+
+                # The test for hard-coded installation path is done together
+                # with test loading to save time. The test is intentionally
+                # run on a loaded package, to allow for paths to be fixed in
+                # .onLoad and loadNamespace().
+
+                serf <- tempfile()
+                cmd <- paste0("f <- base::file(", quote_path(serf),
+                              ", \"wb\")")
+                cmd <- append(cmd,
+                paste0("base::invisible(base::suppressWarnings(base::serialize(",
+                    "base::as.list(base::getNamespace(\"", pkg_name, "\"), all.names=TRUE), f)))"))
+                cmd <- append(cmd, "base::close(f)")
+                do_test_load(extra_cmd = paste(cmd, collapse = "\n"))
+                starsmsg(stars,
+                    "testing if installed package keeps a record of temporary installation path")
+                r <- readBin(serf, "raw", n=file.size(serf))
+                unlink(serf)
+                if (length(grepRaw("00new", r, fixed = TRUE, all = FALSE,
+                                   value = FALSE)))
+                    errmsg("hard-coded installation path: ",
+                           "please report to the package maintainer and use ",
+                           sQuote("--no-staged-install"))
+            }
+        }
     }
 
-    options(showErrorCalls=FALSE)
+    options(showErrorCalls = FALSE)
     pkgs <- character()
     if (is.null(args)) {
         args <- commandArgs(TRUE)
@@ -1285,6 +1747,7 @@
 ##    lazy <- TRUE
     lazy_data <- FALSE
     byte_compile <- NA # means take from DESCRIPTION file.
+    staged_install <- NA # means not given by command line argument
     ## Next is not very useful unless R CMD INSTALL reads a startup file
     lock <- getOption("install.lock", NA) # set for overall or per-package
     pkglock <- FALSE  # set for per-package locking
@@ -1302,6 +1765,7 @@
     resave_data <- FALSE
     compact_docs <- FALSE
     keep.source <- getOption("keep.source.pkgs")
+    keep.parse.data <- getOption("keep.parse.data.pkgs")
     built_stamp <- character()
 
     install_libs <- TRUE
@@ -1312,6 +1776,7 @@
     install_inst <- TRUE
     install_help <- TRUE
     install_tests <- FALSE
+    do_strip <- FALSE
 
     while(length(args)) {
         a <- args[1L]
@@ -1424,15 +1889,25 @@
             keep.source <- TRUE
         } else if (a == "--without-keep.source") {
             keep.source <- FALSE
+        } else if (a == "--with-keep.parse.data") {
+            keep.parse.data <- TRUE
+        } else if (a == "--without-keep.parse.data") {
+            keep.parse.data <- FALSE
         } else if (a == "--byte-compile") {
             byte_compile <- TRUE
         } else if (a == "--no-byte-compile") {
             byte_compile <- FALSE
+        } else if (a == "--staged-install") {
+            staged_install <- TRUE
+        } else if (a == "--no-staged-install") {
+            staged_install <- FALSE
         } else if (a == "--dsym") {
             dsym <- TRUE
+        } else if (a == "--strip") {
+            do_strip <- TRUE
         } else if (substr(a, 1, 18) == "--built-timestamp=") {
             built_stamp <- substr(a, 19, 1000)
-        } else if (substr(a, 1, 1) == "-") {
+        } else if (startsWith(a, "-")) {
             message("Warning: unknown option ", sQuote(a), domain = NA)
         } else pkgs <- c(pkgs, a)
         args <- args[-1L]
@@ -1441,8 +1916,8 @@
     if (keep.tmpdir) {
       make_tmpdir <- function(prefix, nchars = 8, ntries = 100) {
         for(i in 1:ntries) {
-          name = paste(sample(c(0:9, letters, LETTERS), nchars, replace=TRUE), collapse="")
-          path = paste(prefix, name, sep = "/")
+          name <- paste(sample(c(0:9, letters, LETTERS), nchars, replace=TRUE), collapse="")
+          path <- paste(prefix, name, sep = "/")
           if (dir.create(path, showWarnings = FALSE, recursive = T)) {
             return(path)
           }
@@ -1470,16 +1945,24 @@
                 ## so use a backdoor to suppress it.
                 Sys.setenv("_R_INSTALL_NO_DONE_" = "yes")
                 for (arch in archs) {
-                    cmd <- c(file.path(R.home(), "bin", arch, "Rcmd.exe"),
-                             "INSTALL", args, "--no-multiarch")
+                    cmd <- c(shQuote(file.path(R.home(), "bin", arch,
+                                               "Rcmd.exe")),
+                             "INSTALL", shQuote(args), "--no-multiarch")
                     if (arch == "x64") {
-                        cmd <- c(cmd, "--libs-only", if(zip_up) "--build")
+                        ## this will suppress stars message "using
+                        ## non-staged installation", which could otherwise
+                        ## be turned into R CMD check note
+                        Sys.setenv("_R_INSTALL_SUPPRESS_NO_STAGED_MESSAGE_" = "yes")
+                        cmd <- c(cmd, "--libs-only --no-staged-install",
+                                 if(zip_up) "--build")
                         Sys.unsetenv("_R_INSTALL_NO_DONE_")
                     }
                     cmd <- paste(cmd, collapse = " ")
                     if (debug) message("about to run ", cmd, domain = NA)
                     message("\n", "install for ", arch, "\n", domain = NA)
                     res <- system(cmd)
+                    if (arch == "x64")
+                        Sys.unsetenv("_R_INSTALL_SUPPRESS_NO_STAGED_MESSAGE_")
                     if(res) break
                 }
             }
@@ -1493,10 +1976,16 @@
                 Sys.setenv("_R_INSTALL_NO_DONE_" = "yes")
                 last <- archs[length(archs)]
                 for (arch in archs) {
-                    cmd <- c(file.path(R.home("bin"), "R"),
+                    cmd <- c(shQuote(file.path(R.home("bin"), "R")),
                              "--arch", arch, "CMD",
-                             "INSTALL", args, "--no-multiarch")
-                    if (arch != archs[1L]) cmd <- c(cmd, "--libs-only")
+                             "INSTALL", shQuote(args), "--no-multiarch")
+                    if (arch != archs[1L]) {
+                        ## this will suppress stars message "using
+                        ## non-staged installation", which could otherwise
+                        ## be turned into R CMD check note
+                        Sys.setenv("_R_INSTALL_SUPPRESS_NO_STAGED_MESSAGE_" = "yes")
+                        cmd <- c(cmd, "--libs-only --no-staged-install")
+                    }
                     if (arch == last) {
                         Sys.unsetenv("_R_INSTALL_NO_DONE_")
                         if(tar_up) cmd <- c(cmd, "--build")
@@ -1505,6 +1994,8 @@
                     if (debug) message("about to run ", cmd, domain = NA)
                     message("\n", "install for ", arch, "\n", domain = NA)
                     res <- system(cmd)
+                    if (arch != archs[1L])
+                        Sys.unsetenv("_R_INSTALL_SUPPRESS_NO_STAGED_MESSAGE_")
                     if(res) break
                 }
             }
@@ -1524,7 +2015,7 @@
     for(pkg in pkgs) {
         if (debug) message("processing ", sQuote(pkg), domain = NA)
         if (file_test("-f", pkg)) {
-            if (WINDOWS && grepl("\\.zip$", pkg)) {
+            if (WINDOWS && endsWith(pkg, ".zip")) {
                 if (debug) message("a zip file", domain = NA)
                 pkgname <- basename(pkg)
                 pkgname <- sub("\\.zip$", "", pkgname)
@@ -1567,7 +2058,7 @@
 
     if (!nzchar(lib)) {
         lib <- if (get_user_libPaths) { ## need .libPaths()[1L] *after* the site- and user-initialization
-	    system(paste(file.path(R.home("bin"), "Rscript"),
+	    system(paste(shQuote(file.path(R.home("bin"), "Rscript")),
                          "-e 'cat(.libPaths()[1L])'"),
                    intern = TRUE)
         }
@@ -1593,7 +2084,7 @@
             res <- try(dir.create(fn, showWarnings = FALSE))
             if (inherits(res, "try-error") || !res) ok <- FALSE
             else unlink(fn, recursive = TRUE)
-        } else ok <- file.access(lib, 2L) == 0
+        } else ok <- file.access(lib, 2L) == 0L
     }
     if (!ok)
         stop("ERROR: no permission to install to directory ",
@@ -1644,7 +2135,18 @@
         lockdir <- file.path(lib, "00LOCK")
         mk_lockdir(lockdir)
     }
-
+    if (is.na(staged_install)) {
+        # environment variable intended as temporary
+        rsi <- Sys.getenv("R_INSTALL_STAGED")
+        rsi <- switch(rsi,
+                      "TRUE"=, "true"=, "True"=, "yes"=, "Yes"= 1,
+                      "FALSE"=,"false"=,"False"=, "no"=, "No" = 0,
+                      as.numeric(rsi))
+        if (!is.na(rsi))
+            staged_install <- (rsi > 0)
+        else
+            staged_install <- TRUE
+    }
     if  ((tar_up || zip_up) && fake)
         stop("building a fake installation is disallowed")
 
@@ -1748,6 +2250,13 @@
 
     OBJ_EXT <- ".o" # all currrent compilers, but not some on Windows
 
+    ## The order of inclusion of Makefiles on a Unix-alike is
+    ## package's src/Makevars
+    ## etc/Makeconf
+    ## site Makevars
+    ## share/make/shlib.mk
+    ## user Makevars
+    ## and similarly elsewhere
     objs <- character()
     shlib <- ""
     site <- Sys.getenv("R_MAKEVARS_SITE", NA_character_)
@@ -1767,6 +2276,7 @@
     use_cxx11 <- FALSE
     use_cxx14 <- FALSE
     use_cxx17 <- FALSE
+    use_fc_link <- FALSE
     pkg_libs <- character()
     clean <- FALSE
     preclean <- FALSE
@@ -1869,18 +2379,23 @@
             cxxstd <- gsub(" *", "", cxxstd)
             if (cxxstd == "CXX17") {
                 use_cxx17 <- TRUE
+                with_cxx <- TRUE
             }
             else if (cxxstd == "CXX14") {
                 use_cxx14 <- TRUE
+                with_cxx <- TRUE
             }
             else if (cxxstd == "CXX11") {
                 use_cxx11 <- TRUE
+                with_cxx <- TRUE
             }
             else if (cxxstd == "CXX98") {
                 use_cxx98 <- TRUE
+                with_cxx <- TRUE
             }
-            with_cxx <- TRUE
         }
+        if (any(grepl("^USE_FC_TO_LINK", lines, perl=TRUE, useBytes = TRUE)))
+            use_fc_link <- TRUE
     } else if (file.exists("Makevars")) {
         makefiles <- c("Makevars", makefiles)
         lines <- readLines("Makevars", warn = FALSE)
@@ -1892,18 +2407,23 @@
             cxxstd <- gsub(" *", "", cxxstd)
             if (cxxstd == "CXX17") {
                 use_cxx17 <- TRUE
+                with_cxx <- TRUE
             }
             else if (cxxstd == "CXX14") {
                 use_cxx14 <- TRUE
+                with_cxx <- TRUE
             }
             else if (cxxstd == "CXX11") {
                 use_cxx11 <- TRUE
+                with_cxx <- TRUE
             }
             else if (cxxstd == "CXX98") {
                 use_cxx98 <- TRUE
+                with_cxx <- TRUE
             }
-            with_cxx <- TRUE
         }
+        if (any(grepl("^USE_FC_TO_LINK", lines, perl=TRUE, useBytes = TRUE)))
+            use_fc_link <- TRUE
     }
     if (!use_cxx11 && !use_cxx14 && !use_cxx17 && !use_cxx98) {
         val17 <- Sys.getenv("USE_CXX17", NA_character_)
@@ -1937,7 +2457,6 @@
                 use_cxx98 <- TRUE
             }
         }
-        with_cxx <- TRUE
     }
 
     if (with_cxx) {
@@ -1966,13 +2485,13 @@
         if (use_cxx98 && !checkCXX("CXX98")) {
             stop("C++98 standard requested but CXX98 is not defined")
         }
+        if (use_cxx98) {
+            warning("Support for C++98 is deprecated", call. = FALSE)
+        }
     }
 
     makeargs <- paste0("SHLIB=", shQuote(shlib))
-    if (with_f9x) {
-        makeargs <- c("SHLIB_LDFLAGS='$(SHLIB_FCLDFLAGS)'",
-                      "SHLIB_LD='$(SHLIB_FCLD)'", makeargs)
-    } else if (with_cxx) {
+    if (with_cxx) {
         makeargs <- if (use_cxx17)
             c("CXX='$(CXX17) $(CXX17STD)'",
               "CXXFLAGS='$(CXX17FLAGS)'",
@@ -2000,10 +2519,12 @@
         else
             c("SHLIB_LDFLAGS='$(SHLIB_CXXLDFLAGS)'",
               "SHLIB_LD='$(SHLIB_CXXLD)'", makeargs)
-    }
+    } else if (use_fc_link && (with_f77 || with_f9x))
+        makeargs <- c("SHLIB_LDFLAGS='$(SHLIB_FCLDFLAGS)'",
+                      "SHLIB_LD='$(SHLIB_FCLD)'", makeargs)
     if (with_objc) shlib_libadd <- c(shlib_libadd, "$(OBJC_LIBS)")
-    if (with_f77) shlib_libadd <- c(shlib_libadd, "$(FLIBS)")
-    if (with_f9x) shlib_libadd <- c(shlib_libadd, "$(FCLIBS)")
+    if (with_f77 || with_f9x)
+        shlib_libadd <- c(shlib_libadd, "$(FLIBS) $(FCLIBS_XTRA)")
 
     if (length(pkg_libs))
         makeargs <- c(makeargs,
@@ -2011,6 +2532,9 @@
     if (length(shlib_libadd))
         makeargs <- c(makeargs,
                       paste0("SHLIB_LIBADD='", p1(shlib_libadd), "'"))
+    if (with_f9x && file.exists("Makevars") &&
+        length(grep("^\\s*PKG_FCFLAGS", lines, perl = TRUE, useBytes = TRUE)))
+        makeargs <- c(makeargs, "P_FCFLAGS='$(PKG_FCFLAGS)'")
 
     if (WINDOWS && debug) makeargs <- c(makeargs, "DEBUG=T")
     ## TCLBIN is needed for tkrplot and tcltk2
@@ -2048,7 +2572,7 @@
     {
         ## sort order for topics, a little tricky
         ## FALSE sorts before TRUE
-        xx <- rep(TRUE, length(x))
+        xx <- rep.int(TRUE, length(x))
         xx[grep("-package", x, fixed = TRUE)] <- FALSE
         order(xx, toupper(x), x)
     }
@@ -2078,7 +2602,7 @@
 
     firstLetterCategory <- function(x)
     {
-        x[grep("-package$", x)] <- " "
+        x[endsWith(x, "-package")] <- " "
         x <- toupper(substr(x, 1, 1))
         x[x > "Z"] <- "misc"
         x[x < "A" & x != " "] <- "misc"
@@ -2110,7 +2634,9 @@
     } else {
         lens <- lengths(topics)
         files <- sub("\\.[Rr]d$", "", Rd$File)
-        internal <- sapply(Rd$Keywords, function(x) "internal" %in% x)
+        internal <- (vapply(Rd$Keywords,
+                            function(x) match("internal", x, 0L),
+                            0L) > 0L)
         data.frame(Topic = unlist(topics),
                    File = rep.int(files, lens),
                    Title = rep.int(Rd$Title, lens),
@@ -2235,13 +2761,13 @@
     	if (!shown) {
             nc <- nchar(bf)
             if (nc < 38L)
-                cat("    ", bf, rep(" ", 40L - nc), sep = "")
+                cat("    ", bf, rep.int(" ", 40L - nc), sep = "")
             else
-                cat("    ", bf, "\n", rep(" ", 44L), sep = "")
+                cat("    ", bf, "\n", rep.int(" ", 44L), sep = "")
             shown <<- TRUE
         }
         ## 'example' is always last, so 5+space
-        cat(type, rep(" ", max(0L, 6L - nchar(type))), sep = "")
+        cat(type, rep.int(" ", max(0L, 6L - nchar(type))), sep = "")
     }
 
     dirname <- c("html", "latex", "R-ex")

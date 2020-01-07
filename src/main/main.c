@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2015   The R Core Team
+ *  Copyright (C) 1998-2019   The R Core Team
  *  Copyright (C) 2002-2005  The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -80,8 +80,9 @@ static void R_ReplFile(FILE *fp, SEXP rho)
     ParseStatus status;
     int count=0;
     int savestack;
+    RCNTXT cntxt;
 
-    R_InitSrcRefState();
+    R_InitSrcRefState(&cntxt);
     savestack = R_PPStackTop;
     for(;;) {
 	R_PPStackTop = savestack;
@@ -108,6 +109,7 @@ static void R_ReplFile(FILE *fp, SEXP rho)
 	    parseError(R_NilValue, R_ParseError);
 	    break;
 	case PARSE_EOF:
+	    endcontext(&cntxt);
 	    R_FinalizeSrcRefState();
 	    return;
 	    break;
@@ -503,6 +505,11 @@ static void sigactionSegv(int signum, siginfo_t *ip, void *context)
 	if((intptr_t) R_CStackLimit != -1) upper += R_CStackLimit;
 	if(diff > 0 && diff < upper) {
 	    REprintf(_("Error: segfault from C stack overflow\n"));
+#if defined(linux) || defined(__linux__) || defined(__sun) || defined(sun)
+	    sigset_t ss;
+	    sigaddset(&ss, signum);
+	    sigprocmask(SIG_UNBLOCK, &ss, NULL);
+#endif
 	    jump_to_toplevel();
 	}
     }
@@ -727,6 +734,29 @@ void setup_Rmainloop(void)
     char deferred_warnings[11][250];
     volatile int ndeferred_warnings = 0;
 
+#if 0 
+    /* testing stack base and size detection */
+    printf("stack limit %ld, start %lx dir %d \n",
+	(unsigned long) R_CStackLimit,
+        (unsigned long) R_CStackStart,
+	R_CStackDir);
+    uintptr_t firstb = R_CStackStart - R_CStackDir;
+    printf("first accessible byte %lx\n", (unsigned long) firstb);
+    if (R_CStackLimit != (uintptr_t)(-1)) {
+        uintptr_t lastb = R_CStackStart - R_CStackDir * R_CStackLimit;
+	printf("last accessible byte %lx\n", (unsigned long) lastb);
+    }
+    printf("accessing first byte...\n");
+    volatile char dummy = *(char *)firstb;
+    if (R_CStackLimit != (uintptr_t)(-1)) {
+	printf("accessing all bytes...\n");
+	/* have to access all bytes in order to map stack, e.g. on Linux */
+	for(uintptr_t o = 0; o < R_CStackLimit; o++)
+	    /* with exact bounds, o==-1 and o==R_CStackLimit will segfault */
+	    dummy = *((char *)firstb - R_CStackDir * o);
+    }
+#endif
+
     /* In case this is a silly limit: 2^32 -3 has been seen and
      * casting to intptr_r relies on this being smaller than 2^31 on a
      * 32-bit platform. */
@@ -814,12 +844,12 @@ void setup_Rmainloop(void)
     srand(TimeToSeed());
 
     InitArithmetic();
-    InitParser();
     InitTempDir(); /* must be before InitEd */
     InitMemory();
     InitStringHash(); /* must be before InitNames */
     InitBaseEnv();
     InitNames(); /* must be after InitBaseEnv to use R_EmptyEnv */
+    InitParser();  /* must be after InitMemory, InitNames */
     InitGlobalEnv();
     InitDynload();
     InitOptions();
@@ -848,9 +878,6 @@ void setup_Rmainloop(void)
     R_Toplevel.conexit = R_NilValue;
     R_Toplevel.vmax = NULL;
     R_Toplevel.nodestack = R_BCNodeStackTop;
-#ifdef BC_INT_STACK
-    R_Toplevel.intstack = R_BCIntStackTop;
-#endif
     R_Toplevel.cend = NULL;
     R_Toplevel.cenddata = NULL;
     R_Toplevel.intsusp = FALSE;
@@ -1069,7 +1096,7 @@ void mainloop(void)
 /*this functionality now appears in 3
   places-jump_to_toplevel/profile/here */
 
-static void printwhere(void)
+void attribute_hidden printwhere(void)
 {
   RCNTXT *cptr;
   int lct = 1;
@@ -1078,7 +1105,12 @@ static void printwhere(void)
     if ((cptr->callflag & (CTXT_FUNCTION | CTXT_BUILTIN)) &&
 	(TYPEOF(cptr->call) == LANGSXP)) {
 	Rprintf("where %d", lct++);
-	SrcrefPrompt("", cptr->srcref);
+	SEXP sref;
+	if (cptr->srcref == R_InBCInterpreter)
+	    sref = R_findBCInterpreterSrcref(cptr);
+	else
+	    sref = cptr->srcref;
+	SrcrefPrompt("", sref);
 	PrintValue(cptr->call);
     }
   }
@@ -1158,7 +1190,11 @@ static void PrintCall(SEXP call, SEXP rho)
 	blines = asInteger(GetOption1(install("deparse.max.lines")));
     if(blines != NA_INTEGER && blines > 0)
 	R_BrowseLines = blines;
-    PrintValueRec(call, rho);
+
+    R_PrintData pars;
+    PrintInit(&pars, rho);
+    PrintValueRec(call, &pars);
+
     R_BrowseLines = old_bl;
 }
 
@@ -1181,7 +1217,7 @@ SEXP attribute_hidden do_browser(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_TAG(CDR(ap), install("condition"));
     SET_TAG(CDDR(ap), install("expr"));
     SET_TAG(CDDDR(ap), install("skipCalls"));
-    argList = matchArgs(ap, args, call);
+    argList = matchArgs_RC(ap, args, call);
     UNPROTECT(1);
     PROTECT(argList);
     /* substitute defaults */
@@ -1582,7 +1618,7 @@ R_taskCallbackRoutine(SEXP expr, SEXP value, Rboolean succeeded,
     SETCAR(e, VECTOR_ELT(f, 0));
     cur = CDR(e);
     SETCAR(cur, tmp = allocVector(LANGSXP, 2));
-	SETCAR(tmp, R_QuoteSymbol);
+	SETCAR(tmp, lang3(R_DoubleColonSymbol, R_BaseSymbol, R_QuoteSymbol));
 	SETCAR(CDR(tmp), expr);
     cur = CDR(cur);
     SETCAR(cur, value);
@@ -1650,22 +1686,21 @@ R_addTaskCallback(SEXP f, SEXP data, SEXP useData, SEXP name)
 
 #ifndef Win32
 /* this is here solely to pull in xxxpr.o */
-#include <R_ext/RS.h>
-void F77_SYMBOL(intpr) (const char *, int *, int *, int *);
-void attribute_hidden dummy12345(void)
+# include <R_ext/RS.h>
+# if defined FC_LEN_T
+# include <stddef.h>
+void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
+void attribute_hidden dummy54321(void)
 {
-    int i = 0;
-    F77_CALL(intpr)("dummy", &i, &i, &i);
+    int nc = 5;
+    F77_CALL(rwarnc)("dummy", &nc, (FC_LEN_T) 5);
 }
-
-/* Used in unix/system.c, avoid inlining by using an extern there.
-
-   This is intended to return a local address.
-   Use -Wno-return-local-addr when compiling.
- */
-uintptr_t dummy_ii(void)
+# else
+void F77_SYMBOL(rwarnc)(char *msg, int *nchar);
+void attribute_hidden dummy54321(void)
 {
-    int ii;
-    return (uintptr_t) &ii;
+    int nc = 5;
+    F77_CALL(rwarnc)("dummy", &nc);
 }
+# endif
 #endif

@@ -5,7 +5,7 @@
 
 \name{write_PACKAGES}
 \alias{write_PACKAGES}
-\title{Generate PACKAGES files}
+\title{Generate PACKAGES Files}
 \description{
   Generate \file{PACKAGES}, \file{PACKAGES.gz} and \file{PACKAGES.rds}
   files for a repository of source or Mac/Windows binary packages.
@@ -112,7 +112,9 @@ write_PACKAGES(dir = ".", fields = NULL,
 \seealso{
   See \code{\link{read.dcf}} and \code{\link{write.dcf}} for reading
   \file{DESCRIPTION} files and writing the \file{PACKAGES} and
-  \file{PACKAGES.gz} files.
+  \file{PACKAGES.gz} files. See \code{\link{update_PACKAGES}} for
+  efficiently updating existing \file{PACKAGES} and \file{PACKAGES.gz}
+  files.
 }
 \examples{
 \dontrun{

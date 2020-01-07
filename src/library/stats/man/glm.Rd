@@ -1,6 +1,6 @@
 % File src/library/stats/man/glm.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{glm}
@@ -22,12 +22,12 @@
 glm(formula, family = gaussian, data, weights, subset,
     na.action, start = NULL, etastart, mustart, offset,
     control = list(\dots), model = TRUE, method = "glm.fit",
-    x = FALSE, y = TRUE, contrasts = NULL, \dots)
+    x = FALSE, y = TRUE, singular.ok = TRUE, contrasts = NULL, \dots)
 
 glm.fit(x, y, weights = rep(1, nobs),
         start = NULL, etastart = NULL, mustart = NULL,
         offset = rep(0, nobs), family = gaussian(),
-        control = list(), intercept = TRUE)
+        control = list(), intercept = TRUE, singular.ok = TRUE)
 
 \method{weights}{glm}(object, type = c("prior", "working"), \dots)
 }
@@ -104,6 +104,8 @@ glm.fit(x, y, weights = rep(1, nobs),
     \code{n}.
   }
 
+  \item{singular.ok}{logical; if \code{FALSE} a singular fit is an
+    error.}
   \item{contrasts}{an optional list. See the \code{contrasts.arg}
     of \code{model.matrix.default}.}
 
@@ -221,10 +223,10 @@ glm.fit(x, y, weights = rep(1, nobs),
     saturated model has deviance zero.}
   \item{aic}{A version of Akaike's \emph{An Information Criterion},
     minus twice the maximized log-likelihood plus twice the number of
-    parameters, computed by the \code{aic} component of the family.
+    parameters, computed via the \code{aic} component of the family.
     For binomial and Poison families the dispersion is
     fixed at one and the number of parameters is the number of
-    coefficients. For gaussian, Gamma and inverse gaussian families the
+    coefficients.  For gaussian, Gamma and inverse gaussian families the
     dispersion is estimated from the residual deviance, and the number
     of parameters is the number of coefficients plus one.  For a
     gaussian family the MLE of the dispersion is used so this is a valid
@@ -256,8 +258,9 @@ glm.fit(x, y, weights = rep(1, nobs),
   \item{data}{the \code{data argument}.}
   \item{offset}{the offset vector used.}
   \item{control}{the value of the \code{control} argument used.}
-  \item{method}{the name of the fitter function used, currently always
-    \code{"glm.fit"}.}
+  \item{method}{the name of the fitter function used (when provided as a
+    \code{\link{character}} string to \code{glm()}) or the fitter
+    \code{\link{function}} (when provided as that).}
   \item{contrasts}{(where relevant) the contrasts used.}
   \item{xlevels}{(where relevant) a record of the levels of the factors
     used in fitting.}
@@ -336,6 +339,18 @@ print(d.AD <- data.frame(treatment, outcome, counts))
 glm.D93 <- glm(counts ~ outcome + treatment, family = poisson())
 anova(glm.D93)
 \donttest{summary(glm.D93)}
+## Computing AIC [in many ways]:
+(A0 <- AIC(glm.D93))
+(ll <- logLik(glm.D93))
+A1 <- -2*c(ll) + 2*attr(ll, "df")
+A2 <- glm.D93$family$aic(counts, mu=fitted(glm.D93), wt=1) +
+        2 * length(coef(glm.D93))
+stopifnot(exprs = {
+  all.equal(A0, A1)
+  all.equal(A1, A2)
+  all.equal(A1, glm.D93$aic)
+})
+
 
 \donttest{## an example with offsets from Venables & Ripley (2002, p.189)
 utils::data(anorexia, package = "MASS")
@@ -352,6 +367,10 @@ clotting <- data.frame(
     lot2 = c(69,35,26,21,18,16,13,12,12))
 summary(glm(lot1 ~ log(u), data = clotting, family = Gamma))
 summary(glm(lot2 ~ log(u), data = clotting, family = Gamma))
+## Aliased ("S"ingular) -> 1 NA coefficient
+(fS <- glm(lot2 ~ log(u) + log(u^2), data = clotting, family = Gamma))
+tools::assertError(update(fS, singular.ok=FALSE), verbose=interactive())
+## -> .. "singular fit encountered"
 
 \dontrun{
 ## for an example of the use of a terms object as a formula

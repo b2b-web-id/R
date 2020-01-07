@@ -1,6 +1,6 @@
 % File src/library/base/man/DateTimeClasses.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2016 R Core Team
+% Copyright 1995-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{DateTimeClasses}
@@ -25,9 +25,12 @@
 \alias{[[.POSIXct}
 \alias{[.POSIXlt}
 \alias{[<-.POSIXlt}
+\alias{[[.POSIXlt}
+\alias{[[<-.POSIXlt}
 \alias{as.data.frame.POSIXct}
 \alias{as.data.frame.POSIXlt}
 \alias{as.list.POSIXct}
+\alias{as.list.POSIXlt}
 \alias{.leap.seconds}
 \alias{anyNA.POSIXlt}
 \alias{is.na.POSIXlt}
@@ -35,6 +38,8 @@
 \alias{c.POSIXlt}
 \alias{as.matrix.POSIXlt}
 \alias{length.POSIXlt}
+\alias{length<-.POSIXct}
+\alias{length<-.POSIXlt}
 \alias{mean.POSIXct}
 \alias{mean.POSIXlt}
 \alias{str.POSIXt}
@@ -53,7 +58,7 @@
   representing calendar dates and times.
 }
 \usage{
-\method{print}{POSIXct}(x, tz = "", usetz = TRUE, \dots)
+\method{print}{POSIXct}(x, tz = "", usetz = TRUE, max = NULL, \dots)
 
 \method{summary}{POSIXct}(object, digits = 15, \dots)
 
@@ -66,6 +71,9 @@
   \item{x, object}{an object to be printed or summarized from one of the
     date-time classes.}
   \item{tz, usetz}{for timezone formatting, passed to \code{\link{format.POSIXct}}.}
+  \item{max}{numeric or \code{NULL}, specifying the maximal number of
+    entries to be printed.  By default, when \code{NULL},
+    \code{\link{getOption}("max.print")} used.}
   \item{digits}{number of significant digits for the computations:
     should be high enough to represent the least important time unit
     exactly.}
@@ -107,7 +115,9 @@
   they are not necessarily set.).  Note that the internal list structure
   is somewhat hidden, as many methods (including
   \code{\link{length}(x)}, \code{\link{print}()} and \code{\link{str}})
-  apply to the abstract date-time vector, as for \code{"POSIXct"}.  The
+  apply to the abstract date-time vector, as for \code{"POSIXct"}.  As
+  from \R 3.5.0, one can extract and replace \emph{single} components
+  via \code{[} indexing with two indices (see the examples).  The
   classes correspond to the POSIX/C99 constructs of \sQuote{calendar
   time} (the \code{time_t} data type) and \sQuote{local time} (or
   broken-down time, the \code{struct tm} data type), from which they
@@ -151,6 +161,8 @@
   in the current time zone you may want to remove the \code{"tzone"}
   attribute (e.g., by \code{c(x)}).
 
+  % NB: Do *NOT* change the line structure before the two \Sexpr{}s below, unless
+  % --  you update the Rd2HTML() regression check in ../../../../tests/reg-tests-1d.R :
   Unfortunately, the conversion is complicated by the operation of time
   zones and leap seconds (according to this version of \R's data,
   \Sexpr{length(.leap.seconds)} days have been 86401 seconds long so
@@ -274,7 +286,7 @@
   objects must not be changed, as several C-based conversion methods
   rely on the order for efficiency.
 }
-\examples{\donttest{% <-->  may fail on platforms wrongly set up
+\examples{\donttest{% <--> may fail / be platform dependent
 (z <- Sys.time())             # the current date, as class "POSIXct"
 
 Sys.time() - 3600             # an hour ago
@@ -282,12 +294,28 @@ Sys.time() - 3600             # an hour ago
 as.POSIXlt(Sys.time(), "GMT") # the current time in GMT
 format(.leap.seconds)         # the leap seconds in your time zone
 print(.leap.seconds, tz = "PST8PDT")  # and in Seattle's
+}% ..test should be diffable from here on:
 
 ## look at *internal* representation of "POSIXlt" :
 leapS <- as.POSIXlt(.leap.seconds)
 names(leapS) ; is.list(leapS)
 ## str() "too smart" -->  need unclass(.):
 utils::str(unclass(leapS), vec.len = 7)
-}}
+## Extracting *single* components of POSIXlt objects:
+leapS[1 : 5, "year"]
+
+##  length(.) <- n   now works for "POSIXct" and "POSIXlt" :
+for(lpS in list(.leap.seconds, leapS)) {
+    ls <- lpS; length(ls) <- 12
+    l2 <- lpS; length(l2) <- 5 + length(lpS)
+    stopifnot(exprs = {
+      ## length(.) <- * is compatible to subsetting/indexing:
+      identical(ls, lpS[seq_along(ls)])
+      identical(l2, lpS[seq_along(l2)])
+      ## has filled with NA's
+      is.na(l2[(length(lpS)+1):length(l2)])
+    })
+}% for
+}
 \keyword{utilities}
 \keyword{chron}

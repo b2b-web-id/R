@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995-2014  The R Core Team
+ *  Copyright (C) 1995-2018  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,12 +68,15 @@
 
 attribute_hidden
 double R_pretty(double *lo, double *up, int *ndiv, int min_n,
-		double shrink_sml, double high_u_fact[],
-	       int eps_correction, int return_bounds)
+		double shrink_sml,
+		const double high_u_fact[],
+		// (h, h5) = c(high.u.bias, u5.bias) in base::pretty.default()
+		int eps_correction, int return_bounds)
 {
 /* From version 0.65 on, we had rounding_eps := 1e-5, before, r..eps = 0
- * 1e-7 is consistent with seq.default() */
-#define rounding_eps 1e-7
+ * then, 1e-7 was consistent with seq.default() and seq.int() till 2010-02-03,
+ * where it was changed to 1e-10 for seq*(), and in 2017-08-14 for pretty(): */
+#define rounding_eps 1e-10
 
 #define h  high_u_fact[0]
 #define h5 high_u_fact[1]
@@ -91,9 +94,10 @@ double R_pretty(double *lo, double *up, int *ndiv, int min_n,
     } else {
 	cell = fmax2(fabs(*lo),fabs(*up));
 	/* U = upper bound on cell/unit */
-	U = (1 + (h5 >= 1.5*h+.5)) ? 1/(1+h) : 1.5/(1+h5);
+	U = 1 + ((h5 >= 1.5*h+.5) ? 1/(1+h) : 1.5/(1+h5));
+	U *= imax2(1,*ndiv) * DBL_EPSILON; // avoid overflow for large ndiv
 	/* added times 3, as several calculations here */
-	i_small = dx < cell * U * imax2(1,*ndiv) * DBL_EPSILON *3;
+	i_small = dx < cell * U * 3;
     }
 
     /*OLD: cell = FLT_EPSILON+ dx / *ndiv; FLT_EPSILON = 1.192e-07 */
@@ -179,10 +183,10 @@ double R_pretty(double *lo, double *up, int *ndiv, int min_n,
     else {
 	*ndiv = k;
     }
-    if(return_bounds) { /* if()'s to ensure that result covers original range */
+    if(return_bounds) {// used in pretty.default(), ensure result covers original range
 	if(ns * unit < *lo) *lo = ns * unit;
 	if(nu * unit > *up) *up = nu * unit;
-    } else {
+    } else { // used in graphics GEpretty()
 	*lo = ns;
 	*up = nu;
     }

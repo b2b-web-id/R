@@ -1,6 +1,6 @@
 % File src/library/parallel/man/unix/mcparallel.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2009-2017 R Core Team
+% Copyright 2009-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{mcparallel}
@@ -25,7 +25,12 @@ mccollect(jobs, wait = TRUE, timeout = 0, intermediate = FALSE)
 }
 \arguments{
   \item{expr}{expression to evaluate (do \emph{not} use any on-screen
-    devices or GUI elements in this code).}
+    devices or GUI elements in this code, see \code{\link{mcfork}} for
+    the inadvisability of using \code{mcparallel} with GUI front-ends
+    and multi-threaded libraries).  Raw vectors are reserved for
+    internal use and cannot be returned, but the expression may evaluate
+    e.g. to a list holding a raw vector. \code{NULL} should not be returned
+    because it is used by \code{mccollect} to signal an error. }
   \item{name}{an optional name (character vector of length one) that can
     be associated with the job.}
   \item{mc.set.seed}{logical: see section \sQuote{Random numbers}.}
@@ -77,6 +82,19 @@ mccollect(jobs, wait = TRUE, timeout = 0, intermediate = FALSE)
   them correctly.  \code{mccollect} will return \code{NULL} for a
   terminating job that has sent its results already after which the
   job is no longer available.
+
+  Jobs are identified by process IDs (even when referred to as job objects),
+  which are reused by the operating system.  Detached jobs created by
+  \code{mcparallel} can thus never be safely referred to by their process
+  IDs nor job objects.  Non-detached jobs are guaranteed to exist until
+  collected by \code{mccollect}, even if crashed or terminated by a signal. 
+  Once collected by \code{mccollect}, a job is regarded as detached, and
+  thus must no longer be referred to by its process ID nor its job object. 
+  With \code{wait = TRUE}, all jobs passed to \code{mccollect} are
+  collected.  With \code{wait = FALSE}, the collected jobs are given as
+  names of the result vector, and thus in subsequent calls to
+  \code{mccollect} these jobs must be excluded. Job objects should be used
+  in preference of process IDs whenever accepted by the API.
 
   The \code{mc.affinity} parameter can be used to try to restrict
   the child process to specific CPUs. The availability and the extent of

@@ -1,7 +1,7 @@
 #  File src/library/utils/R/unix/mac.install.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2014 The R Core Team
+#  Copyright (C) 1995-2017 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 #  https://www.R-project.org/Licenses/
 
 
-if(substr(R.version$os, 1L, 6L) != "darwin") {
+if(!startsWith(R.version$os, "darwin")) {
 .install.macbinary <-
     function(pkgs, lib, repos = getOption("repos"),
              contriburl = contrib.url(repos, type="mac.binary"),
@@ -160,7 +160,7 @@ if(substr(R.version$os, 1L, 6L) != "darwin") {
 
     if(is.null(available))
         available <- available.packages(contriburl = contriburl,
-                                        method = method)
+                                        method = method, ...)
     pkgs <- getDependencies(pkgs, dependencies, available, lib, binary = TRUE)
 
     foundpkgs <- download.packages(pkgs, destdir = tmpd, available = available,

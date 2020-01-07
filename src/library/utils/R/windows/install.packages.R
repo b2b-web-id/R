@@ -1,7 +1,7 @@
 #  File src/library/utils/R/windows/install.packages.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2019 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 ## Unexported helper
 unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
-                         lock = FALSE, quiet = FALSE)
+                         lock = FALSE, quiet = FALSE, reuse_lockdir = FALSE)
 {
     .zip.unpack <- function(zipname, dest)
     {
@@ -104,11 +104,13 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
 	    lockdir <- if(identical(lock, "pkglock"))
                 file.path(lib, paste0("00LOCK-", pkgname))
             else file.path(lib, "00LOCK")
-	    if (file.exists(lockdir)) {
-                stop(gettextf("ERROR: failed to lock directory %s for modifying\nTry removing %s",
-                              sQuote(lib), sQuote(lockdir)), domain = NA)
-	    }
-	    dir.create(lockdir, recursive = TRUE)
+            if (!reuse_lockdir) {
+  	        if (file.exists(lockdir)) {
+                    stop(gettextf("ERROR: failed to lock directory %s for modifying\nTry removing %s",
+                                  sQuote(lib), sQuote(lockdir)), domain = NA)
+	        }
+	        dir.create(lockdir, recursive = TRUE)
+            }
 	    if (!dir.exists(lockdir))
                 stop(gettextf("ERROR: failed to create lock directory %s",
                               sQuote(lockdir)), domain = NA)
@@ -126,7 +128,12 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
         	}, add=TRUE)
         	restorePrevious <- FALSE
             }
-	    on.exit(unlink(lockdir, recursive = TRUE), add=TRUE)
+            on.exit({
+                ldel <- if (reuse_lockdir) 
+                            file.path(lockdir, pkgname)
+                        else lockdir
+                unlink(ldel, recursive = TRUE)
+            }, add=TRUE)
         }
 
         if(libs_only) {
@@ -170,8 +177,8 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
             ret <- unlink(instPath, recursive=TRUE, force=TRUE)
             if (ret == 0) {
                 ## Move the new package to the install lib
-                ## To avoid anti-virus interference, wait a little
-                Sys.sleep(0.5)
+                ## file.rename automatically retries few times if necessary
+		## due to anti-virus interference
                 ret <- file.rename(file.path(tmpDir, pkgname), instPath)
                 if(!ret) {
                     warning(gettextf("unable to move temporary installation %s to %s",
@@ -202,7 +209,7 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
              contriburl = contrib.url(repos),
              method, available = NULL, destdir = NULL,
              dependencies = FALSE, libs_only = FALSE,
-             lock = getOption("install.lock", FALSE), quiet = FALSE, ...)
+             lock = getOption("install.lock", TRUE), quiet = FALSE, ...)
 {
     if(!length(pkgs)) return(invisible())
     ## look for package in use.
@@ -244,7 +251,7 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
 
     if(is.null(available))
         available <- available.packages(contriburl = contriburl,
-                                        method = method)
+                                        method = method, ...)
     pkgs <- getDependencies(pkgs, dependencies, available, lib, binary = TRUE)
 
     foundpkgs <- download.packages(pkgs, destdir = tmpd, available = available,
@@ -276,16 +283,16 @@ unpackPkgZip <- function(pkg, pkgname, lib, libs_only = FALSE,
 
 menuInstallPkgs <- function(type = getOption("pkgType"))
 {
-    install.packages(NULL, .libPaths()[1L], dependencies=NA, type = type)
+    install.packages(lib=.libPaths()[1L], dependencies=NA, type=type)
 }
 
 menuInstallLocal <- function()
 {
     files <- choose.files('',filters=Filters[c('zip','tarball', 'All'),])
-    zips <- grepl("[.]zip$", files)
-    tarballs <- grepl("[.]tar[.]gz$", files)
+    zips <- endsWith(files, ".zip")
+    tarballs <- endsWith(files, ".tar.gz")
     bad <- !(zips | tarballs)
-    if (any(bad)) 
+    if (any(bad))
         stop("Only '*.zip' and '*.tar.gz' files can be installed.")
     if (any(zips)) install.packages(files[zips],
         .libPaths()[1L], repos = NULL, type = "binary")

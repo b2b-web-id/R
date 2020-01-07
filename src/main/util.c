@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2017  The R Core Team
+ *  Copyright (C) 1997--2019  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,32 +48,25 @@ static void R_wfixslash(wchar_t *s);
 
 extern "C" {
 #endif
+
+#if defined FC_LEN_T
+# include <stddef.h>
+void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len);
+void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len);
+#else
 void F77_SYMBOL(rwarnc)(char *msg, int *nchar);
 void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar);
+#endif
 
 #ifdef __cplusplus
 }
 #endif
 
+#include <rlocale.h>
+
 /* Many small functions are included from ../include/Rinlinedfuns.h */
 
-attribute_hidden
-Rboolean tsConform(SEXP x, SEXP y)
-{
-    if ((x = getAttrib(x, R_TspSymbol)) != R_NilValue &&
-	(y = getAttrib(y, R_TspSymbol)) != R_NilValue) {
-	/* tspgets should enforce this, but prior to 2.4.0
-	   had INTEGER() here */
-	if(TYPEOF(x) == REALSXP && TYPEOF(y) == REALSXP)
-	    return REAL(x)[0] == REAL(x)[0] &&
-		REAL(x)[1] == REAL(x)[1] &&
-		REAL(x)[2] == REAL(x)[2];
-	/* else fall through */
-    }
-    return FALSE;
-}
-
-int nrows(SEXP s)
+int nrows(SEXP s) // ~== NROW(.)  in R
 {
     SEXP t;
     if (isVector(s) || isList(s)) {
@@ -89,7 +82,7 @@ int nrows(SEXP s)
 }
 
 
-int ncols(SEXP s)
+int ncols(SEXP s) // ~== NCOL(.)  in R
 {
     SEXP t;
     if (isVector(s) || isList(s)) {
@@ -269,13 +262,13 @@ void InitTypeTables(void) {
 	    SEXP rstr = ScalarString(rchar);
 	    MARK_NOT_MUTABLE(rstr);
 	    R_PreserveObject(rstr);
-	    UNPROTECT(1); /* rchar */
 	    SEXP rsym = install(cstr);
 
 	    Type2Table[type].cstrName = cstr;
 	    Type2Table[type].rcharName = rchar;
 	    Type2Table[type].rstrName = rstr;
 	    Type2Table[type].rsymName = rsym;
+	    UNPROTECT(1); /* rchar */
 	} else {
 	    Type2Table[type].cstrName = NULL;
 	    Type2Table[type].rcharName = NULL;
@@ -551,7 +544,8 @@ void attribute_hidden setIVector(int * vec, int len, int val)
 }
 
 
-/* unused in R, in Utils.h, apparently used in Rcpp  */
+/* unused in R, in Utils.h, may have been used in Rcpp at some point,
+      but not any more (as per Nov. 2018)  */
 void attribute_hidden setRVector(double * vec, int len, double val)
 {
     for (int i = 0; i < len; i++) vec[i] = val;
@@ -740,7 +734,7 @@ SEXP static intern_getwd(void)
 	wchar_t wbuf[PATH_MAX+1];
 	int res = GetCurrentDirectoryW(PATH_MAX, wbuf);
 	if(res > 0) {
-	    wcstoutf8(buf, wbuf, PATH_MAX+1);
+	    wcstoutf8(buf, wbuf, sizeof(buf));
 	    R_UTF8fixslash(buf);
 	    PROTECT(rval = allocVector(STRSXP, 1));
 	    SET_STRING_ELT(rval, 0, mkCharCE(buf, CE_UTF8));
@@ -803,7 +797,7 @@ SEXP attribute_hidden do_setwd(SEXP call, SEXP op, SEXP args, SEXP rho)
 SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP ans, s = R_NilValue;	/* -Wall */
-    char sp[4*PATH_MAX];
+    char sp[4*PATH_MAX+1];
     wchar_t  buf[PATH_MAX], *p;
     const wchar_t *pp;
     int i, n;
@@ -826,8 +820,7 @@ SEXP attribute_hidden do_basename(SEXP call, SEXP op, SEXP args, SEXP rho)
 		while (p >= buf && *p == L'/') *(p--) = L'\0';
 	    }
 	    if ((p = wcsrchr(buf, L'/'))) p++; else p = buf;
-	    memset(sp, 0, 4*PATH_MAX); /* safety */
-	    wcstoutf8(sp, p, 4*wcslen(p) + 1);
+	    wcstoutf8(sp, p, sizeof(sp));
 	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
 	}
     }
@@ -880,7 +873,7 @@ SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
     SEXP ans, s = R_NilValue;	/* -Wall */
     wchar_t buf[PATH_MAX], *p;
     const wchar_t *pp;
-    char sp[4*PATH_MAX];
+    char sp[4*PATH_MAX+1];
     int i, n;
 
     checkArity(op, args);
@@ -909,7 +902,7 @@ SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 			  && (p > buf+2 || *(p-1) != L':')) --p;
 		    p[1] = L'\0';
 		}
-		wcstoutf8(sp, buf, 4*wcslen(buf)+1);
+		wcstoutf8(sp, buf, sizeof(sp));
 	    }
 	    SET_STRING_ELT(ans, i, mkCharCE(sp, CE_UTF8));
 	}
@@ -965,7 +958,7 @@ extern char *realpath(const char *path, char *resolved_path);
 
 SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
-    SEXP ans, paths = CAR(args);
+    SEXP ans, paths = CAR(args), elp;
     int i, n = LENGTH(paths);
     const char *path;
     char abspath[PATH_MAX+1];
@@ -980,12 +973,21 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef HAVE_REALPATH
     PROTECT(ans = allocVector(STRSXP, n));
     for (i = 0; i < n; i++) {
-	path = translateChar(STRING_ELT(paths, i));
+	elp = STRING_ELT(paths, i);
+	if (elp == NA_STRING) {
+	    SET_STRING_ELT(ans, i, NA_STRING);
+	    if (mustWork == 1)
+		error("path[%d]=NA", i+1);
+	    else if (mustWork == NA_LOGICAL)
+		warning("path[%d]=NA", i+1);
+	    continue;
+	}
+	path = translateChar(elp);
 	char *res = realpath(path, abspath);
 	if (res)
 	    SET_STRING_ELT(ans, i, mkChar(abspath));
 	else {
-	    SET_STRING_ELT(ans, i, STRING_ELT(paths, i));
+	    SET_STRING_ELT(ans, i, elp);
 	    /* and report the problem */
 	    if (mustWork == 1)
 		error("path[%d]=\"%s\": %s", i+1, path, strerror(errno));
@@ -998,7 +1000,16 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
     warning("this platform does not have realpath so the results may not be canonical");
     PROTECT(ans = allocVector(STRSXP, n));
     for (i = 0; i < n; i++) {
-	path = translateChar(STRING_ELT(paths, i));
+	elp = STRING_ELT(paths, i);
+	if (elp == NA_STRING) {
+	    SET_STRING_ELT(ans, i, NA_STRING);
+	    if (mustWork == 1)
+		error("path[%d]=NA", i+1);
+	    else if (mustWork == NA_LOGICAL)
+		warning("path[%d]=NA", i+1);
+	    continue;
+	}
+	path = translateChar(elp);
 	OK = strlen(path) <= PATH_MAX;
 	if (OK) {
 	    if (path[0] == '/') strncpy(abspath, path, PATH_MAX);
@@ -1012,7 +1023,7 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if (OK) OK = (access(abspath, 0 /* F_OK */) == 0);
 	if (OK) SET_STRING_ELT(ans, i, mkChar(abspath));
 	else {
-	    SET_STRING_ELT(ans, i, STRING_ELT(paths, i));
+	    SET_STRING_ELT(ans, i, elp);
 	    /* and report the problem */
 	    if (mustWork == 1)
 		error("path[%d]=\"%s\": %s", i+1, path, strerror(errno));
@@ -1028,52 +1039,38 @@ SEXP attribute_hidden do_normalizepath(SEXP call, SEXP op, SEXP args, SEXP rho)
 #ifdef USE_INTERNAL_MKTIME
 const char *getTZinfo(void)
 {
-    const char *p = getenv("TZ");
-    if(p) return p;
-#ifdef HAVE_READLINK
-    // This works on Linux, macOS and *BSD: other known OSes set TZ.
-    // However, some Linux document /etc/localtime as a symlink
-    // but do not follow their own documentation!
     static char def_tz[PATH_MAX+1] = "";
-    if(def_tz[0]) return def_tz;
+    if (def_tz[0]) return def_tz;
 
-    char abspath[PATH_MAX + 1];
-    memset(abspath, 0, PATH_MAX + 1); // ensure nul-terminated
-    ssize_t cnt = readlink("/etc/localtime", abspath, PATH_MAX);
-# ifdef __APPLE__
-    // macOS <= 10.12 expands to /usr/share/zoneinfo/<zone name>
-    // macOS 10.13 expands to /usr/share/zoneinfo.default/<zone name>
-    // but 10.13.[12] expand to /var/db/timezone/zoneinfo/<zone name>
-    if(cnt > 0) { // -1 is error condition
-	if(strstr(abspath, ".default/"))
-	    strncpy(def_tz, abspath + 28, PATH_MAX);
-	else {
-	    // So guess is of the form .../zoneinfo/<real tz>
-	    p = strstr(abspath, "/zoneinfo/");
-	    if(p) {
-		strncpy(def_tz, p + 10, PATH_MAX);
-	    } else {
-		warning("system timezone name is unknown: set environment variable TZ");
-		return "unknown";
-	    }
+    // call Sys.timezone()
+    SEXP expr = PROTECT(install("Sys.timezone"));
+    SEXP call = PROTECT(lang1(expr));
+    SEXP ans = PROTECT(eval(call, R_GlobalEnv));
+    if(TYPEOF(ans) == STRSXP && LENGTH(ans) == 1) {
+	SEXP el = STRING_ELT(ans, 0);
+	if (el != NA_STRING) {
+	    strcpy(def_tz, CHAR(el));
+	    // printf("tz is %s\n", CHAR(el));
+	    UNPROTECT(3);
+	    return def_tz;
 	}
-//	printf("abspath = %s\n", abspath); printf("def_tz = %s\n", def_tz);
-	return def_tz;
     }
-# else
-    if(cnt > 0) {
-	strncpy(def_tz, abspath + 20, PATH_MAX); // strip "/usr/share/zoneinfo/"
-	return def_tz;
-    }
-# endif
-#endif
+    UNPROTECT(3);
     warning("system timezone name is unknown: set environment variable TZ");
-    return "unknown";
+    strcpy(def_tz, "unknown");  // code will then use TZDEFAULT, which is "UTC"
+    return def_tz;
 }
 #endif
 
 #endif // not Win32
 
+
+#ifdef Win32
+static void encode_cleanup(void *data)
+{
+    WinUTF8out = TRUE;
+}
+#endif
 
 /* encodeString(x, w, quote, justify) */
 SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
@@ -1119,6 +1116,20 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 	if(quote) w +=2; /* for surrounding quotes */
     }
     PROTECT(ans = duplicate(x));
+#ifdef Win32
+    RCNTXT cntxt;
+    Rboolean havecontext = FALSE;
+    /* do_encodeString is not printing, but returning a string, it therefore
+       must not produce Rgui escapes (do_encodeString may get called as part
+       of print dispatch with WinUTF8out being already set to TRUE). */
+    if (WinUTF8out) {
+	begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
+	             R_NilValue, R_NilValue);
+	cntxt.cend = &encode_cleanup;
+	havecontext = TRUE;
+	WinUTF8out = FALSE;
+    }
+#endif
     for(i = 0; i < len; i++) {
 	s = STRING_ELT(x, i);
 	if(na || s != NA_STRING) {
@@ -1133,6 +1144,12 @@ SEXP attribute_hidden do_encodeString(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    }
 	}
     }
+#ifdef Win32
+    if (havecontext) {
+	encode_cleanup(NULL);
+	endcontext(&cntxt);
+    }
+#endif
     UNPROTECT(1);
     return ans;
 }
@@ -1227,8 +1244,27 @@ int attribute_hidden utf8clen(char c)
     return 1 + utf8_table4[c & 0x3f];
 }
 
-/* These return the result in wchar_t, but does assume
-   wchar_t is UCS-2/4 and so are for internal use only */
+static Rwchar_t
+utf16toucs(wchar_t high, wchar_t low) 
+{
+    return 0x10000 + ((int) (high & 0x3FF) << 10 ) + (int) (low & 0x3FF);
+}
+
+/* Return the low UTF-16 surrogate from a UTF-8 string; assumes all testing has been done. */
+static wchar_t
+utf8toutf16low(const char *s)
+{
+    return (unsigned int) LOW_SURROGATE_START | ((s[2] & 0x0F) << 6) | (s[3] & 0x3F);
+}
+
+Rwchar_t attribute_hidden
+utf8toucs32(wchar_t high, const char *s)
+{
+    return utf16toucs(high, utf8toutf16low(s));
+}
+
+/* These return the result in wchar_t.  If wchar_t is 16 bit (e.g. UTF-16LE on Windows
+   only the high surrogate is returned; call utf8toutf16low next. */
 size_t attribute_hidden
 utf8toucs(wchar_t *wc, const char *s)
 {
@@ -1261,17 +1297,24 @@ utf8toucs(wchar_t *wc, const char *s)
 	    if(byte == 0xFFFE || byte == 0xFFFF) return (size_t)-1;
 	    return 3;
 	} else return (size_t)-1;
-    }
-    if(sizeof(wchar_t) < 4) return (size_t)-2;
-    /* So now handle 4,5.6 byte sequences with no testing */
-    if (byte < 0xf8) {
+    
+    } else if (byte < 0xf8) {
 	if(strlen(s) < 4) return (size_t)-2;
-	*w = (wchar_t) (((byte & 0x0F) << 18)
+	if (((s[1] & 0xC0) == 0x80) && ((s[2] & 0xC0) == 0x80) && ((s[3] & 0xC0) == 0x80)) {
+	    unsigned int cvalue = (((byte & 0x0F) << 18)
 			| (unsigned int) ((s[1] & 0x3F) << 12)
 			| (unsigned int) ((s[2] & 0x3F) << 6)
 			| (s[3] & 0x3F));
-	return 4;
-    } else if (byte < 0xFC) {
+	    if(sizeof(wchar_t) < 4) /* Assume UTF-16 and return high surrogate.  Users need to call utf8toutf16low next. */
+		*w = (wchar_t) ((cvalue - 0x10000) >> 10) | 0xD800;
+	    else
+		*w = (wchar_t) cvalue;
+	    return 4;
+	} else return (size_t)-1;
+    }
+    if(sizeof(wchar_t) < 4) return (size_t)-2;
+    /* So now handle 5.6 byte sequences with no testing */
+    if (byte < 0xFC) {
 	if(strlen(s) < 5) return (size_t)-2;
 	*w = (wchar_t) (((byte & 0x0F) << 24)
 			| (unsigned int) ((s[1] & 0x3F) << 12)
@@ -1306,6 +1349,11 @@ utf8towcs(wchar_t *wc, const char *s, size_t n)
 	    if (m == 0) break;
 	    res ++;
 	    if (res >= n) break;
+	    if (IS_HIGH_SURROGATE(*p)) {
+	    	*(++p) = utf8toutf16low(t);
+	    	res ++;
+	    	if (res >= n) break;
+	    }
 	}
     else
 	for(t = s; ; res++, t += m) {
@@ -1321,49 +1369,53 @@ static const unsigned int utf8_table1[] =
   { 0x7f, 0x7ff, 0xffff, 0x1fffff, 0x3ffffff, 0x7fffffff};
 static const unsigned int utf8_table2[] = { 0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc};
 
-static size_t Rwcrtomb(char *s, const wchar_t wc)
+/* s is NULL, or it contains at least n bytes.  Just write a a terminator if it's not big enough. */
+
+static size_t Rwcrtomb32(char *s, Rwchar_t cvalue, size_t n)
 {
     register size_t i, j;
-    unsigned int cvalue = (unsigned int) wc;
-    char buf[10], *b;
-
-    b = s ? s : buf;
-    if(cvalue == 0) {*b = 0; return 0;}
+    if (!n) return 0;
+    if (s) *s = 0;    /* Simplifies exit later */
+    if(cvalue == 0) return 0;
     for (i = 0; i < sizeof(utf8_table1)/sizeof(int); i++)
 	if (cvalue <= utf8_table1[i]) break;
-    b += i;
-    for (j = i; j > 0; j--) {
-	*b-- = (char) (0x80 | (cvalue & 0x3f));
-	cvalue >>= 6;
+    if (i >= n - 1) return 0;  /* need space for terminal null */
+    if (s) {
+    	s += i;
+    	for (j = i; j > 0; j--) {
+	    *s-- = (char) (0x80 | (cvalue & 0x3f));
+	    cvalue >>= 6;
+        }
+    	*s = (char) (utf8_table2[i] | cvalue);
     }
-    *b = (char) (utf8_table2[i] | cvalue);
     return i + 1;
 }
 
+/* on input, wc is a string encoded in UTF-16 or UCS-2 or UCS-4.
+   s can be a buffer of size n>=0 chars, or NULL.  If n=0 or s=NULL, nothing is written. 
+   The return value is the number of chars including the terminating null.  If the
+   buffer is not big enough, the result is truncated but still null-terminated */
 attribute_hidden // but used in windlgs
 size_t wcstoutf8(char *s, const wchar_t *wc, size_t n)
 {
-    ssize_t m, res=0;
+    size_t m, res=0;
     char *t;
     const wchar_t *p;
-    if(s) {
-	for(p = wc, t = s; ; p++) {
-	    m  = (ssize_t) Rwcrtomb(t, *p);
-	    if(m <= 0) break;
-	    res += m;
-	    if(res >= n) break;
+    if (!n) return 0;
+    for(p = wc, t = s; ; p++) {
+    	if (IS_SURROGATE_PAIR(*p, *(p+1))) {
+    	    Rwchar_t cvalue =  ((*p & 0x3FF) << 10) + (*(p+1) & 0x3FF) + 0x010000;
+	    m = Rwcrtomb32(t, cvalue, n - res);
+	    p++;
+    	} else 
+    	    m = Rwcrtomb32(t, (Rwchar_t)(*p), n - res);
+    	if (!m) break;
+	res += m;
+	if (t)
 	    t += m;
-	}
-    } else {
-	for(p = wc; ; p++) {
-	    m  = (ssize_t) Rwcrtomb(NULL, *p);
-	    if(m <= 0) break;
-	    res += m;
-	}
     }
-    return (size_t) res;
+    return res + 1;
 }
-
 
 /* A version that reports failure as an error */
 size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
@@ -1400,6 +1452,33 @@ size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
     return used;
 }
 
+/* Truncate a string in place (in native encoding) so that it only contains
+   valid multi-byte characters. Has no effect in non-mbcs locales. */
+attribute_hidden
+char* mbcsTruncateToValid(char *s)
+{
+    if (!mbcslocale)
+	return s;
+
+    mbstate_t mb_st;
+    size_t slen = strlen(s);
+    size_t goodlen = 0;
+
+    mbs_init(&mb_st);
+    while(goodlen < slen) {
+	size_t res;
+	res = mbrtowc(NULL, s + goodlen, slen - goodlen, &mb_st);
+	if (res == (size_t) -1 || res == (size_t) -2) {
+	    /* strip off all remaining characters */
+	    for(;goodlen < slen; goodlen++)
+		s[goodlen] = '\0';
+	    return s;
+	}
+	goodlen += res;
+    }
+    return s;
+} 
+    
 attribute_hidden
 Rboolean mbcsValid(const char *str)
 {
@@ -1493,8 +1572,8 @@ void R_fixslash(char *s)
 	}
     } else
 	for (; *p; p++) if (*p == '\\') *p = '/';
-	/* preserve network shares */
-	if(s[0] == '/' && s[1] == '/') s[0] = s[1] = '\\';
+    /* preserve network shares */
+    if(s[0] == '/' && s[1] == '/') s[0] = s[1] = '\\';
 }
 
 void R_UTF8fixslash(char *s)
@@ -1532,7 +1611,11 @@ void R_fixbackslash(char *s)
 }
 #endif
 
+#if defined FC_LEN_T
+void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar, FC_LEN_T msg_len)
+#else
 void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar)
+#endif
 {
     int nc = *nchar;
     char buf[256];
@@ -1545,7 +1628,11 @@ void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar)
     error("%s", buf);
 }
 
+#if defined FC_LEN_T
+void F77_SYMBOL(rwarnc)(char *msg, int *nchar, FC_LEN_T msg_len)
+#else
 void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
+#endif
 {
     int nc = *nchar;
     char buf[256];
@@ -1948,11 +2035,11 @@ static UCollator *collator = NULL;
 static int collationLocaleSet = 0;
 
 /* called from platform.c */
-void attribute_hidden resetICUcollator(void)
+void attribute_hidden resetICUcollator(Rboolean disable)
 {
     if (collator) ucol_close(collator);
     collator = NULL;
-    collationLocaleSet = 0;
+    collationLocaleSet = disable ? 1 : 0;
 }
 
 static const struct {
@@ -2102,11 +2189,27 @@ int Scollate(SEXP a, SEXP b)
     if (!collationLocaleSet) {
 	int errsv = errno;      /* OSX may set errno in the operations below. */
 	collationLocaleSet = 1;
+
+	/* A lot of code depends on that setting LC_ALL or LC_COLLATE to "C"
+	   via environment variables or Sys.setlocale ensures the "C" collation
+	   order. Originally, R_ICU_LOCALE always took precedence over LC_ALL
+	   and LC_COLLATE variables and over Sys.setlocale (except on Unix when
+	   R_ICU_LOCALE=C). This now adds an exception: when LC_ALL is set to "C"
+	   (or unset and LC_COLLATE is set to "C"), the "C" collation order will
+	   be used. */
+	const char *envl = getenv("LC_ALL");
+	if (!envl || !envl[0])
+	    envl = getenv("LC_COLLATE");
+	int useC = envl && !strcmp(envl, "C");
+	    
 #ifndef Win32
-	if (strcmp("C", getLocale()) ) {
+	if (!useC && strcmp("C", getLocale()) ) {
 #else
+	/* On Windows, ICU is used for R_ICU_LOCALE=C, on Unix, it is not. */
+	/* FIXME: as ICU does not support C as locale, could we use the Unix
+	   behavior on all systems? */
 	const char *p = getenv("R_ICU_LOCALE");
-	if(p && p[0]) {
+	if(p && p[0] && (!useC || !strcmp(p, "C"))) {
 #endif
 	    UErrorCode status = U_ZERO_ERROR;
 	    uloc_setDefault(getLocale(), &status);
@@ -2150,7 +2253,7 @@ SEXP attribute_hidden do_ICUget(SEXP call, SEXP op, SEXP args, SEXP rho)
     return mkString("ICU not in use");
 }
 
-void attribute_hidden resetICUcollator(void) {}
+void attribute_hidden resetICUcollator(Rboolean disable) {}
 
 # ifdef Win32
 
@@ -2360,6 +2463,7 @@ SEXP attribute_hidden do_pretty(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (eps == NA_INTEGER || eps < 0 || eps > 2)
 	error(_("'eps.correct' must be 0, 1, or 2"));
     R_pretty(&l, &u, &n, min_n, shrink, REAL(hi), eps, 1);
+    //------ (returns 'unit' which we do not need)
     PROTECT(ans = allocVector(VECSXP, 3));
     SET_VECTOR_ELT(ans, 0, ScalarReal(l));
     SET_VECTOR_ELT(ans, 1, ScalarReal(u));

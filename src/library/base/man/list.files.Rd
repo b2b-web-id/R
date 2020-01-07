@@ -1,6 +1,6 @@
 % File src/library/base/man/list.files.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{list.files}
@@ -23,7 +23,8 @@ list.dirs(path = ".", full.names = TRUE, recursive = TRUE)
   \item{path}{a character vector of full path names; the default
     corresponds to the working directory, \code{\link{getwd}()}.  Tilde
     expansion (see \code{\link{path.expand}}) is performed.  Missing
-    values will be ignored.}
+    values will be ignored.  Elements with a marked encoding will
+    be converted to the native encoding.}
   \item{pattern}{an optional \link{regular expression}.  Only file names
     which match the regular expression will be returned.}
   \item{all.files}{a logical value.  If \code{FALSE}, only the
@@ -45,9 +46,9 @@ list.dirs(path = ".", full.names = TRUE, recursive = TRUE)
 }
 \value{
   A character vector containing the names of the files in the
-  specified directories, or \code{""} if there were no files.  If a
+  specified directories (empty if there were no files).  If a
   path does not exist or is not a directory or is unreadable it
-  is skipped, with a warning.
+  is skipped.
 
   The files are sorted in alphabetical order, on the full path
   if \code{full.names = TRUE}.

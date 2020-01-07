@@ -1,6 +1,6 @@
 % File src/library/compiler/man/compile.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2011-2017 R Core Team
+% Copyright 2011-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{compile}
@@ -18,7 +18,7 @@
 cmpfun(f, options = NULL)
 compile(e, env = .GlobalEnv, options = NULL, srcref = NULL)
 cmpfile(infile, outfile, ascii = FALSE, env = .GlobalEnv,
-        verbose = FALSE, options = NULL)
+        verbose = FALSE, options = NULL, version = NULL)
 loadcmp(file, envir = .GlobalEnv, chdir = FALSE)
 disassemble(code)
 enableJIT(level)
@@ -35,6 +35,10 @@ setCompilerOptions(...)
     a \file{.Rc} extension in place of any existing extension.}
   \item{ascii}{logical; should the compiled file be saved in ascii format?}
   \item{verbose}{logical; should the compiler show what is being compiled?}
+  \item{version}{the workspace format version to use.  \code{NULL}
+    specifies the current default format (3).  Version 1 was the default
+    from \R 0.99.0 to \R 1.3.1 and version 2 from \R 1.4.0 to 3.5.0.
+    Version 3 is supported from \R 3.5.0.}
   \item{envir}{environment to evaluate loaded expressions in.}
   \item{chdir}{logical; change directory before evaluation?}
   \item{code}{byte code expression or compiled closure}
@@ -94,15 +98,20 @@ setCompilerOptions(...)
   this by using \code{cat} to print messages.  Eventually this should
   use the condition handling mechanism.
 
-  The \code{options} argument can be used to control compiler operation.
-  There are currently three options: \code{optimize},
-  \code{suppressAll}, and \code{suppressUndefined}. \code{optimize}
-  specifies the optimization level, an integer from \code{0} to \code{3}
-  (the current out-of-the-box default is \code{2}).  \code{suppressAll}
-  should be a scalar logical; if \code{TRUE} no messages will be
-  shown. \code{suppressUndefined} can be \code{TRUE} to suppress all
-  messages about undefined variables, or it can be a character vector of
-  the names of variables for which messages should not be shown.
+  The \code{options} argument can be used to control compiler operation. 
+  There are currently four options: \code{optimize}, \code{suppressAll},
+  \code{suppressUndefined}, and \code{suppressNoSuperAssignVar}. 
+  \code{optimize} specifies the optimization level, an integer from \code{0}
+  to \code{3} (the current out-of-the-box default is \code{2}). 
+  \code{suppressAll} should be a scalar logical; if \code{TRUE} no messages
+  will be shown (this is the default). \code{suppressUndefined} can be
+  \code{TRUE} to suppress all messages about undefined variables, or it can
+  be a character vector of the names of variables for which messages should
+  not be shown.  \code{suppressNoSuperAssignVar} can be \code{TRUE} to
+  suppress messages about super assignments to a variable for which no
+  binding is visible at compile time.  During compilation of packages,
+  \code{suppressAll} is currently \code{FALSE}, \code{suppressUndefined} is
+  \code{TRUE} and \code{suppressNoSuperAssignVar} is \code{TRUE}.
 
   \code{getCompilerOption} returns the value of the specified option.
   The default value is returned unless a value is supplied in the

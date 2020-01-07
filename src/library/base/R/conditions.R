@@ -44,10 +44,19 @@ tryCatch <- function(expr, ..., finally) {
 	# the handler is invoked; we only get to this point if the handler
 	# is invoked.  If we get here then the handler will have been
 	# popped off the internal handler stack.
-        if (is.character(value[[1L]])) {
-	    # a simple error; only the msg string is allocated before
-	    # the jump
-            msg <- value[1L]
+	if (is.null(value[[1L]])) {
+	    # a simple error; message is stored internally
+	    # and call is in result; this defers all allocs until
+	    # after the jump
+	    msg <- .Internal(geterrmessage())
+	    call <- value[[2L]]
+	    cond <- simpleError(msg, call)
+	}
+        else if (is.character(value[[1L]])) {
+            # if the jump for a simple error is intercepted to handle
+            # an on.exit() action then the error message is encoded as
+            # a character object at that point
+	    msg <- value[[1L]]
 	    call <- value[[2L]]
 	    cond <- simpleError(msg, call)
         }
@@ -101,6 +110,14 @@ simpleWarning <- function(message, call = NULL) {
     class <- c("simpleWarning", "warning", "condition")
     structure(list(message=as.character(message), call = call), class=class)
 }
+
+errorCondition <- function(message, ..., class = NULL, call = NULL)
+    structure(list(message = as.character(message), call = call, ...),
+              class = c(class, "error", "condition"))
+
+warningCondition <- function(message, ..., class = NULL, call = NULL)
+    structure(list(message = as.character(message), call = call, ...),
+              class = c(class, "warning", "condition"))
 
 conditionMessage <- function(c) UseMethod("conditionMessage")
 conditionCall <- function(c) UseMethod("conditionCall")
@@ -313,4 +330,32 @@ withRestarts <- function(expr, ...) {
     r <- findRestart("resume")
     if (! is.null(r))
         invokeRestart(r)
+}
+
+
+##
+## Suspending/Allowing Interrupts
+##
+
+
+suspendInterrupts <- function(expr) {
+    suspended <- .Internal(interruptsSuspended())
+    if (suspended)
+        expr
+    else {
+        on.exit(.Internal(interruptsSuspended(suspended)))
+        .Internal(interruptsSuspended(TRUE))
+        expr
+    }
+}
+
+allowInterrupts <- function(expr) {
+    suspended <- .Internal(interruptsSuspended())
+    if (suspended) {
+        on.exit(.Internal(interruptsSuspended(suspended)))
+        .Internal(interruptsSuspended(FALSE))
+        expr
+    }
+    else
+        expr
 }

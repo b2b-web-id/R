@@ -1,7 +1,7 @@
 #  File src/library/utils/R/summRprof.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2017 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -153,7 +153,7 @@ summaryRprof <-
 
     if (lines == "show") {
     	filename <- sub("#.*$", "", fnames)
-    	linenum <- rep(0, length(filename))
+    	linenum <- rep.int(0, length(filename))
     	hasline <- filename != fnames
     	linenum[hasline] <- as.numeric(sub("^.*#", "", fnames[hasline]))
     	index3 <- order(filename, linenum)
@@ -205,6 +205,8 @@ Rprof_memory_summary <- function(filename, chunksize = 5000,
                          "match.length")
        memstuff <- substr(chunk, 2L, memprefix-1L)
        memcounts <- rbind(t(sapply(strsplit(memstuff, ":"), as.numeric)))
+       ## convert to bytes
+       memcounts <- cbind(memcounts[, 1L:2L, drop = FALSE] * 8, memcounts[, 3L:4L, drop = FALSE])
 
        chunk <- substr(chunk, memprefix+1, nchar(chunk,  "c"))
        if(any((nc <- nchar(chunk,  "c")) == 0L)) {

@@ -1,7 +1,7 @@
 #  File src/library/utils/R/frametools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2016 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -26,12 +26,11 @@ stack.data.frame <- function(x, select, drop=FALSE, ...)
 	vars <- eval(substitute(select),nl, parent.frame())
         x <- x[, vars, drop=FALSE]
     }
-    keep <- unlist(lapply(x, is.vector))
-    if(!sum(keep)) stop("no vector columns were selected")
-    if(!all(keep))
-        warning("non-vector columns will be ignored")
+    keep <- vapply(x, is.vector, NA)
+    if(!any(keep)) stop("no vector columns were selected")
+    if(!all(keep)) warning("non-vector columns will be ignored")
     x <- x[, keep, drop = FALSE]
-    ind <- rep(factor(names(x), unique(names(x))), lengths(x))
+    ind <- rep.int(factor(names(x), unique(names(x))), lengths(x))
     if (drop) {
         ind <- droplevels(ind)
     }
@@ -47,7 +46,7 @@ stack.default <- function(x, drop=FALSE, ...)
     if(!sum(keep)) stop("at least one vector element is required")
     if(!all(keep)) warning("non-vector elements will be ignored")
     x <- x[keep]
-    ind <- rep(factor(names(x), unique(names(x))), lengths(x))
+    ind <- rep.int(factor(names(x), unique(names(x))), lengths(x))
     if (drop) {
         ind <- droplevels(ind)
     }

@@ -1,7 +1,7 @@
 #  File src/library/base/R/character.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -122,13 +122,12 @@ toupper <- function(x)
 casefold <- function(x, upper = FALSE)
     if(upper) toupper(x) else tolower(x)
 
-sQuote <- function(x)
+sQuote <- function(x, q = getOption("useFancyQuotes"))
 {
     if (!length(x)) return(character())
     before <- after <- "'"
-    q <- getOption("useFancyQuotes")
     if(!is.null(q)) {
-        if(identical(q, TRUE)) {
+        if(isTRUE(q)) {
             li <- l10n_info()
             if(li$"UTF-8") q <- "UTF-8"
             if(!is.null(li$codepage) && li$codepage > 0L) {
@@ -136,9 +135,11 @@ sQuote <- function(x)
                 ## it is in latin1 in CP1252
                 if(li$codepage >= 1250L && li$codepage <= 1258L
                    || li$codepage == 874L) {
-                    before <- "\x91"; after <- "\x92"
+                    before <- rawToChar(as.raw(0x91))
+                    after <- rawToChar(as.raw(0x92))
                 } else {
-                    z <- iconv(c("\xe2\x80\x98", "\xe2\x80\x99"), "UTF-8", "")
+                    z <- iconv(c(intToUtf8(0x2018), intToUtf8(0x2019)),
+                               "UTF-8", "")
                     before <- z[1L]; after <- z[2L]
                 }
             }
@@ -147,33 +148,31 @@ sQuote <- function(x)
             before <- "`"; after <- "'"
         }
         if(identical(q, "UTF-8")) {
-            before <- "\xe2\x80\x98"; after <- "\xe2\x80\x99"
+            before <- intToUtf8(0x2018); after <- intToUtf8(0x2019)
         }
         if(is.character(q) && length(q) >= 4L) {
             before <- q[1L]; after <- q[2L]
         }
-        ## we do not want these strings marked as in the encoding
-        ## R was built under
-        Encoding(before) <- Encoding(after) <- "unknown"
     }
     paste0(before, x, after)
 }
 
-dQuote <- function(x)
+dQuote <- function(x, q = getOption("useFancyQuotes"))
 {
     if (!length(x)) return(character())
     before <- after <- "\""
-    q <- getOption("useFancyQuotes")
     if(!is.null(q)) {
-        if(identical(q, TRUE)) {
+        if(isTRUE(q)) {
             li <- l10n_info()
             if(li$"UTF-8") q <- "UTF-8"
             if(!is.null(li$codepage) && li$codepage > 0L) {
                 if(li$codepage >= 1250L && li$codepage <= 1258L
                     || li$codepage == 874L) {
-                    before <- "\x93"; after <- "\x94"
+                    before <- rawToChar(as.raw(0x93))
+                    after <- rawToChar(as.raw(0x94))
                 } else {
-                    z <- iconv(c("\xe2\x80\x9c", "\xe2\x80\x9d"), "UTF-8", "")
+                    z <- iconv(c(intToUtf8(0x201c), intToUtf8(0x201d)),
+                               "UTF-8", "")
                     before <- z[1L]; after <- z[2L]
                 }
             }
@@ -182,12 +181,11 @@ dQuote <- function(x)
             before <- "``"; after <- "''"
         }
         if(identical(q, "UTF-8")) {
-            before <- "\xe2\x80\x9c"; after <- "\xe2\x80\x9d"
+            before <- intToUtf8(0x201c); after <- intToUtf8(0x201d)
         }
         if(is.character(q) && length(q) >= 4L) {
             before <- q[3L]; after <- q[4L]
         }
-        Encoding(before) <- Encoding(after) <- "unknown"
     }
     paste0(before, x, after)
 }

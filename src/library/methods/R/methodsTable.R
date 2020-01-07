@@ -1,7 +1,7 @@
 #  File src/library/methods/R/methodsTable.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2017 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -224,11 +224,12 @@
   table
 }
 
+## utility now *only* called once above
 .storeMlist <- function(table, sig, mlist, i, add, fenv) {
     ## once generic functions are installed from 2.11.0 or later, this should
     ## only be called with mlist a method or NULL.
     if(is.null(mlist)) return(table)
-    m <- if(is(mlist, "MethodsList")) { .MlistDeprecated(); mlist@methods }
+    m <- if(is(mlist, "MethodsList")) { .MlistDefunct(); mlist@methods }
 	 else list(ANY=mlist)
 
   ## once MethodsList is defunct, this should be rewritten (and renamed!)
@@ -246,7 +247,7 @@
         remove(list = .sigLabel(sig), envir = table)
     }
     else if(is(el,"MethodsList")) {
-	.MlistDeprecated()
+	.MlistDefunct()
       i1 <- i+1
       if(i1 >= length(sig)) {
         ## a reset of the labels will be needed
@@ -443,13 +444,24 @@
 .sigLabel <- function(sig)
   paste(sig, collapse = "#")
 
+.fillSignatures <- function(sigs, n) {
+    siglens <- lengths(strsplit(sigs, "#", fixed=TRUE))
+    short <- n > siglens
+    suffix <- vapply(n - siglens[short],
+                     function(ni) paste(rep("ANY", ni), collapse="#"),
+                     character(1L))
+    sigs[short] <- paste(sigs[short], suffix, sep="#")
+    sigs
+}
+
 ## workhorse of selectMethod() [ -> ../Methods.R ] "
 .findInheritedMethods <-
     function(classes, fdef, mtable = NULL,
              table = get(".MTable", envir = environment(fdef)),
              excluded = NULL, useInherited,
              simpleOnly = .simpleInheritanceGeneric(fdef), verbose = FALSE,
-             doCache = is.environment(mtable))
+             doCache = is.environment(mtable),
+             where = environment(fdef))
 {
     ## to avoid infinite recursion, and somewhat for speed, turn off S4 methods for primitives
     primMethods <- .allowPrimitiveMethods(FALSE)
@@ -495,7 +507,7 @@
         ## else, continue because we may want all defined methods
     }
     cl1 <- classes[[1L]]
-    def <- getClass(cl1, .Force = TRUE)
+    def <- getClass(cl1, where = where, .Force = TRUE)
     labels <-
       if(missing(useInherited) || useInherited[[1L]])
           c(cl1, .eligibleSuperClasses(def@contains, simpleOnly), "ANY")
@@ -505,7 +517,8 @@
     classDefs[[1L]] <- def
     if(nargs > 1) { ## further arguments
         for(i in 2:nargs) {
-            cc <- classDefs[[i]] <- getClass(classes[[i]], .Force = TRUE)
+            cc <- classDefs[[i]] <- getClass(classes[[i]], where = where,
+                                             .Force = TRUE)
             allLabels <- if(missing(useInherited) || useInherited[[i]])
                 c(cc@className, .eligibleSuperClasses(cc@contains, simpleOnly),
                   "ANY")
@@ -521,8 +534,9 @@
 	if(verbose >= 2) { cat(";  labels = \n") ; print(labels) }
     }
     allMethods <- names(table)
-    found <- labels %in% allMethods
-    methods <- mget(labels[found], table)
+    m <- match(labels, .fillSignatures(allMethods, length(classes)))
+    found <- !is.na(m)
+    methods <- mget(allMethods[m[found]], table)
     if(verbose) cat(" >> found: ", length(methods), "\n")
     if(hasGroup) {
         ##  add the  group methods recursively found but each time
@@ -576,7 +590,7 @@
             condAction <- getOption("ambiguousMethodSelection")
             if(is.null(condAction))
               condAction <- .ambiguousMethodMessage
-            else if(!is(condAction, "function"))
+            else if(!is.function(condAction))
               stop(gettextf("the \"ambiguousMethodSelection\" option should be a function to be called as the condition action; got an object of class %s",
                             dQuote(class(condAction))),
                    domain = NA)
@@ -619,10 +633,11 @@
 
 .checkDuplicateMethodClasses <- function(classDefs, env, label){
     supers <- strsplit(label, "#", TRUE)[[1]]
-    plabels <- strsplit(sort(names(env)), "#", TRUE)
+    sigs <- sort(names(env))
+    plabels <- strsplit(sigs, "#", TRUE)
     hasSubclass <- vapply(plabels, .hasThisSubclass, logical(1L),
                           classDefs=classDefs, supers=supers)
-    mget(plabels[hasSubclass], env)
+    mget(sigs[hasSubclass], env)
 }
 
 .hasThisSubclass <- function(classDefs, supers, plabel) {
@@ -674,7 +689,7 @@
 		   if(simpleOnly)
 		   function(x) (is.logical(x) && x) || x@simple
 		   else # eliminate conditional inheritance
-		   function(x) (is.logical(x) && x) || x@simple || identical(body(x@test), TRUE), NA)
+		   function(x) (is.logical(x) && x) || x@simple || isTRUE(body(x@test)), NA)
 	what[eligible]
     }
 }
@@ -686,18 +701,19 @@
     ## a corresponding set of package names
     ## <FIXME> There should be a "<unknown>" package name instead of "methods"
     ## but this requires a way to deal with that generally </FIXME>
-    pkgs <- c(packageSlot(classes), rep("methods", n))[i]
+    pkgs <- lapply(classes[i], packageSlot)
+    pkgs[vapply(pkgs, is.null, logical(1L))] <- "methods"
 
   ## Simplified version ...
   .asS4(structure(as.character(classes)[i],
             class = .signatureClassName,
             names = as.character(names)[i],
-            package = pkgs ))
+            package = as.character(pkgs) ))
  }
 
 .findNextFromTable <- function(method, f, optional, envir, prev = character())
 {
-    fdef <- getGeneric(f)
+    fdef <- getGeneric(f, where = envir)
     env <- environment(fdef)
 ##    target <- method@target
     n <- get(".SigLength", envir = env)
@@ -713,7 +729,8 @@
     allTable <- .getMethodsTable(fdef, inherited = TRUE)
     methods <- .findInheritedMethods(defined, fdef, mtable = NULL,
                                      table = allTable,
-                                     excluded = excluded)
+                                     excluded = excluded,
+                                     where = envir)
     if(length(methods) == 0L) # use default method, maybe recursively.
         methods <- list(finalDefaultMethod(fdef@default)) #todo: put a label on it?
     if(length(methods) > 1L)
@@ -840,16 +857,17 @@
       return(which.min(match(sigs[1L,], supersList[[1L]])))
     }
     ## else  nArg >= 2
-    best      <- rep.int(TRUE,  n)
-    dominated <- rep.int(FALSE, n)
     pos <- matrix(0L, nArg, n)
     for(i in 1:nArg) {
         pos[i,] <- match(sigs[i,], supersList[[i]])
     }
+    valid <- colSums(is.na(pos)) == 0L
+    best <- valid
+    dominated <- !valid
     ## pairwise comparison of columns of pos.  Any way to vectorize?
     seqn <- seq_len(n)
-    for(i in seqn) {
-      for(j in seqn[-i]) {
+    for(i in seqn[valid]) {
+      for(j in seqn[-i][valid[-i]]) {
         diffs <- pos[,j] - pos[,i]
 	if(any(diffs < 0))  { best[i] <- FALSE; if(dominated[i]) break }
 	if(all(diffs <= 0)) { dominated[i] <- TRUE; if(!best[i]) break }
@@ -1063,12 +1081,10 @@
     ## else: non-empty methods list
     doFun(f,p)
     for(m in mget(labels, table)) {
+        pkgs <- NULL
 	if(is.environment(m)) {  ## duplicate class case -- compare .findMethodInTable()
             pkgs <- names(m)
-            if(length(pkgs) == 1)
-                m <- m[[pkgs]]
-            else if(length(pkgs) > 1)
-                cf("  (", length(pkgs), " methods defined for this signature, with different packages)\n")
+            m <- m[[pkgs[1L]]]
         }
 	if( is(m, "MethodDefinition")) {
 	    t <- m@target
@@ -1083,8 +1099,10 @@
             if(!.identC(m@generic, f) && length(m@generic) == 1L &&
                nzchar(m@generic))
 		cf("    (definition from function \"", m@generic, "\")\n")
+            if(length(pkgs) > 1)
+                cf("  (", length(pkgs), " methods defined for this signature, with different packages)\n")
 	}
-	if(includeDefs && is(m, "function")) {
+	if(includeDefs && is.function(m)) {
 	    if(is(m, "MethodDefinition"))
 		m <- m@.Data
 	    cat(deparse(m), sep="\n", "\n", file = printTo)
@@ -1243,14 +1261,18 @@ outerLabels <- function(labels, new) {
       sig <- c(as.character(sig), rep("ANY", more))
   }
   else if(n > nargs) { #reset table?
-    if(all(sig[(nargs+1):n] == "ANY"))
-      length(sig) <- length(pkgs) <- nargs
-    else {
+    if(all(sig[(nargs+1):n] == "ANY")) {
+        length(sig) <- nargs
+        if (!is.null(pkgs))
+            length(pkgs) <- nargs
+    } else {
       while(sig[[n]] == "ANY")
         n <- n-1
       if(reset)
         .resetSigLength(fdef, n)
-      length(sig) <- length(pkgs) <- n
+      length(sig) <- n
+      if (!is.null(pkgs))
+          length(pkgs) <- n
     }
   }
   packageSlot(sig) <- pkgs
@@ -1297,16 +1319,6 @@ outerLabels <- function(labels, new) {
     assign(tname, table, envir = where)
   }
   .cacheMethodInTable(fdef, signature, definition, table)
-}
-
-## Assertion: following is unused
-.assignMethodsMetaTable <- function(mlist, generic, where, overwrite = TRUE) {
-    .MlistDefunct(".assignMethodsMetaTable")
-    tname <- .TableMetaName(generic@generic, generic@package)
-    if(overwrite || !exists(tname, envir = where, inherits = FALSE)) {
-        table <- .mlistAddToTable(generic, mlist) # asserted never to be called.
-        assign(tname, table, envir = where)
-    }
 }
 
 .removeMethodsMetaTable <- function(generic, where) {
@@ -1463,11 +1475,18 @@ listFromMethods <- function(generic, where, table) {
            domain = NA)
 }
 
+setPackageSlot <- function(x, value) {
+    packageSlot(x) <- value
+    x
+}
+
 .inheritedArgsExpression <- function(target, defined, body) {
     expr <- substitute({}, list(DUMMY = "")) # bug if you use quote({})--is overwritten!!
     args <- names(defined)
     for(i in seq_along(defined)) {
-        ei <- extends(target[[i]], defined[[i]], fullInfo = TRUE)
+        ei <- extends(setPackageSlot(target [[i]], packageSlot(target)[[i]]),
+                      setPackageSlot(defined[[i]], packageSlot(defined)),
+                      fullInfo = TRUE)
         if(is(ei, "SClassExtension")  && !ei@simple)
           expr[[length(expr) + 1L]] <-
             substitute(ARG <- as(ARG, DEFINED, strict = FALSE),
@@ -1475,11 +1494,11 @@ listFromMethods <- function(generic, where, table) {
                             DEFINED = as.character(defined[[i]])))
     }
     if(length(expr) > 1L) {
-       expr[[length(expr) + 1L]] <- body
+       expr[length(expr) + 1L] <- list(body) # body could be NULL!
        expr
    }
     else
-      NULL
+        NULL
 }
 
 testInheritedMethods <- function(f, signatures, test = TRUE,  virtual = FALSE,
@@ -1519,7 +1538,7 @@ testInheritedMethods <- function(f, signatures, test = TRUE,  virtual = FALSE,
       classDefs[[iAny]] <- getClassDef(".Other")
     }
     if(excludeVirtual)
-      classes <- classes[vapply(classDefs, function(def) identical(def@virtual, FALSE), NA)]
+      classes <- classes[vapply(classDefs, function(def) isFALSE(def@virtual), NA)]
     unique(c(classes, allSubs))
   }
   ## end of .relevantClasses
@@ -1580,7 +1599,7 @@ testInheritedMethods <- function(f, signatures, test = TRUE,  virtual = FALSE,
     ## now split the individual labels back into signatures
     signatures <- strsplit(sigLabels, "#", fixed = TRUE)
   } ## end of missing(signatures) case
-  else if(is(signatures, "matrix") && identical(typeof(signatures), "character")
+  else if(is(signatures, "matrix") && typeof(signatures) == "character"
        && ncol(signatures) <= length(f@signature)) {
       ## turn signatures back into a list
       siglist <- vector("list", nrow(signatures))

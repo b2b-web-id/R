@@ -1,7 +1,7 @@
 #  File src/library/utils/R/packages2.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ isBasePkg <- function(pkg) {
 
 getDependencies <-
     function(pkgs, dependencies = NA, available = NULL, lib = .libPaths()[1L],
-             binary = FALSE)
+             binary = FALSE, ...)
 {
     if (is.null(dependencies)) return(unique(pkgs))
     oneLib <- length(lib) == 1L
@@ -84,7 +84,8 @@ getDependencies <-
         libpath <- .libPaths()
         if(!lib %in% libpath) libpath <- c(lib, libpath)
         installed <- installed.packages(lib.loc = libpath,
-                                        fields = c("Package", "Version"))
+                                        fields = c("Package", "Version"),
+                                        ...)
         not_avail <- character()
 	repeat {
 	    deps <- apply(available[p1, dependencies, drop = FALSE],
@@ -214,7 +215,7 @@ install.packages <-
             paste(INSTALL_opts[[get_package_name(pkg)]], collapse = " ")
     }
 
-    if(missing(pkgs) || !length(pkgs)) {
+    if(missing(pkgs)) {
         if(!interactive()) stop("no packages were specified")
         ## if no packages were specified, use a menu
 	if(.Platform$OS.type == "windows" || .Platform$GUI == "AQUA"
@@ -227,7 +228,8 @@ install.packages <-
         ## This will only offer the specified type.  If type = "both"
         ## do not want 'available' set for "source".
 	if(is.null(available)) {
-	    av <- available.packages(contriburl = contriburl, method = method)
+	    av <- available.packages(contriburl = contriburl, method = method,
+                                     ...)
 	    if (missing(repos)) ## Evaluating contriburl may have changed repos, which may be used below
 	      repos <- getOption("repos")
             if(type != "both") available <- av
@@ -240,9 +242,10 @@ install.packages <-
                                 multiple = TRUE,
                                 title = "Packages", graphics = TRUE)
 	}
-	if(!length(pkgs)) stop("no packages were specified")
     }
 
+    if(!length(pkgs)) return(invisible())
+        
     if(missing(lib) || is.null(lib)) {
         lib <- .libPaths()[1L]
 	if(!quiet && length(.libPaths()) > 1L)
@@ -277,25 +280,14 @@ install.packages <-
         userdir <- unlist(strsplit(Sys.getenv("R_LIBS_USER"),
                                    .Platform$path.sep))[1L]
 	if(interactive()) {
-	    ask.yes.no <- function(msg) {
-                ##' returns "no" for "no",  otherwise 'ans', a string
-		msg <- gettext(msg)
-		if(.Platform$OS.type == "windows") {
-                    flush.console() # so warning is seen
-		    ans <- winDialog("yesno", sprintf(msg, sQuote(userdir)))
-		    if(ans != "YES") "no" else ans
-		} else {
-		    ans <- readline(paste(sprintf(msg, userdir), " (y/n) "))
-		    if(substr(ans, 1L, 1L) == "n") "no" else ans
-		}
-	    }
-	    ans <- ask.yes.no("Would you like to use a personal library instead?")
-	    if(identical(ans, "no")) stop("unable to install packages")
+	    ans <- askYesNo(gettext("Would you like to use a personal library instead?"), default = FALSE)
+	    if(!isTRUE(ans)) stop("unable to install packages")
 
 	    lib <- userdir
 	    if(!file.exists(userdir)) {
-		ans <- ask.yes.no("Would you like to create a personal library\n%s\nto install packages into?")
-		if(identical(ans, "no")) stop("unable to install packages")
+		ans <- askYesNo(gettextf("Would you like to create a personal library\n%s\nto install packages into?",
+		                        sQuote(userdir)), default = FALSE)
+		if(!isTRUE(ans)) stop("unable to install packages")
 		if(!dir.create(userdir, recursive = TRUE))
                     stop(gettextf("unable to create %s", sQuote(userdir)),
                          domain = NA)
@@ -309,18 +301,18 @@ install.packages <-
     ## check if we should infer repos = NULL
     if(length(pkgs) == 1L && missing(repos) && missing(contriburl)) {
         if((type == "source" && any(grepl("[.]tar[.](gz|bz2|xz)$", pkgs))) ||
-           (type %in% "win.binary" && length(grep("[.]zip$", pkgs))) ||
-           (substr(type, 1L, 10L) == "mac.binary" && grepl("[.]tgz$", pkgs))) {
+           (type %in% "win.binary" && endsWith(pkgs, ".zip")) ||
+           (startsWith(type, "mac.binary") && endsWith(pkgs, ".tgz"))) {
             repos <- NULL
             message("inferring 'repos = NULL' from 'pkgs'")
         }
         if (type == "both") {
-            if (type2 %in% "win.binary" && grepl("[.]zip$", pkgs)) {
+            if (type2 %in% "win.binary" && endsWith(pkgs, ".zip")) {
                 repos <- NULL
                 type <- type2
                 message("inferring 'repos = NULL' from 'pkgs'")
-            } else if (substr(type2, 1L, 10L) == "mac.binary"
-                       && grepl("[.]tgz$", pkgs)) {
+            } else if (startsWith(type2, "mac.binary")
+                       && endsWith(pkgs, ".tgz")) {
                 repos <- NULL
                 type <- type2
                 message("inferring 'repos = NULL' from 'pkgs'")
@@ -334,9 +326,9 @@ install.packages <-
 
     ## check if we should infer the type
     if (length(pkgs) == 1L && is.null(repos) && type == "both") {
-    	if (  (type2 %in% "win.binary" && grepl("[.]zip$", pkgs))
-	    ||(substr(type2, 1L, 10L) == "mac.binary"
-		   && grepl("[.]tgz$", pkgs))) {
+    	if (  (type2 %in% "win.binary" && endsWith(pkgs, ".zip"))
+	    ||(startsWith(type2, "mac.binary")
+		   && endsWith(pkgs, ".tgz"))) {
 	    type <- type2
 	} else if (grepl("[.]tar[.](gz|bz2|xz)$", pkgs)) {
 	    type <- "source"
@@ -354,11 +346,13 @@ install.packages <-
                      domain = NA)
         }
         if(nonlocalrepos) {
+            df <- function(p, destfile, method, ...)
+                download.file(p, destfile, method, mode = "wb", ...)
             urls <- pkgs[web]
             for (p in unique(urls)) {
                 this <- pkgs == p
                 destfile <- file.path(tmpd, basename(p))
-                res <- try(download.file(p, destfile, method, mode="wb", ...))
+                res <- try(df(p, destfile, method, ...))
                 if(!inherits(res, "try-error") && res == 0L)
                     pkgs[this] <- destfile
                 else {
@@ -390,17 +384,32 @@ install.packages <-
         if (missing(repos)) repos <- getOption("repos")
         available <-
             available.packages(contriburl = contriburl, method = method,
-                               fields = "NeedsCompilation")
-        pkgs <- getDependencies(pkgs, dependencies, available, lib)
+                               fields = "NeedsCompilation", ...)
+        pkgs <- getDependencies(pkgs, dependencies, available, lib, ...)
         getDeps <- FALSE
         ## Now see what we can get as binary packages.
         av2 <- available.packages(contriburl = contrib.url(repos, type2),
-                                  method = method)
+                                  method = method, ...)
         bins <- row.names(av2)
         bins <- pkgs[pkgs %in% bins]
         srcOnly <- pkgs[! pkgs %in% bins]
         binvers <- av2[bins, "Version"]
-        hasSrc <-  !is.na(av2[bins, "Archs"])
+
+        ## In most cases, packages that need compilation have non-NA "Archs"
+        ## in their binary version and "NeedsCompilation" with value "yes"
+        ## in their source version.  However, the fields are not always
+        ## filled in correctly and some binary packages have executable code
+        ## outside "libs" (so "Archs" is NA), also a later version of a
+        ## package may need compilation but an older one not.  To reduce the
+        ## risk that the user will attempt to install a package from source
+        ## but without having the necessary tools to build it, packages are
+        ## treated as needing compilation whenever they have non-NA "Archs"
+        ## in binary version or/and "NeedsCompilation"="yes" in source
+        ## version.
+
+        hasArchs <-  !is.na(av2[bins, "Archs"])
+        needsCmp <- !(available[bins, "NeedsCompilation"] %in% "no")
+        hasSrc <- hasArchs | needsCmp  
 
         srcvers <- available[bins, "Version"]
         later <- as.numeric_version(binvers) < srcvers
@@ -427,9 +436,9 @@ install.packages <-
                         ngettext(sum(later & hasSrc),
                                  "Do you want to install from sources the package which needs compilation?",
                                  "Do you want to install from sources the packages which need compilation?")
-                    message(msg, domain = NA)
-                    res <- readline("y/n: ")
-                    if(res != "y") later <- later & !hasSrc
+                    res <- askYesNo(msg)
+                    if (is.na(res)) stop("Cancelled by user")
+                    if(!isTRUE(res)) later <- later & !hasSrc
                 } else if (action == "never") {
                     cat("  Binaries will be installed\n")
                     later <- later & !hasSrc
@@ -449,9 +458,9 @@ install.packages <-
                 msg <- strwrap(paste(msg, collapse = " "), exdent = 2)
                 message(paste(msg, collapse = "\n"), domain = NA)
                 if(action == "interactive" && interactive()) {
-                    message("Do you want to attempt to install these from sources?")
-                    res <- readline("y/n: ")
-                    if(res != "y") pkgs <- setdiff(pkgs, s2)
+                    res <- askYesNo("Do you want to attempt to install these from sources?")
+                    if (is.na(res)) stop("Cancelled by user")
+                    if(!isTRUE(res)) pkgs <- setdiff(pkgs, s2)
                 } else if(action == "never") {
                     cat("  These will not be installed\n")
                     pkgs <- setdiff(pkgs, s2)
@@ -486,23 +495,25 @@ install.packages <-
 	flush.console()
         ## end of "both"
     } else if (getOption("install.packages.check.source", "yes") %in% "yes"
-               && (type %in% "win.binary" || substr(type, 1L, 10L) == "mac.binary")) {
+               && (type %in% "win.binary" || startsWith(type, "mac.binary"))) {
         if (missing(contriburl) && is.null(available) && !is.null(repos)) {
             contriburl2 <- contrib.url(repos, "source")
 	    # The line above may have changed the repos option, so..
             if (missing(repos)) repos <- getOption("repos")
 	    av1 <- tryCatch(suppressWarnings(
-			available.packages(contriburl = contriburl2, method = method)),
+			available.packages(contriburl = contriburl2, method = method, ...)),
 			    error = function(e)e)
 	    if(inherits(av1, "error")) {
                 message("source repository is unavailable to check versions")
                 available <-
-                    available.packages(contriburl = contrib.url(repos, type), method = method)
+                    available.packages(contriburl = contrib.url(repos, type),
+                                       method = method, ...)
             } else {
                 srcpkgs <- pkgs[pkgs %in% row.names(av1)]
                 ## Now see what we can get as binary packages.
                 available <-
-                    available.packages(contriburl = contrib.url(repos, type), method = method)
+                    available.packages(contriburl = contrib.url(repos, type),
+                                       method = method, ...)
                 bins <- pkgs[pkgs %in% row.names(available)]
                 ## so a package might only be available as source,
                 ## or it might be later in source.
@@ -538,7 +549,7 @@ install.packages <-
     }
 
     if(.Platform$OS.type == "windows") {
-        if(substr(type, 1L, 10L) == "mac.binary")
+        if(startsWith(type, "mac.binary"))
             stop("cannot install macOS binary packages on Windows")
 
         if(type %in% "win.binary") {
@@ -563,7 +574,7 @@ install.packages <-
         ## -- will mess up UNC names, but they don't work
         pkgs <- gsub("\\\\", "/", pkgs)
     } else {
-        if(substr(type, 1L, 10L) == "mac.binary") {
+        if(startsWith(type, "mac.binary")) {
             if(!grepl("darwin", R.version$platform))
                 stop("cannot install macOS binary packages on this platform")
             .install.macbinary(pkgs = pkgs, lib = lib, contriburl = contriburl,
@@ -594,6 +605,9 @@ install.packages <-
 
     output <- if(quiet) FALSE else ""
     env <- character()
+
+    tlim <- Sys.getenv("_R_INSTALL_PACKAGES_ELAPSED_TIMEOUT_")
+    tlim <- if(is.na(tlim)) 0 else tools:::get_timeout(tlim)
 
     outdir <- getwd()
     if(is.logical(keep_outputs)) {
@@ -658,7 +672,9 @@ install.packages <-
                      getConfigureVars(update[i, 1L]),
                      shQuote(update[i, 1L]))
            status <- system2(cmd0, args, env = env,
-                             stdout = output, stderr = output)
+                             stdout = output, stderr = output,
+                             timeout = tlim)
+           ## if this times out it will leave locks behind
            if(status > 0L)
                warning(gettextf("installation of package %s had non-zero exit status",
                                 sQuote(update[i, 1L])),
@@ -672,7 +688,7 @@ install.packages <-
     }
 
     tmpd <- destdir
-    nonlocalrepos <- length(grep("^file:", contriburl)) < length(contriburl)
+    nonlocalrepos <- !all(startsWith(contriburl, "file:"))
     if(is.null(destdir) && nonlocalrepos) {
         tmpd <- file.path(tempdir(), "downloaded_packages")
         if (!file.exists(tmpd) && !dir.create(tmpd))
@@ -683,9 +699,9 @@ install.packages <-
 
     if(is.null(available))
         available <- available.packages(contriburl = contriburl,
-                                        method = method)
+                                        method = method, ...)
     if(getDeps)
-        pkgs <- getDependencies(pkgs, dependencies, available, lib)
+        pkgs <- getDependencies(pkgs, dependencies, available, lib, ...)
 
     foundpkgs <- download.packages(pkgs, destdir = tmpd, available = available,
                                    contriburl = contriburl, method = method,
@@ -714,15 +730,23 @@ install.packages <-
         }
 
         if (Ncpus > 1L && nrow(update) > 1L) {
+            tlim_cmd <- character()
+            if(tlim > 0) {
+                if(nzchar(timeout <- Sys.which("timeout"))) {
+                    ## SIGINT works better and is used for system.
+                    tlim_cmd <- c(shQuote(timeout), "--signal=INT", tlim)
+                } else
+                    warning("timeouts for parallel installs require the 'timeout' command")
+            }
             ## if --no-lock or --lock was specified in INSTALL_opts
             ## that will override this.
             args0 <- c(args0, "--pkglock")
-            tmpd <- file.path(tempdir(), "make_packages")
-            if (!file.exists(tmpd) && !dir.create(tmpd))
+            tmpd2 <- file.path(tempdir(), "make_packages")
+            if (!file.exists(tmpd2) && !dir.create(tmpd2))
                 stop(gettextf("unable to create temporary directory %s",
-                              sQuote(tmpd)),
+                              sQuote(tmpd2)),
                      domain = NA)
-            mfile <- file.path(tmpd, "Makefile")
+            mfile <- file.path(tmpd2, "Makefile")
             conn <- file(mfile, "wt")
             deps <- paste(paste0(update[, 1L], ".ts"), collapse=" ")
             deps <- strwrap(deps, width = 75, exdent = 2)
@@ -748,7 +772,11 @@ install.packages <-
                 ##   cmd <- paste(c(shQuote(command), env, args),
                 ##                collapse = " ")
                 ## on Windows?
-                cmd <- paste(c("MAKEFLAGS=", shQuote(cmd0), args), collapse = " ")
+                cmd <- paste(c("MAKEFLAGS=",
+                               tlim_cmd,
+                               shQuote(cmd0),
+                               args),
+                             collapse = " ")
                 ## </NOTE>
                 deps <- aDL[[pkg]]
                 deps <- deps[deps %in% upkgs]
@@ -762,7 +790,7 @@ install.packages <-
                     "", sep = "\n", file = conn)
             }
             close(conn)
-            cwd <- setwd(tmpd)
+            cwd <- setwd(tmpd2)
             on.exit(setwd(cwd))
             ## MAKE will be set by sourcing Renviron
             status <- system2(Sys.getenv("MAKE", "make"),
@@ -782,7 +810,7 @@ install.packages <-
             if(keep_outputs)
                 file.copy(paste0(update[, 1L], ".out"), outdir)
             setwd(cwd); on.exit()
-            unlink(tmpd, recursive = TRUE)
+            unlink(tmpd2, recursive = TRUE)
         } else {
             outfiles <- paste0(update[, 1L], ".out")
             for(i in seq_len(nrow(update))) {
@@ -794,7 +822,9 @@ install.packages <-
                           getConfigureVars(update[i, 3L]),
                           update[i, 3L])
                 status <- system2(cmd0, args, env = env,
-                                  stdout = outfile, stderr = outfile)
+                                  stdout = outfile, stderr = outfile,
+                                  timeout = tlim)
+                ## if this times out it will leave locks behind
                 if(!quiet && keep_outputs)
                     writeLines(readLines(outfile))
                 if(status > 0L)

@@ -1,6 +1,6 @@
 % File src/library/base/man/files.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{files2}
@@ -11,7 +11,7 @@
 \concept{directory}
 \concept{mkdir}
 \alias{umask} % for links
-\title{Manipulaton of Directories and File Permissions}
+\title{Manipulation of Directories and File Permissions}
 \description{
   These functions provide a low-level interface to the computer's
   file system.
@@ -102,6 +102,8 @@ Sys.umask(mode = NA)
   (although their documentation is often written assuming a POSIX file
   system).  So treat documentation cautiously if you are using, say, a
   FAT/FAT32 or network-mounted file system.
+  
+  See \link{files} for how file paths with marked encodings are interpreted.  
 }
 \value{
   \code{dir.exists} returns a logical vector of \code{TRUE} or

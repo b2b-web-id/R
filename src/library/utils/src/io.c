@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1998-2017   The R Core Team.
+ *  Copyright (C) 1998-2018   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -828,6 +828,7 @@ SEXP readtablehead(SEXP args)
     if (blskip == NA_LOGICAL) blskip = 1;
     if (isString(quotes)) {
 	const char *sc = translateChar(STRING_ELT(quotes, 0));
+	/* FIXME: will leak memory at long jump */
 	if (strlen(sc)) data.quoteset = strdup(sc);
 	else data.quoteset = "";
     } else if (isNull(quotes))
@@ -863,6 +864,7 @@ SEXP readtablehead(SEXP args)
 	    data.con->seek(data.con, data.con->seek(data.con, -1, 1, 1), 1, 1);
     }
 
+    /* FIXME: will leak memory at long jump */
     buf = (char *) malloc(buf_size);
     if(!buf)
 	error(_("cannot allocate buffer in 'readTableHead'"));
@@ -874,11 +876,13 @@ SEXP readtablehead(SEXP args)
 	    snprintf(ConsolePrompt, CONSOLE_PROMPT_SIZE, "%d: ", nread);
 	/* want to interpret comments here, not in scanchar */
 	while((c = scanchar(TRUE, &data)) != R_EOF) {
-	    if(nbuf >= buf_size -1) {
+	    if(nbuf >= buf_size - 3) {
 		buf_size *= 2;
+		/* FIXME: will leak memory at long jump */
 		char *tmp = (char *) realloc(buf, buf_size);
 		if(!tmp) {
 		    free(buf);
+		    if (data.quoteset[0]) free(data.quoteset);
 		    error(_("cannot allocate buffer in 'readTableHead'"));
 		} else buf = tmp;
 	    }
@@ -887,10 +891,14 @@ SEXP readtablehead(SEXP args)
 	    if(quote) {
 		if(data.sepchar == 0 && c == '\\') {
 		    /* all escapes should be passed through */
+		    /* fillBuffer would not copy a backslash preceding quote */
 		    buf[nbuf++] = (char) c;
 		    c = scanchar(TRUE, &data);
-		    if(c == R_EOF)
+		    if(c == R_EOF) {
+			free(buf);
+			if (data.quoteset[0]) free(data.quoteset);
 			error(_("\\ followed by EOF"));
+		    }
 		    buf[nbuf++] = (char) c;
 		    continue;
 		} else if(quote && c == quote) {
@@ -906,9 +914,12 @@ SEXP readtablehead(SEXP args)
 			}
 		    }
 		}
-	    } else if(!skip && firstnonwhite && strchr(data.quoteset, c)) quote = c;
-	    else if (Rspace(c) || c == data.sepchar) firstnonwhite = TRUE;
-	    else firstnonwhite = FALSE;
+	    } else if(!skip && (firstnonwhite || data.sepchar != 0) && strchr(data.quoteset, c))
+		quote = c;
+	    else if (!skip && data.sepchar == 0 && Rspace(c))
+		/* firstnonwhite stays true within quoted section */
+		firstnonwhite = TRUE;
+	    else if (c != ' ' && c != '\t') firstnonwhite = FALSE;
 	    /* A line is empty only if it contains nothing before
 	       EOL, EOF or a comment char.
 	       A line containing just white space is not empty if sep=","
@@ -941,9 +952,12 @@ no_more_lines:
 	if(data.con->text && data.con->blocking) {
 	    warning(_("incomplete final line found by readTableHeader on '%s'"),
 		    data.con->description);
-	} else
+	} else {
+	    free(buf);
+	    if (data.quoteset[0]) free(data.quoteset);
 	    error(_("incomplete final line found by readTableHeader on '%s'"),
 		  data.con->description);
+	}
     }
     free(buf);
     PROTECT(ans2 = allocVector(STRSXP, nread));
@@ -963,7 +977,7 @@ no_more_lines:
    quote is a numeric vector
  */
 
-static Rboolean isna(SEXP x, int indx)
+static Rboolean isna(SEXP x, R_xlen_t indx)
 {
     Rcomplex rc;
     switch(TYPEOF(x)) {
@@ -991,14 +1005,14 @@ static Rboolean isna(SEXP x, int indx)
 
 /* a version of EncodeElement with different escaping of char strings */
 static const char
-*EncodeElement2(SEXP x, int indx, Rboolean quote,
+*EncodeElement2(SEXP x, R_xlen_t indx, Rboolean quote,
 		Rboolean qmethod, R_StringBuffer *buff, const char *dec)
 {
     int nbuf;
     char *q;
     const char *p, *p0;
 
-    if (indx < 0 || indx >= length(x))
+    if (indx < 0 || indx >= xlength(x))
 	error(_("index out of range"));
     if(TYPEOF(x) == STRSXP) {
 	const void *vmax = vmaxget();
@@ -1120,7 +1134,7 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 	for(int j = 0; j < nc; j++) {
 	    xj = VECTOR_ELT(x, j);
 	    if(LENGTH(xj) != nr)
-		error(_("corrupt data frame -- length of column %d does not not match nrows"),
+		error(_("corrupt data frame -- length of column %d does not match nrows"),
 		      j+1);
 	    if(inherits(xj, "factor")) {
 		levels[j] = getAttrib(xj, R_LevelsSymbol);
@@ -1147,7 +1161,7 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 						 &strBuf, sdec);
 			else if(TYPEOF(xj) == REALSXP)
 			    tmp = EncodeElement2(levels[j],
-						 (int) (REAL(xj)[i] - 1),
+						 (R_xlen_t) (REAL(xj)[i] - 1),
 						 quote_col[j], qmethod,
 						 &strBuf, sdec);
 			else
@@ -1168,8 +1182,8 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 	if(!isVectorAtomic(x))
 	    UNIMPLEMENTED_TYPE("write.table, matrix method", x);
 	/* quick integrity check */
-	if(XLENGTH(x) != (R_len_t)nr * nc)
-	    error(_("corrupt matrix -- dims not not match length"));
+	if(XLENGTH(x) != (R_xlen_t)nr * nc)
+	    error(_("corrupt matrix -- dims do not match length"));
 
 	for(int i = 0; i < nr; i++) {
 	    if(i % 1000 == 999) R_CheckUserInterrupt();
@@ -1179,9 +1193,10 @@ SEXP writetable(SEXP call, SEXP op, SEXP args, SEXP env)
 					    &strBuf, sdec), csep);
 	    for(int j = 0; j < nc; j++) {
 		if(j > 0) Rconn_printf(con, "%s", csep);
-		if(isna(x, i + j*nr)) tmp = cna;
+		if(isna(x, i + (R_xlen_t)j*nr)) tmp = cna;
 		else {
-		    tmp = EncodeElement2(x, i + j*nr, quote_col[j], qmethod,
+		    tmp = EncodeElement2(x, i + (R_xlen_t)j*nr,
+		                         quote_col[j], qmethod,
 					&strBuf, sdec);
 		}
 		Rconn_printf(con, "%s", tmp);

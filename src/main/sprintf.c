@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2002--2016     The R Core Team
+ *  Copyright (C) 2002--2019     The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -281,9 +281,19 @@ SEXP attribute_hidden do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 			    case 'x':
 			    case 'X':
 				if(TYPEOF(_this) == REALSXP) {
-				    double r = REAL(_this)[0];
 				    // qdapTools manages to call this with NaN
-				    if(R_FINITE(r) && (double)((int) r) == r)
+				    Rboolean exactlyInteger = TRUE;
+				    R_xlen_t i = 0;
+				    R_xlen_t n = XLENGTH(_this);
+				    for(i = 0; i < n; i++) {
+					double r = REAL(_this)[i];
+					if (R_IsNA(r)) continue; // NA_REAL is ok
+					if (!R_FINITE(r) || (double)((int) r) != r) {
+					    exactlyInteger = FALSE;
+					    break;
+					}
+				    } 
+				    if(exactlyInteger)
 					_this = coerceVector(_this, INTSXP);
 				    PROTECT(a[nthis] = _this);
 				    nprotect++;
@@ -429,7 +439,9 @@ SEXP attribute_hidden do_sprintf(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 	    }
 	    else { /* not '%' : handle string part */
-		char *ch = Rf_strchr(curFormat, '%'); /* MBCS-aware version used */
+		char *ch = use_UTF8 ? strchr(curFormat, '%')
+				    /* MBCS-aware version used */
+		                    : Rf_strchr(curFormat, '%');
 		chunk = (ch) ? (size_t) (ch - curFormat) : strlen(curFormat);
 		strncpy(bit, curFormat, chunk);
 		bit[chunk] = '\0';

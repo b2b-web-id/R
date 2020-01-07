@@ -1,7 +1,7 @@
 #  File src/library/stats/R/contr.poly.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -67,12 +67,13 @@ poly <- function(x, ..., degree = 1, coefs = NULL, raw = FALSE, simple = FALSE)
 {
     dots <- list(...)
     if(nd <- length(dots)) {
-        if(nd == 1 && length(dots[[1L]]) == 1L) # unnamed degree
+	dots_deg <- nd == 1L && length(dots[[1L]]) == 1L
+	if(dots_deg) # unnamed degree, nothing else in '...'
             degree <- dots[[1L]]
         else return(polym(x, ..., degree = degree, coefs=coefs, raw = raw))
     }
-    if(is.matrix(x)) { ## FIXME: fails when combined with 'unnamed degree' above
-        m <- unclass(as.data.frame(cbind(x, ...)))
+    if(is.matrix(x)) {
+	m <- unclass(as.data.frame(if(nd && dots_deg) x else cbind(x, ...)))
 	return(do.call(polym, c(m, degree = degree, raw = raw,
 				list(coefs=coefs))))
     }
@@ -130,8 +131,8 @@ predict.poly <- function(object, newdata, ...)
 
 makepredictcall.poly  <- function(var, call)
 {
-    if(as.character(call)[1L] != "poly") return(call)
-    call$coefs <- attr(var, "coefs")
+    if(as.character(call)[1L] == "poly" || (is.call(call) && identical(eval(call[[1L]]), poly)))
+	call$coefs <- attr(var, "coefs")
     call
 }
 
@@ -157,12 +158,12 @@ polym <- function (..., degree = 1, coefs = NULL, raw = FALSE)
 	n <- lengths(dots)
 	if (any(n != n[1L]))
 	    stop("arguments must have the same length")
-	res <- cbind(1, aPoly)[, 1L +z[, 1]]
+	res <- cbind(1, aPoly)[, 1L +z[, 1], drop=FALSE]
 	## attribute "coefs" = list of coefs from individual variables
 	if (!raw) coefs <- list(attr(aPoly, "coefs"))
 	for (i in 2:nd) {
 	    aPoly <- poly(dots[[i]], degree, raw = raw, simple = raw)
-	    res <- res * cbind(1, aPoly)[, 1L +z[, i]]
+	    res <- res * cbind(1, aPoly)[, 1L +z[, i], drop=FALSE]
 	    if (!raw) coefs <- c(coefs, list(attr(aPoly, "coefs")))
 	}
 	colnames(res) <- apply(z, 1L, function(x) paste(x, collapse = "."))
@@ -174,11 +175,10 @@ polym <- function (..., degree = 1, coefs = NULL, raw = FALSE)
 	newdata <- as.data.frame(dots) # new data
 	if (nd != ncol(newdata))
 	    stop("wrong number of columns in new data: ", deparse(substitute(...)))
-	res <- cbind(1, poly(newdata[[1]], degree=degree,
-			     coefs=coefs[[1]], simple=TRUE))[, 1L +z[, 1]]
-	if(nd > 1) for (i in 2:nd)
+	res <- 1
+	for (i in seq_len(nd))
             res <- res*cbind(1, poly(newdata[[i]], degree=degree,
-                                     coefs=coefs[[i]], simple=TRUE))[, 1L +z[, i]]
+				     coefs=coefs[[i]], simple=TRUE))[, 1L +z[, i], drop=FALSE]
 	colnames(res) <- apply(z, 1L, function(x) paste(x, collapse = "."))
         ## no 'coefs' and 'degree', nor "poly" class
 	res

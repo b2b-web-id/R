@@ -1,6 +1,6 @@
 % File src/library/base/man/EnvVar.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2007-2017 R Core Team
+% Copyright 2007-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{EnvVar}
@@ -22,6 +22,7 @@
 \alias{R_PLATFORM}
 \alias{R_RD4PDF}
 \alias{R_SHARE_DIR}
+\alias{R_SUPPORT_OLD_TARS}
 \alias{R_TEXI2DVICMD}
 \alias{R_UNZIPCMD}
 \alias{R_ZIPCMD}
@@ -31,6 +32,7 @@
 % R_LIBS* are in ?.libPaths
 % TZ, TZDIR are in ?Sys.timezone
 % R_HOME is in ?R.home.
+% R_MAX_NUM_DLLS is in ?dyn.load
 
 #ifdef unix
 \alias{DISPLAY}
@@ -168,6 +170,11 @@
     \item{\env{R_PRINTCMD}:}{Sets the default for
       \code{\link{options}("printcmd")}, which sets the default print
       command to be used by \code{\link{postscript}}.}
+    \item{\env{R_SUPPORT_OLD_TARS}}{logical. Sets the default for the
+      \code{support_old_tars} argument of \code{\link{untar}}.  Should
+      be set to \code{TRUE} if an old system \command{tar} command is
+      used which does not support either \command{xz} compression or
+      automagically detecting compression type.}
   }
 }
 #endif

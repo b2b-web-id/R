@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2000-2015   The R Core Team.
+ *  Copyright (C) 2000-2018   The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ typedef enum {HTTPsh, FTPsh, HTTPSsh, FTPSsh} UrlScheme;
 typedef struct urlconn {
     void *ctxt;
     UrlScheme type;
+    char *headers;
 } *Rurlconn;
 
 /* used in internet module */
@@ -60,14 +61,15 @@ typedef struct clpconn {
 
 int Rconn_fgetc(Rconnection con);
 int Rconn_ungetc(int c, Rconnection con);
-int Rconn_getline(Rconnection con, char *buf, int bufsize);
+size_t Rconn_getline(Rconnection con, char *buf, size_t bufsize);
 int Rconn_printf(Rconnection con, const char *format, ...);
 Rconnection getConnection(int n);
 Rconnection getConnection_no_err(int n);
 Rboolean switch_stdout(int icon, int closeOnExit);
 void init_con(Rconnection new, const char *description, int enc,
 	      const char * const mode);
-Rconnection R_newurl(const char *description, const char * const mode, int type);
+Rconnection R_newurl(const char *description, const char * const mode,
+		     SEXP headers, int type);
 Rconnection R_newsock(const char *host, int port, int server, const char * const mode, int timeout);
 Rconnection in_R_newsock(const char *host, int port, int server, const char *const mode, int timeout);
 Rconnection R_newunz(const char *description, const char * const mode);

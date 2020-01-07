@@ -185,7 +185,7 @@
                       .Object
                   else if(missing(functionDef))
                       .MakeSignature(.Object, , list(...))
-                  else if(!is(functionDef, "function"))
+                  else if(!is.function(functionDef))
                       .MakeSignature(.Object, , list(functionDef, ...))
                   else
                       .MakeSignature(.Object, functionDef, list(...))
@@ -307,8 +307,9 @@
     assign(".NeedPrimitiveMethods", needed, where)
     setMethod("Ops", c("structure", "vector"), where = where,
               function(e1, e2) {
-                  value <- callGeneric(e1@.Data, e2)
-                  if(length(value) == length(e1)) {
+                  value <- callGeneric(if (isS4(e1)) e1@.Data else e1,
+                                       if (isS4(e2)) e2@.Data else e2)
+                  if(isS4(e1) && length(value) == length(e1)) {
                       e1@.Data <- value
                       e1
                   }
@@ -317,8 +318,9 @@
               })
     setMethod("Ops", c("vector", "structure"), where = where,
               function(e1, e2) {
-                  value <- callGeneric(e1, e2@.Data)
-                  if(length(value) == length(e2)) {
+                  value <- callGeneric(if (isS4(e1)) e1@.Data else e1,
+                                       if (isS4(e2)) e2@.Data else e2)
+                  if(isS4(e2) && length(value) == length(e2)) {
                       e2@.Data <- value
                       e2
                   }
@@ -327,7 +329,8 @@
               })
     setMethod("Ops", c("structure", "structure"), where = where,
               function(e1, e2)
-                 callGeneric(e1@.Data, e2@.Data)
+                  callGeneric(if (isS4(e1)) e1@.Data else e1,
+                              if (isS4(e2)) e2@.Data else e2)
               )
     ## We need some special cases for matrix and array.
     ## Although they extend "structure", their .Data "slot" is the matrix/array
@@ -409,7 +412,7 @@
         if(is(fdef, "genericFunction"))
             formalNames <- fdef@signature
         else if(is.function(def)) {
-            if(!is(fdef, "function")) fdef <- def
+            if(!is.function(fdef)) fdef <- def
             formalNames <- formalArgs(fdef)
             dots <- match("...", formalNames)
             if(!is.na(dots))

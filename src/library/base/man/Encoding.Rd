@@ -1,6 +1,6 @@
 % File src/library/base/man/Encoding.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{Encoding}
@@ -37,7 +37,8 @@ enc2utf8(x)
   encodings.  Strings marked as \code{"bytes"} are intended to be
   non-ASCII strings which should be manipulated as bytes, and never
   converted to a character encoding (so writing them to a text file is
-  not supported). % non-bug report PR#16327
+  supported only by \code{writeLines(useBytes = TRUE)}).
+  % non-bug report PR#16327
 
   \code{enc2native} and \code{enc2utf8} convert elements of character
   vectors to the native encoding or UTF-8 respectively, taking any
@@ -82,6 +83,14 @@ enc2utf8(x)
   \code{\link{match}}, \code{\link{pmatch}}, \code{\link{charmatch}},
   \code{\link{duplicated}} and \code{\link{unique}} all match in UTF-8
   if any of the elements are marked as UTF-8.
+  
+  There is some ambiguity as to what is meant by a \sQuote{Latin-1}
+  locale, since some OSes (notably Windows) make use of character
+  positions used for control characters in the ISO 8859-1 character set.
+  How such characters are interpreted is system-dependent but as from \R
+  3.5.0 they are if possible interpreted as per Windows codepage 1252
+  (which Microsoft calls \sQuote{Windows Latin 1 (ANSI)}) when
+  converting to e.g.\sspace{}UTF-8.
 }
 \value{
   A character vector.

@@ -1,8 +1,8 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1997--2019  The R Core Team
+ *  Copyright (C) 2003--2018  The R Foundation
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2016  The R Core Team
- *  Copyright (C) 2003--2016  The R Foundation
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -196,9 +196,11 @@ FUNTAB R_FunTab[] =
 
 /* Primitives */
 
+{"...elt",      do_dotsElt,	0,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"...length",   do_dotsLength,	0,	1,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"length",	do_length,	0,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"length<-",	do_lengthgets,	0,	1,	2,	{PP_FUNCALL, PREC_LEFT,	1}},
-{"c",/* bind.c:*/do_c,		0,	1,	-1,	{PP_FUNCALL, PREC_FN,	0}},
+{"c",/* bind.c: */ do_c,	0,	1,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"oldClass",	do_class,	0,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"oldClass<-",	do_classgets,	0,	1,	2,	{PP_FUNCALL, PREC_LEFT, 1}},
 {"class",	R_do_data_class,0,	1,	1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -477,8 +479,8 @@ FUNTAB R_FunTab[] =
 {"sample",	do_sample,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"sample2",	do_sample2,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 
-{"RNGkind",	do_RNGkind,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
-{"set.seed",	do_setseed,	0,	111,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"RNGkind",	do_RNGkind,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"set.seed",	do_setseed,	0,	111,	4,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Data Summaries */
 /* these four are group generic and so need to eval args */
@@ -519,6 +521,8 @@ FUNTAB R_FunTab[] =
 {"format.info",	do_formatinfo,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"cat",		do_cat,		0,	111,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"do.call",	do_docall,	0,	211,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"str2lang",	do_str2lang,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"str2expression", do_str2lang, 1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* String Manipulation */
 
@@ -556,7 +560,7 @@ FUNTAB R_FunTab[] =
 {"rawToBits",	do_rawToBits,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"packBits",	do_packBits,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"utf8ToInt",	do_utf8ToInt,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"intToUtf8",	do_intToUtf8,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"intToUtf8",	do_intToUtf8,	1,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"validUTF8",	do_validUTF8,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"validEnc",	do_validEnc,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"encodeString",do_encodeString,1,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
@@ -650,9 +654,9 @@ FUNTAB R_FunTab[] =
 {"internalsID",	do_internalsID,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	  0}},
 
 #ifdef Win32
-{"system",	do_system,	0,	211,	5,	{PP_FUNCALL, PREC_FN,	0}},
+{"system",	do_system,	0,	211,	6,	{PP_FUNCALL, PREC_FN,	0}},
 #else
-{"system",	do_system,	0,	211,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"system",	do_system,	0,	211,	3,	{PP_FUNCALL, PREC_FN,	0}},
 #endif
 
 #ifdef Win32
@@ -669,25 +673,28 @@ FUNTAB R_FunTab[] =
 {"save",	do_save,	0,	111,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"saveToConn",	do_saveToConn,	0,	111,	6,	{PP_FUNCALL, PREC_FN,	0}},
 {"load",	do_load,	0,	111,	2,	{PP_FUNCALL, PREC_FN,	0}},
-{"loadFromConn2",do_loadFromConn2,0,	111,	3,	{PP_FUNCALL, PREC_FN,	0}},
-{"serializeToConn",	do_serializeToConn,	0,	111,	5,	{PP_FUNCALL, PREC_FN,	0}},
-{"unserializeFromConn",	do_unserializeFromConn,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"loadFromConn2",    do_loadFromConn2,0, 111,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"loadInfoFromConn2",do_loadFromConn2,1, 11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"serializeToConn",	 do_serializeToConn,	0, 111,	5,	{PP_FUNCALL, PREC_FN,	0}},
+{"unserializeFromConn",	 do_unserializeFromConn, 0, 11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"serializeInfoFromConn",do_unserializeFromConn, 1, 11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"deparse",	do_deparse,	0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"dput",	do_dput,	0,	111,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"dump",	do_dump,	0,	111,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"quit",	do_quit,	0,	111,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"readline",	do_readln,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"print.default",do_printdefault,0,	111,	9,	{PP_FUNCALL, PREC_FN,	0}},
-{"print.function",do_printfunction,0,	111,	-1,	{PP_FUNCALL, PREC_FN,	0}},
+{"print.default",do_printdefault,0,	111,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"prmatrix",	do_prmatrix,	0,	111,	6,	{PP_FUNCALL, PREC_FN,	0}},
-{"gc",		do_gc,		0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"gc",		do_gc,		0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"gcinfo",	do_gcinfo,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"gctorture",	do_gctorture,	0,	111,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"gctorture2",	do_gctorture2,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"memory.profile",do_memoryprofile, 0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
+{"mem.maxVSize",do_maxVSize,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"mem.maxNSize",do_maxNSize,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"split",	do_split,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"is.loaded",	do_isloaded,	0,	11,	-1,	{PP_FOREIGN, PREC_FN,	0}},
-{"recordGraphics", do_recordGraphics, 0, 211,     3,      {PP_FOREIGN, PREC_FN,	0}},
+{"recordGraphics", do_recordGraphics, 0, 211,   3,      {PP_FOREIGN, PREC_FN,	0}},
 {"dyn.load",	do_dynload,	0,	111,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"dyn.unload",	do_dynunload,	0,	111,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"ls",		do_ls,		1,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
@@ -705,11 +712,12 @@ FUNTAB R_FunTab[] =
 {"sys.function",do_sys,		9,	11,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"traceback",	do_traceback,	0,      11,     1,      {PP_FUNCALL, PREC_FN,   0}},
 {"browserText", do_sysbrowser,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"browserCondition", do_sysbrowser,	2,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"browserSetDebug", do_sysbrowser,	3,	111,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"browserCondition", do_sysbrowser, 2,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"browserSetDebug",  do_sysbrowser, 3,	111,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"parent.frame",do_parentframe,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"sort",	do_sort,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"is.unsorted",	do_isunsorted,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
+{"sorted_fpass",do_sorted_fpass,0,      11,     3,      {PP_FUNCALL, PREC_FN,	0}},
 {"psort",	do_psort,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"qsort",	do_qsort,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"radixsort",	do_radixsort,	0,	11,	-1,	{PP_FUNCALL, PREC_FN,	0}},
@@ -738,20 +746,26 @@ FUNTAB R_FunTab[] =
 {"rowSums",	do_colsum,	2,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"rowMeans",	do_colsum,	3,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"tracemem",    do_tracemem,    0,      1,	1,      {PP_FUNCALL, PREC_FN,	0}},
-{"retracemem",  do_retracemem,  0,      201,     -1,      {PP_FUNCALL, PREC_FN,	0}},
+{"retracemem",  do_retracemem,  0,      201,    -1,     {PP_FUNCALL, PREC_FN,	0}},
 {"untracemem",  do_untracemem,  0,      101,	1,      {PP_FUNCALL, PREC_FN,	0}},
 {"inspect",	do_inspect,	0,	111,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"address",     do_address,     0,       11,     1,     {PP_FUNCALL, PREC_FN, 0}},
+{"named",       do_named,       0,       11,     1,     {PP_FUNCALL, PREC_FN, 0}},
 {"refcnt",      do_refcnt,      0,       11,     1,     {PP_FUNCALL, PREC_FN, 0}},
 {"merge",	do_merge,	0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"capabilities",do_capabilities,0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
-{"capabilitiesX11",do_capabilitiesX11,0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
+{"capabilitiesX11",do_capabilitiesX11,0, 11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"new.env",	do_newenv,	0,	11,     3,      {PP_FUNCALL, PREC_FN,	0}},
 {"parent.env",  do_parentenv,   0,	11,     1,      {PP_FUNCALL, PREC_FN,	0}},
 {"parent.env<-",do_parentenvgets, 0,	11,     2,      {PP_FUNCALL, PREC_LEFT,	1}},
 {"topenv",	do_topenv,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"l10n_info",	do_l10n_info,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"Cstack_info", do_Cstack_info,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
+{"mmap_file",	do_mmap_file,	0,	11,	-1,	{PP_FUNCALL, PREC_FN,	0}},
+{"munmap_file",	do_munmap_file,	0,	111,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"wrap_meta",	do_wrap_meta,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"tryWrap",	do_tryWrap,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
+{"altrep_class",do_altrep_class, 0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 
 /* Functions To Interact with the Operating System */
 
@@ -772,7 +786,7 @@ FUNTAB R_FunTab[] =
 {"dir.exists",	do_direxists,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"dir.create",	do_dircreate,	0,	111,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"tempfile",	do_tempfile,	0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
-{"tempdir",	do_tempdir,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
+{"tempdir",	do_tempdir,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"R.home",	do_Rhome,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"date",	do_date,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"Sys.getenv",	do_getenv,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
@@ -817,19 +831,19 @@ FUNTAB R_FunTab[] =
 
 {"mkCode",     do_mkcode,       0,      11,     2,      {PP_FUNCALL, PREC_FN, 0}},
 {"bcClose",    do_bcclose,      0,      11,     3,      {PP_FUNCALL, PREC_FN, 0}},
-{"is.builtin.internal",    do_is_builtin_internal,      0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
+{"is.builtin.internal", do_is_builtin_internal, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"disassemble", do_disassemble, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"bcVersion", do_bcversion,     0,      11,     0,      {PP_FUNCALL, PREC_FN, 0}},
 {"load.from.file", do_loadfile, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
-{"save.to.file", do_savefile,   0,      11,     3,      {PP_FUNCALL, PREC_FN, 0}},
+{"save.to.file", do_savefile,   0,      11,     4,      {PP_FUNCALL, PREC_FN, 0}},
 {"growconst", do_growconst,     0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"putconst", do_putconst,       0,      11,     3,      {PP_FUNCALL, PREC_FN, 0}},
 {"getconst", do_getconst,       0,      11,     2,      {PP_FUNCALL, PREC_FN, 0}},
 {"enableJIT",    do_enablejit,  0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 {"compilePKGS", do_compilepkgs, 0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
 
-{"setNumMathThreads", do_setnumthreads,      0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
-{"setMaxNumMathThreads", do_setmaxnumthreads,      0,      11,     1,      {PP_FUNCALL, PREC_FN, 0}},
+{"setNumMathThreads", do_setnumthreads,	      0, 11, 1, {PP_FUNCALL, PREC_FN, 0}},
+{"setMaxNumMathThreads", do_setmaxnumthreads, 0, 11, 1, {PP_FUNCALL, PREC_FN, 0}},
 
 /* Connections */
 {"stdin",	do_stdin,	0,      11,     0,      {PP_FUNCALL, PREC_FN,	0}},
@@ -849,7 +863,7 @@ FUNTAB R_FunTab[] =
 {"close",	do_close,	0,      111,     2,      {PP_FUNCALL, PREC_FN,	0}},
 {"flush",	do_flush,	0,      111,     1,      {PP_FUNCALL, PREC_FN,	0}},
 {"file",	do_url,		1,      11,     6,      {PP_FUNCALL, PREC_FN,	0}},
-{"url",		do_url,		0,      11,     5,      {PP_FUNCALL, PREC_FN,	0}},
+{"url",		do_url,		0,      11,     6,      {PP_FUNCALL, PREC_FN,	0}},
 {"pipe",	do_pipe,	0,      11,     3,      {PP_FUNCALL, PREC_FN,	0}},
 {"fifo",	do_fifo,	0,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
 {"gzfile",	do_gzfile,	0,      11,     4,      {PP_FUNCALL, PREC_FN,	0}},
@@ -902,16 +916,16 @@ FUNTAB R_FunTab[] =
 {"setSessionTimeLimit",do_setSessionTimeLimit,0,	111,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"icuSetCollate",do_ICUset,	0,	111,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"icuGetCollate",do_ICUget,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"readRenviron",do_readEnviron,	0,      111,     1,      {PP_FUNCALL, PREC_FN,	0}},
+{"readRenviron",do_readEnviron,	0,      111,    1,      {PP_FUNCALL, PREC_FN,	0}},
 {"shortRowNames",do_shortRowNames,0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"copyDFattr",do_copyDFattr,	0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"getRegisteredRoutines",do_getRegisteredRoutines,0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"getLoadedDLLs",do_getDllTable,	0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
+{"getLoadedDLLs",do_getDllTable, 0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"getSymbolInfo",do_getSymbolInfo,0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {".isMethodsDispatchOn",do_S4on,0,	1,	-1,	{PP_FUNCALL, PREC_FN,	0}},
 {"lazyLoadDBfetch",do_lazyLoadDBfetch,0,1,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"lazyLoadDBflush",do_lazyLoadDBflush,0,11,	1,	{PP_FUNCALL, PREC_FN,	0}},
-{"getVarsFromFrame",do_getVarsFromFrame, 0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
+{"getVarsFromFrame",do_getVarsFromFrame, 0, 11,	3,	{PP_FUNCALL, PREC_FN,	0}},
 {"lazyLoadDBinsertValue",do_lazyLoadDBinsertValue, 0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
 {"bincode",	do_bincode,	 0,	11,	4,	{PP_FUNCALL, PREC_FN,	0}},
 {"tabulate",	do_tabulate,	 0,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
@@ -934,6 +948,7 @@ FUNTAB R_FunTab[] =
 {"traceOnOff",	do_traceOnOff,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"debugOnOff",	do_traceOnOff,	1,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 
+// do_lapack : all in ---> ../modules/lapack/Lapack.c
 {"La_qr_cmplx",	do_lapack,	0,	11,	1,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_rs",	do_lapack,	1,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
 {"La_rs_cmplx",do_lapack,	2,	11,	2,	{PP_FUNCALL, PREC_FN,	0}},
@@ -970,7 +985,7 @@ FUNTAB R_FunTab[] =
 {"eSoftVersion",do_eSoftVersion, 0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"curlVersion", do_curlVersion, 0,	11,	0,	{PP_FUNCALL, PREC_FN,	0}},
 {"curlGetHeaders",do_curlGetHeaders,0,	11,	3,	{PP_FUNCALL, PREC_FN,	0}},
-{"curlDownload",do_curlDownload, 0,	11,	5,	{PP_FUNCALL, PREC_FN,	0}},
+{"curlDownload",do_curlDownload, 0,	11,	6,	{PP_FUNCALL, PREC_FN,	0}},
 
 {NULL,		NULL,		0,	0,	0,	{PP_INVALID, PREC_FN,	0}},
 };
@@ -1081,7 +1096,7 @@ static void SymbolShortcuts(void)
     R_RowNamesSymbol = install("row.names");
     R_SeedsSymbol = install(".Random.seed");
     R_SortListSymbol = install("sort.list");
-    R_SourceSymbol = install("source");   /* Still present for use in methods package, not used elsewhere */
+    R_SourceSymbol = install("source");   /* Not used by R or core packages */
     R_TspSymbol = install("tsp");
     /* ../include/Defn.h , i.e. non-public : */
     R_CommentSymbol = install("comment");
@@ -1122,8 +1137,8 @@ static void SymbolShortcuts(void)
 static SEXP DDVALSymbols[N_DDVAL_SYMBOLS];
 
 static SEXP createDDVALSymbol(int n) {
-    char buf[10];
-    snprintf(buf, 10, "..%d", n);
+    char buf[15];
+    snprintf(buf, 15, "..%d", n);
     return install(buf);
 }
 
@@ -1143,10 +1158,12 @@ SEXP attribute_hidden installDDVAL(int n) {
 
 static SEXP mkSymMarker(SEXP pname)
 {
+    PROTECT(pname);
     SEXP ans = allocSExp(SYMSXP);
     SET_SYMVALUE(ans, ans);
     SET_ATTRIB(ans, R_NilValue);
     SET_PRINTNAME(ans, pname);
+    UNPROTECT(1);
     return ans;
 }
 
@@ -1194,6 +1211,7 @@ void attribute_hidden InitNames()
     R_initAssignSymbols();
     initializeDDVALSymbols();
     R_initialize_bcode();
+    R_init_altrep();
 }
 
 
@@ -1227,7 +1245,8 @@ SEXP install(const char *name)
 /* This function is equivalent to install(CHAR(charSXP)), but faster.
    Like the equivalent code pattern, it discards the encoding information,
    hence in almost all cases installTrChar should be used, instead. */
-SEXP installChar(SEXP charSXP)
+attribute_hidden
+SEXP installNoTrChar(SEXP charSXP)
 {
     SEXP sym;
     int i, hashcode;
@@ -1340,9 +1359,6 @@ SEXP attribute_hidden do_internal(SEXP call, SEXP op, SEXP args, SEXP env)
 	    errorcall(call,
 		      ".Internal(%s()) not called from a base namespace\n", fn);
 	if (strlen(ns)
-#if CHECK_INTERNALS < 2
-	    && strcmp(ns, "Matrix")
-#endif
 	    && strcmp(ns, "base") && strcmp(ns, "tools")
 	    && strcmp(ns, "utils") && strcmp(ns, "compiler"))
 	    errorcall(call,

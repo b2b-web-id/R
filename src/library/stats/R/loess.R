@@ -142,7 +142,8 @@ simpleLoess <- function(y, x, weights, span = 0.75, degree = 2L,
     surf.stat <- paste(surface, statistics, sep = "/")
     do.rob <- (iterations > 1L) # will do robustness iter.
     if(!do.rob && iterTrace) {
-	warning("iterTrace = ", iterTrace," not obeyed as iterations = ", iterations)
+	warning(sprintf(gettext("iterTrace = %d is not obeyed since iterations = %d"),
+                        iterTrace, iterations))
 	iterTrace <- FALSE
     }
     no.st <- (statistics == "none")
@@ -520,8 +521,8 @@ anova.loess <- function(object, ...)
     nmodels <- length(objects)
     if(nmodels <= 1L) stop("no models to compare")
     models <- as.character(lapply(objects, function(x) x$call))
-    descr <- paste("Model ", format(1L:nmodels), ": ", models,
-		   sep = "", collapse = "\n")
+    descr <- paste0("Model ", format(1L:nmodels), ": ", models,
+                    collapse = "\n")
     ## extract statistics
     delta1 <- sapply(objects, function(x) x$one.delta)
     delta2 <- sapply(objects, function(x) x$two.delta)

@@ -1,7 +1,7 @@
 #  File src/library/tools/R/checktools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2013-2016 The R Core Team
+#  Copyright (C) 2013-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -64,7 +64,7 @@ function(dir,
     if(os_type == "windows")
         xvfb <- FALSE
     else if(is.logical(xvfb)) {
-        if(!identical(xvfb, TRUE))
+        if(!isTRUE(xvfb))
             xvfb <- FALSE
     } else {
         xvfb_options <- as.character(xvfb)
@@ -98,9 +98,9 @@ function(dir,
                        function(e)
                        scan(text = e, what = character(), quiet = TRUE))
         pnames_using_install_no <-
-            nms[sapply(args, function(e) any(e == "--install=no"))]
+            nms[vapply(args, function(e) any(e == "--install=no"), NA)]
         pnames_using_install_fake <-
-            nms[sapply(args, function(e) any(e == "--install=fake"))]
+            nms[vapply(args, function(e) any(e == "--install=fake"), NA)]
     } else {
         ## If check_args_db has no names it is useless.
         ## Perhaps complain?
@@ -139,7 +139,7 @@ function(dir,
     pnames_using_install_fake <-
         intersect(pnames_using_install_fake, available[, "Package"])
 
-    if(!is.null(reverse) && !identical(reverse, FALSE)) {
+    if(!is.null(reverse) && !isFALSE(reverse)) {
         ## Determine and download reverse dependencies to be checked as
         ## well.
 
@@ -199,11 +199,10 @@ function(dir,
         if(!identical(defaults$repos, getOption("repos"))) {
             pos <- split(pos[pos > 0L], available[pos, "Repository"])
             ## Only want the reverse dependencies for which Repository
-            ## is pmatched by contrib.url(defaults$repos).
+            ## starts with an entry in defaults$repos.
             nms <- names(pos)
-            pos <- unlist(pos[unique(c(outer(defaults$repos, nms,
-                                             pmatch, nomatch = 0L)))],
-                          use.names = FALSE)
+            ind <- (rowSums(outer(nms, defaults$repos, startsWith)) > 0)
+            pos <- unlist(pos[ind], use.names = FALSE)
         }
         rnames <- available[pos, "Package"]
         rfiles <- sprintf("%s_%s.tar.gz",
@@ -324,6 +323,7 @@ function(dir,
                          sprintf("check_%s_stderr.txt", pname))
         env <- c(check_env_db[[pname]],
                  sprintf("R_LIBS=%s", shQuote(libdir)))
+        lim <- get_timeout(Sys.getenv("_R_CHECK_ELAPSED_TIMEOUT_"))
         system.time(system2(file.path(R.home("bin"), "R"),
                             c("CMD",
                               "check",
@@ -332,7 +332,8 @@ function(dir,
                               pfile),
                             stdout = out,
                             stderr = err,
-                            env = env))
+                            env = env,
+                            timeout = lim))
     }
 
     if(Ncpus > 1L) {
@@ -532,14 +533,14 @@ function(dir, all = FALSE, which = c("Depends", "Imports", "LinkingTo"))
 ### ** summarize_check_packages_in_dir_results
 
 summarize_check_packages_in_dir_results <-
-function(dir, all = TRUE, full = FALSE)
+function(dir, all = TRUE, full = FALSE, ...)
 {
     dir <- normalizePath(dir)
     outdirs <- R_check_outdirs(dir, all = all)
     logs <- file.path(outdirs, "00check.log")
     logs <- logs[file_test("-f", logs)]
 
-    results <- check_packages_in_dir_results(logs = logs)
+    results <- check_packages_in_dir_results(logs = logs, ...)
 
     writeLines("Check status summary:")
     tab <- check_packages_in_dir_results_summary(results)
@@ -558,7 +559,7 @@ function(dir, all = TRUE, full = FALSE)
        !all(as.character(unlist(lapply(results, `[[`, "status"))) ==
             "OK")) {
         writeLines(c("", "Check results details:"))
-        details <- check_packages_in_dir_details(logs = logs)
+        details <- check_packages_in_dir_details(logs = logs, ...)
         writeLines(paste(format(details), collapse = "\n\n"))
         invisible(TRUE)
     } else {
@@ -601,7 +602,7 @@ function(dir, all = FALSE, full = FALSE)
                                               format)),
                          rep.int(sub("\\.Rcheck$", "",
                                      basename(dirname(tfiles))),
-                                 sapply(timings, nrow)))
+                                 vapply(timings, nrow, 0L)))
         invisible(Map(function(x, y) {
             writeLines(sprintf("Example timings for package '%s':", x))
             cat(rbind(" ", t(as.matrix(y))),
@@ -625,7 +626,7 @@ function(dir, all = FALSE, full = FALSE)
 ## </FIXME>
 
 check_packages_in_dir_results <-
-function(dir, logs = NULL)
+function(dir, logs = NULL, ...)
 {
     if(is.null(logs))
         logs <- Sys.glob(file.path(dir, "*.Rcheck", "00check.log"))
@@ -635,8 +636,8 @@ function(dir, logs = NULL)
     ## available?
     ## </NOTE>
 
-    results <- lapply(logs, function(log) {
-        lines <- read_check_log(log)
+    results <- lapply(logs, function(log, ...) {
+        lines <- read_check_log(log, ...)
         ## See analyze_lines() inside analyze_check_log():
         re <- "^\\* (loading checks for arch|checking (examples|tests) \\.\\.\\.$)"
         pos <- grep(re, lines, perl = TRUE, useBytes = TRUE)
@@ -658,7 +659,7 @@ function(dir, logs = NULL)
                 "OK"
             }
         list(status = status, lines = lines[ind])
-    })
+    }, ...)
     names(results) <- sub("\\.Rcheck$", "", basename(dirname(logs)))
 
     results
@@ -686,9 +687,9 @@ function(results)
 ### ** read_check_log
 
 read_check_log <-
-function(log, drop = TRUE)
+function(log, drop = TRUE, ...)
 {
-    lines <- readLines(log, warn = FALSE)
+    lines <- readLines(log, warn = FALSE, ...)
 
     if(drop) {
         ## Drop CRAN check status footer.
@@ -706,14 +707,15 @@ function(log, drop = TRUE)
     ## Remove eventually.
     len <- length(lines)
     end <- lines[len]
-    if(grepl(re <- "^(\\*.*\\.\\.\\.)(\\* elapsed time.*)$", end,
+    if(length(end) &&
+       grepl(re <- "^(\\*.*\\.\\.\\.)(\\* elapsed time.*)$", end,
              perl = TRUE, useBytes = TRUE)) {
         lines <- c(lines[seq_len(len - 1L)],
                    sub(re, "\\1", end, perl = TRUE, useBytes = TRUE),
                    sub(re, "\\2", end, perl = TRUE, useBytes = TRUE))
     }
     ## </FIXME
-    
+
     lines
 }
 
@@ -726,24 +728,15 @@ function(log, drop = TRUE)
 ## </FIXME>
 
 analyze_check_log <-
-function(log, drop_ok = TRUE)
+function(log, drop_ok = TRUE, ...)
 {
     make_results <- function(package, version, flags, chunks)
         list(Package = package, Version = version,
              Flags = flags, Chunks = chunks)
 
-    ## <FIXME>
-    ## All calls to grep(), grepl() and sub() use arguments
-    ## perl = TRUE and useBytes = TRUE.
-    ## Simplify by using inlined functions pgrep() etc, a la
-    psub <- function(pattern, replacement, x)
-        sub(pattern, replacement, x, perl = TRUE, useBytes = TRUE)
-        ## .Internal(sub(pattern, replacement, x, FALSE, TRUE, FALSE, TRUE))
-    ## </FIXME>
-    
     ## Alternatives for left and right quotes.
-    lqa <- "'|\xe2\x80\x98"
-    rqa <- "'|\xe2\x80\x99"
+    lqa <- paste0("'|", intToUtf8(0x2018))
+    rqa <- paste0("'|", intToUtf8(0x2019))
     ## Group when used ...
 
     if(is.character(drop_ok)) {
@@ -754,11 +747,11 @@ function(log, drop_ok = TRUE)
     }
 
     ## Start by reading in.
-    lines <- read_check_log(log)
+    lines <- read_check_log(log, ...)
 
     ## Re-encode to UTF-8 using the session charset info.
     ## All regexp computations will be done using perl = TRUE and
-    ## useBytes = TRUE.
+    ## use useBytes = TRUE for matching and extracting ASCII content.
     re <- "^\\* using session charset: "
     pos <- grep(re, lines, perl = TRUE, useBytes = TRUE)
     if(length(pos)) {
@@ -822,7 +815,7 @@ function(log, drop_ok = TRUE)
             sub(re, "\\2", header[pos[1L]],
                 perl = TRUE, useBytes = TRUE)
         } else ""
-    
+
     ## Get footer.
     len <- length(lines)
     pos <- which(lines == "* DONE")
@@ -906,7 +899,7 @@ function(log, drop_ok = TRUE)
                    })
 
         status <- vapply(chunks, `[[`, "", "status")
-        if(identical(drop_ok, TRUE) ||
+        if(isTRUE(drop_ok) ||
            (is.na(drop_ok)
                && all(is.na(match(c("ERROR", "FAIL"), status)))))
             chunks <- chunks[is.na(match(status, drop_ok_status_tags))]
@@ -915,7 +908,7 @@ function(log, drop_ok = TRUE)
     }
 
     chunks <- analyze_lines(lines)
-    if(!length(chunks) && !identical(drop_ok, FALSE)) {
+    if(!length(chunks) && !isFALSE(drop_ok)) {
         chunks <- list(list(check = "*", status = "OK", output = ""))
     }
 
@@ -925,15 +918,15 @@ function(log, drop_ok = TRUE)
 ### ** check_packages_in_dir_details
 
 check_packages_in_dir_details <-
-function(dir, logs = NULL, drop_ok = TRUE)
+function(dir, logs = NULL, drop_ok = TRUE, ...)
 {
     ## Build a data frame with columns
     ##   Package Version Check Status Output Flags
     ## and some optimizations (in particular, Check Status Flags can be
     ## factors).
 
-    db_from_logs <- function(logs, drop_ok) {
-        out <- lapply(logs, analyze_check_log, drop_ok)
+    db_from_logs <- function(logs, drop_ok, ...) {
+        out <- lapply(logs, analyze_check_log, drop_ok, ...)
         out <- out[lengths(out) > 0L]
         if(!length(out))
             return(matrix(character(), ncol = 6L))
@@ -954,37 +947,40 @@ function(dir, logs = NULL, drop_ok = TRUE)
         logs <- Sys.glob(file.path(dir, "*.Rcheck", "00check.log"))
     }
 
-    db <- db_from_logs(logs, drop_ok)
+    db <- db_from_logs(logs, drop_ok, ...)
     colnames(db) <- c("Package", "Version", "Check", "Status",
                       "Output", "Flags")
 
     ## Now some cleanups.
 
     ## Alternatives for left and right quotes.
-    lqa <- "'|\xe2\x80\x98"
-    rqa <- "'|\xe2\x80\x99"
+    lqa <- paste0("'|", intToUtf8(0x2018))
+    rqa <- paste0("'|", intToUtf8(0x2019))
     ## Group when used ...
 
-    mysub <- function(p, r, x) sub(p, r, x, perl = TRUE, useBytes = TRUE)
-
     checks <- db[, "Check"]
-    checks <- mysub(sprintf("checking whether package (%s).*(%s) can be installed",
-                            lqa, rqa),
-                    "checking whether package can be installed", checks)
-    checks <- mysub("creating .*-Ex.R",
-                    "checking examples creation", checks)
-    checks <- mysub("creating .*-manual\\.tex",
-                    "checking manual creation", checks)
-    checks <- mysub("checking .*-manual\\.tex", "checking manual", checks)
-    checks <- mysub(sprintf("checking package vignettes in (%s)inst/doc(%s)",
-                            lqa, rqa),
-                    "checking package vignettes", checks)
-    checks <- mysub("^checking *", "", checks)
+    checks <- sub(sprintf("checking whether package (%s).*(%s) can be installed",
+                          lqa, rqa),
+                  "checking whether package can be installed",
+                  checks, perl = TRUE, useBytes = TRUE)
+    checks <- sub("creating .*-Ex.R", "checking examples creation",
+                  checks, perl = TRUE, useBytes = TRUE)
+    checks <- sub("creating .*-manual\\.tex", "checking manual creation",
+                  checks, perl = TRUE, useBytes = TRUE)
+    checks <- sub("checking .*-manual\\.tex", "checking manual",
+                  checks, perl = TRUE, useBytes = TRUE)
+    checks <- sub(sprintf("checking package vignettes in (%s)inst/doc(%s)",
+                          lqa, rqa),
+                  "checking package vignettes",
+                  checks, perl = TRUE, useBytes = TRUE)
+    checks <- sub("^checking *", "",
+                  checks, perl = TRUE, useBytes = TRUE)
     db[, "Check"] <- checks
     ## In fact, for tabulation purposes it would even be more convenient
     ## to shorten the check names ...
 
-    db[, "Output"] <- mysub("[[:space:]]+$", "", db[, "Output"])
+    db[, "Output"] <-
+        sub("[[:space:]]+$", "", db[, "Output"], perl = TRUE)
 
     db <- as.data.frame(db, stringsAsFactors = FALSE)
     db$Check <- as.factor(db$Check)
@@ -999,20 +995,19 @@ function(x, ...)
 {
     flags <- x$Flags
     flavor <- x$Flavor
-    paste(sprintf("Package: %s %s\n",
-                  x$Package, x$Version),
-          ifelse(nzchar(flavor),
-                 sprintf("Flavor: %s\n", flavor),
-                 ""),
-          ifelse(nzchar(flags),
-                 sprintf("Flags: %s\n", flags),
-                 ""),
-          sprintf("Check: %s, Result: %s\n",
-                  x$Check, x$Status),
-          sprintf("  %s",
-                  gsub("\n", "\n  ", x$Output,
-                       perl = TRUE, useBytes = TRUE)),
-          sep = "")
+    paste0(sprintf("Package: %s %s\n",
+                   x$Package, x$Version),
+           ifelse(nzchar(flavor),
+                  sprintf("Flavor: %s\n", flavor),
+                  ""),
+           ifelse(nzchar(flags),
+                  sprintf("Flags: %s\n", flags),
+                  ""),
+           sprintf("Check: %s, Result: %s\n",
+                   x$Check, x$Status),
+           sprintf("  %s",
+                   gsub("\n", "\n  ", x$Output, perl = TRUE))
+           )
 }
 
 print.check_details <-
@@ -1025,7 +1020,7 @@ function(x, ...)
 ### ** check_packages_in_dir_changes
 
 check_packages_in_dir_changes <-
-function(dir, old, outputs = FALSE, sources = FALSE)
+function(dir, old, outputs = FALSE, sources = FALSE, ...)
 {
     dir <- if(inherits(dir, "check_packages_in_dir"))
         dir <- attr(dir, "dir")
@@ -1035,14 +1030,14 @@ function(dir, old, outputs = FALSE, sources = FALSE)
     outdirs <- R_check_outdirs(dir, all = sources, invert = TRUE)
     logs <- file.path(outdirs, "00check.log")
     logs <- logs[file_test("-f", logs)]
-    new <- check_packages_in_dir_details(logs = logs, drop_ok = FALSE)
+    new <- check_packages_in_dir_details(logs = logs, drop_ok = FALSE, ...)
 
     ## Use
     ##   old = tools:::CRAN_check_details(FLAVOR)
     ## to compare against the results/details of a CRAN check flavor.
 
     if(!inherits(old, "check_details"))
-        old <- check_packages_in_dir_details(old, drop_ok = FALSE)
+        old <- check_packages_in_dir_details(old, drop_ok = FALSE, ...)
 
     check_details_changes(new, old, outputs)
 }
@@ -1139,6 +1134,25 @@ function(new, old, outputs = FALSE)
     class(db) <- check_details_changes_classes
 
     db
+}
+
+`[.check_details_changes` <-
+function(x, i, j, drop = FALSE)
+{
+    if(((na <- nargs() - (!missing(drop))) == 3L)
+       && (length(i) == 1L)
+       && any(!is.na(match(i, c("==", "!=", "<", "<=", ">", ">="))))) {
+        levels <- c("", "OK", "NOTE", "WARNING", "ERROR", "FAIL")
+        encode <- function(s) {
+            s <- sub("\n.*", "", s)
+            s[is.na(match(s, levels))] <- ""
+            ordered(s, levels)
+        }
+        old <- encode(x$Old)
+        new <- encode(x$New)
+        i <- do.call(i, list(old, new))
+    }
+    NextMethod()
 }
 
 format.check_details_changes <-

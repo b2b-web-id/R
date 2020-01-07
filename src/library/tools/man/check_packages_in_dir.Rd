@@ -1,6 +1,6 @@
 % File src/library/tools/man/check_packages_in_dir.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2013-2014 R Core Team
+% Copyright 2013-2017 R Core Team
 % Distributed under GPL 2 or later
 
 \name{check_packages_in_dir}
@@ -27,7 +27,7 @@ check_packages_in_dir(dir,
                       ...)
 
 summarize_check_packages_in_dir_results(dir, all = TRUE,
-                                        full = FALSE)
+                                        full = FALSE, ...)
 summarize_check_packages_in_dir_timings(dir, all = FALSE,
                                         full = FALSE)
 summarize_check_packages_in_dir_depends(dir, all = FALSE,
@@ -36,8 +36,8 @@ summarize_check_packages_in_dir_depends(dir, all = FALSE,
                                                   "LinkingTo"))
 
 check_packages_in_dir_changes(dir, old,
-                              outputs = FALSE, sources = FALSE)
-check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE)
+                              outputs = FALSE, sources = FALSE, ...)
+check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE, ...)
 }
 \arguments{
   \item{dir}{a character string giving the path to the directory with
@@ -70,7 +70,9 @@ check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE)
     installation and checking.}
   \item{clean}{a logical indicating whether to remove the downloaded
     reverse dependency sources.}
-  \item{...}{currently not used.}
+  \item{...}{passed to \code{\link{readLines}}, e.g. for reading log files 
+    produced in a different encoding; currently not used by 
+    \code{check_packages_in_dir}.}
   \item{all}{a logical indicating whether to also summarize the reverse
     dependencies checked.}
   \item{full}{a logical indicating whether to also give details for
@@ -129,13 +131,22 @@ check_packages_in_dir_details(dir, logs = NULL, drop_ok = TRUE)
   paths to the directories with the new and old sources, respectively,
   and the corresponding check results, possible changes in the check
   results can conveniently be analyzed as controlled via options
-  \code{outputs} and \code{sources}.
+  \code{outputs} and \code{sources}.  The changes object returned can be
+  subscripted according to change in severity from the old to the new
+  results by using one of \code{"=="}, \code{"!="}, \code{"<"},
+  \code{"<="}, \code{">"} or \code{">="} as row index.
 
   \code{check_packages_in_dir_details} analyzes check log files to
   obtain check details as a data frame which can be used for further
   processing, providing check name, status and output for every check
   performed and not dropped according to status tag (via variables
   \code{Check}, \code{Status} and \code{Output}, respectively).
+  
+  Environment variable \env{_R_CHECK_ELAPSED_TIMEOUT_} can be used to
+  set a limit on the elapsed time of each \command{check} run.  See the
+  \sQuote{R Internals} manual for how the value is interpreted and for
+  other environment variables which can be used for finer-grained
+  control on timeouts within a \command{check} run.
 }
 \note{
   This functionality is still experimental: interfaces may change in

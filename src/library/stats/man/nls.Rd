@@ -1,6 +1,6 @@
 % File src/library/stats/man/nls.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{nls}
@@ -22,8 +22,9 @@ nls(formula, data, start, control, algorithm,
     \code{formula} and \code{weights}.  Can also be a list or an
     environment, but not a matrix.}
   \item{start}{a named list or named numeric vector of starting
-    estimates.  When \code{start} is missing, a very cheap guess for
-    \code{start} is tried (if \code{algorithm != "plinear"}).
+    estimates.  When \code{start} is missing (and \code{formula} is not
+    a self-starting model, see \code{\link{selfStart}}), a very cheap
+    guess for \code{start} is tried (if \code{algorithm != "plinear"}).
   }
   \item{control}{an optional list of control settings.  See
     \code{\link{nls.control}} for the names of the settable control
@@ -32,8 +33,8 @@ nls(formula, data, start, control, algorithm,
     The default algorithm is a Gauss-Newton algorithm.  Other possible
     values are \code{"plinear"} for the Golub-Pereyra algorithm for
     partially linear least-squares models and \code{"port"} for the
-    \sQuote{nl2sol} algorithm from the Port library -- see the references.
-    Can be abbreviated.}
+    \sQuote{nl2sol} algorithm from the Port library -- see the
+    references.  Can be abbreviated.}
   \item{trace}{logical value indicating if a trace of the iteration
     progress should be printed.  Default is \code{FALSE}.  If
     \code{TRUE} the residual (weighted) sum-of-squares and the
@@ -288,9 +289,11 @@ with(muscle, table(Strip)) # 2, 3 or 4 obs per strip
 ## We first use the plinear algorithm to fit an overall model,
 ## ignoring that alpha and beta might vary with Strip.
 
+## IGNORE_RDIFF_BEGIN
 musc.1 <- nls(Length ~ cbind(1, exp(-Conc/th)), muscle,
               start = list(th = 1), algorithm = "plinear")
 summary(musc.1)
+## IGNORE_RDIFF_END
 
 ## Then we use nls' indexing feature for parameters in non-linear
 ## models to use the conventional algorithm to fit a model in which
@@ -301,7 +304,10 @@ summary(musc.1)
 b <- coef(musc.1)
 musc.2 <- nls(Length ~ a[Strip] + b[Strip]*exp(-Conc/th), muscle,
               start = list(a = rep(b[2], 21), b = rep(b[3], 21), th = b[1]))
-summary(musc.2)}
+## IGNORE_RDIFF_BEGIN
+summary(musc.2)
+## IGNORE_RDIFF_END
+}
 \dontshow{options(od)}
 }
 \keyword{nonlinear}

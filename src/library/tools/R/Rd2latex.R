@@ -60,7 +60,7 @@ latex_canonical_encoding  <- function(encoding)
 ## 'encoding' is passed to parse_Rd, as the input encoding
 Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                      stages = "render",
-		     outputEncoding = "ASCII", fragment = FALSE, ...,
+		     outputEncoding = "UTF-8", fragment = FALSE, ...,
                      writeEncoding = TRUE)
 {
     encode_warn <- FALSE
@@ -154,7 +154,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 		## So fix up for now
 		x <- fsub1('"\\{"', '"{"', x)
 	    } else if (inPre) {
-		BSL = '@BSL@';
+		BSL <- '@BSL@'
 		x <- fsub("\\", BSL, x)
 		x <- psub("(?<!\\\\)\\{", "\\\\{", x)
 		x <- psub("(?<!\\\\)}", "\\\\}", x)
@@ -162,7 +162,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 		x <- psub("\\\\\\\\var\\\\\\{([^\\\\]*)\\\\}", "\\\\var{\\1}", x)
 	    } else {
 		## cat(sprintf("\ntexify in: '%s'\n", x))
-		BSL = '@BSL@';
+		BSL <- '@BSL@'
 		x <- fsub("\\", BSL, x)
 		x <- psub("(?<!\\\\)\\{", "\\\\{", x)
 		x <- psub("(?<!\\\\)}", "\\\\}", x)
@@ -248,7 +248,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 
     latex_escape_name <- function(x)
     {
-        x <- psub("([$#~_&])", "\\\\\\1", x) #- escape them
+        x <- psub("([$#_&])", "\\\\\\1", x) #- escape them
         x <- fsub("{", "\\textbraceleft{}", x)
         x <- fsub("}", "\\textbraceright{}", x)
         x <- fsub("^", "\\textasciicircum{}", x)
@@ -519,7 +519,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                               },
                               "\\enumerate" =,
                               "\\itemize"= {
-                                  of1("\\item ")
+                                  of1("\\item{} ")
                                   itemskip <- TRUE
                               })
                        itemskip <- TRUE
@@ -548,7 +548,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
         if (length(section)) {
 	    ## need \n unless one follows, so
 	    nxt <- section[[1L]]
-	    if (!attr(nxt, "Rd_tag") %in% c("TEXT", "RCODE") ||
+	    if (attr(nxt, "Rd_tag") %notin% c("TEXT", "RCODE") ||
 		substr(as.character(nxt), 1L, 1L) != "\n") of1("\n")
 	    writeContent(section, tag)
 	    inCodeBlock <<- FALSE
@@ -565,6 +565,8 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
             writeAlias(section, tag)
         else if (tag == "\\keyword") {
             key <- trim(section)
+            if(key %in% .Rd_keywords_auto)
+                return()
             of0("\\keyword{", latex_escape_name(key), "}{", ltxname, "}\n")
         } else if (tag == "\\section" || tag == "\\subsection") {
             macro <- c("Section", "SubSection", "SubSubSection")[min(sectionLevel, 3)]

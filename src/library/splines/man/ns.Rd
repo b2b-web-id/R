@@ -1,6 +1,6 @@
 % File src/library/splines/man/ns.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2013 R Core Team
+% Copyright 1995-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{ns}
@@ -15,10 +15,11 @@ ns(x, df = NULL, knots = NULL, intercept = FALSE,
 }
 \arguments{
   \item{x}{the predictor variable.  Missing values are allowed.}
-  \item{df}{degrees of freedom. One can supply \code{df} rather than
+  \item{df}{degrees of freedom.  One can supply \code{df} rather than
     knots; \code{ns()} then chooses \code{df - 1 - intercept} knots at
     suitably chosen quantiles of \code{x} (which will ignore missing
-    values).  The default, \code{df = 1}, corresponds to \emph{no} knots.}
+    values).  The default, \code{df = NULL}, sets the number of
+    inner knots as \code{length(knots)}.}
   \item{knots}{breakpoints that define the spline.  The default is no
     knots; together with the natural boundary conditions this results in
     a basis for linear regression on \code{x}.  Typical values are the
@@ -33,7 +34,7 @@ ns(x, df = NULL, knots = NULL, intercept = FALSE,
     extend beyond \code{Boundary.knots}}
 }
 \details{
-  \code{ns} is based on the function \code{\link{spline.des}}.  It
+  \code{ns} is based on the function \code{\link{splineDesign}}.  It
   generates a basis matrix for representing the family of
   piecewise-cubic splines with the specified sequence of
   interior knots, and the natural boundary conditions.  These enforce
@@ -72,13 +73,17 @@ attr(terms(fm1), "predvars")
 
 ## example of safe prediction
 plot(women, xlab = "Height (in)", ylab = "Weight (lb)")
-ht <- seq(57, 73, length.out = 200)
-lines(ht, predict(fm1, data.frame(height = ht)))
+ht <- seq(57, 73, length.out = 200) ; nD <- data.frame(height = ht)
+lines(ht, p1 <- predict(fm1, nD))
+stopifnot(all.equal(p1, predict(update(fm1, . ~
+                            splines::ns(height, df=5)), nD)))
+          # not true in R < 3.5.0
 \dontshow{
 ## Consistency:
 x <- c(1:3, 5:6)
 stopifnot(identical(ns(x), ns(x, df = 1)),
-          identical(ns(x, df = 2), ns(x, df = 2, knots = NULL)), # not true till 2.15.2
+          identical(ns(x, df = 2),
+                    ns(x, df = 2, knots = NULL)), # not true till 2.15.2
           !is.null(kk <- attr(ns(x), "knots")), # not true till 1.5.1
           length(kk) == 0)
 }

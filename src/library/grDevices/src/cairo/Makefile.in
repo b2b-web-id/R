@@ -11,6 +11,8 @@ R_HOME = $(top_builddir)
 
 pkg = grDevices
 
+## Although this is in a package,
+## it uses the top-level Makeconf and not etc/Makeconf
 include $(top_builddir)/Makeconf
 
 ## need to find bitmap.h
@@ -51,7 +53,7 @@ $(cairo_la): $(OBJECTS)
 
 mostlyclean: clean
 clean:
-	@-rm -rf .libs _libs Makedeps *.d *.o $(cairo_la)
+	@-rm -Rf .libs _libs Makedeps *.d *.o $(cairo_la)
 distclean: clean
 	@-rm -f Makefile
 maintainer-clean: distclean

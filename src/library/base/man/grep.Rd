@@ -1,6 +1,6 @@
 % File src/library/base/man/grep.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{grep}
@@ -69,8 +69,8 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
   \item{invert}{logical.  If \code{TRUE} return indices or values for
     elements that do \emph{not} match.}
   \item{replacement}{a replacement for matched pattern in \code{sub} and
-    \code{gsub}.  Coerced to character if possible.  For \code{fixed =
-      FALSE} this can include backreferences \code{"\\1"} to
+    \code{gsub}.  Coerced to character if possible.  For
+    \code{fixed = FALSE} this can include backreferences \code{"\\1"} to
     \code{"\\9"} to parenthesized subexpressions of \code{pattern}.  For
     \code{perl = TRUE} only, it can also contain \code{"\\U"} or
     \code{"\\L"} to convert the rest of the replacement to upper or
@@ -122,13 +122,13 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 
   Caseless matching with \code{perl = TRUE} for non-ASCII characters
   depends on the PCRE library being compiled with \sQuote{Unicode
-  property support}: an external library might not be.
+  property support}.
 }
 
 \value{
   \code{grep(value = FALSE)} returns a vector of the indices
   of the elements of \code{x} that yielded a match (or not, for
-  \code{invert = TRUE}.  This will be an integer vector unless the input
+  \code{invert = TRUE}).  This will be an integer vector unless the input
   is a \emph{long vector}, when it will be a double vector.
 
   \code{grep(value = TRUE)} returns a character vector containing the
@@ -179,8 +179,9 @@ regexec(pattern, text, ignore.case = FALSE, perl = FALSE,
 
 \section{Warning}{
   The POSIX 1003.2 mode of \code{gsub} and \code{gregexpr} does not
-  work correctly with repeated word-boundaries (e.g., \code{pattern =
-  "\\b"}).  Use \code{perl = TRUE} for such matches (but that may not
+  work correctly with repeated word-boundaries (e.g.,
+  \code{pattern = "\\b"}).
+  Use \code{perl = TRUE} for such matches (but that may not
   work as expected with non-ASCII inputs, as the meaning of
   \sQuote{word} is system-dependent).
 }
@@ -291,7 +292,7 @@ txt <- c("The", "licenses", "for", "most", "software", "are",
 stopifnot( txt[i] == grep("[gu]", txt, value = TRUE) )
 
 ## Note that in locales such as en_US this includes B as the
-## collation order is aAbBcCdEe ...
+## collation order is aAbBcCdDe ...
 (ot <- sub("[b-e]",".", txt))
 txt[ot != gsub("[b-e]",".", txt)]#- gsub does "global" substitution
 

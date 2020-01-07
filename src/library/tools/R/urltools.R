@@ -1,7 +1,7 @@
 #  File src/library/tools/R/urltools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2015-2017 The R Core Team
+#  Copyright (C) 2015-2019 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ function()
     ## <http://www.iana.org/assignments/uri-schemes/uri-schemes.xhtml>.
     baseurl <- "http://www.iana.org/assignments/uri-schemes/"
     db <- utils::read.csv(url(paste0(baseurl, "uri-schemes-1.csv")),
-                          stringsAsFactors = FALSE)
+                          stringsAsFactors = FALSE, encoding = "UTF-8")
     names(db) <- chartr(".", "_", names(db))
     db
 }
@@ -69,9 +69,33 @@ function(x)
 .get_urls_from_HTML_file <-
 function(f)
 {
-    nodes <- xml2::xml_find_all(xml2::read_html(f), "//a")
+    doc <- xml2::read_html(f)
+    if(!inherits(doc, "xml_node")) return(character())
+    nodes <- xml2::xml_find_all(doc, "//a")
     hrefs <- xml2::xml_attr(nodes, "href")
     unique(hrefs[!is.na(hrefs) & !startsWith(hrefs, "#")])
+}
+
+.get_urls_from_PDF_file <-
+function(f)    
+{
+    ## Seems there is no straightforward way to extract hyperrefs from a
+    ## PDF, hence first convert to HTML.
+    ## Note that pdftohtml always outputs in cwd ...
+    owd <- getwd()
+    dir.create(d <- tempfile())
+    on.exit({ unlink(d, recursive = TRUE); setwd(owd) })
+    file.copy(normalizePath(f), d)
+    setwd(d)
+    g <- tempfile(tmpdir = d, fileext = ".xml")
+    system2("pdftohtml",
+            c("-s -q -i -c -xml", basename(f), basename(g)))
+    ## Oh dear: seems that pdftohtml can fail without a non-zero exit
+    ## status.
+    if(file.exists(g))
+        .get_urls_from_HTML_file(g)
+    else
+        character()
 }
 
 url_db <-
@@ -83,6 +107,60 @@ function(urls, parents)
                      stringsAsFactors = FALSE)
     class(db) <- c("url_db", "data.frame")
     db
+}
+
+url_db_from_HTML_files <-
+function(dir, recursive = FALSE, files = NULL, verbose = FALSE)
+{
+    urls <- parents <- character()
+    if(is.null(files)) 
+        files <- list.files(dir, pattern = "[.]html$",
+                            full.names = TRUE,
+                            recursive = recursive)
+    urls <-
+        lapply(files,
+               function(f) {
+                   if(verbose)
+                       message(sprintf("processing %s",
+                                       .file_path_relative_to_dir(f, dir)))
+                   .get_urls_from_HTML_file(f)
+               })
+    names(urls) <- files
+    urls <- Filter(length, urls)
+    if(length(urls)) {
+        parents <- rep.int(.file_path_relative_to_dir(names(urls), dir),
+                           lengths(urls))
+        urls <- unlist(urls, use.names = FALSE)
+    }
+    url_db(urls, parents)
+}
+
+url_db_from_PDF_files <-
+function(dir, recursive = FALSE, files = NULL, verbose = FALSE)
+{
+    urls <- parents <- character()
+    if(is.null(files))
+        files <- list.files(dir, pattern = "[.]pdf$",
+                            full.names = TRUE,
+                            recursive = recursive)
+    ## FIXME: this is simpler to do with full.names = FALSE and without
+    ## tools:::.file_path_relative_to_dir().
+    urls <-
+        lapply(files,
+               function(f) {
+                   if(verbose)
+                       message(sprintf("processing %s",
+                                       .file_path_relative_to_dir(f, dir)))
+                   .get_urls_from_PDF_file(f)
+               })
+    names(urls) <- files
+    urls <- Filter(length, urls)
+    if(length(urls)) {
+        parents <- rep.int(.file_path_relative_to_dir(names(urls), dir),
+                           lengths(urls))
+        urls <- unlist(urls, use.names = FALSE)
+    }
+    url_db(urls, parents)
 }
 
 url_db_from_package_Rd_db <-
@@ -131,38 +209,25 @@ function(dir, meta, installed = FALSE)
 url_db_from_package_news <-
 function(dir, installed = FALSE)
 {
-    urls <- character()
     path <- if(installed) "NEWS.Rd" else file.path("inst", "NEWS.Rd")
     nfile <- file.path(dir, path)
-    if(file.exists(nfile)) {
-        macros <- initialRdMacros()
-        urls <- .get_urls_from_Rd(prepare_Rd(tools::parse_Rd(nfile,
-                                                             macros = macros),
-                                             stages = "install"))
-    }
+    urls <-
+        if(file.exists(nfile)) {
+            macros <- initialRdMacros()
+            .get_urls_from_Rd(prepare_Rd(parse_Rd(nfile, macros = macros),
+                                         stages = "install"))
+        } else character()
     url_db(urls, rep.int(path, length(urls)))
 }
 
 url_db_from_package_HTML_files <-
 function(dir, installed = FALSE)
 {
-    urls <- parents <- character()
     path <- if(installed) "doc" else file.path("inst", "doc")
     files <- Sys.glob(file.path(dir, path, "*.html"))
     if(installed && file.exists(rfile <- file.path(dir, "README.html")))
         files <- c(files, rfile)
-    if(length(files)) {
-        urls <- lapply(files, .get_urls_from_HTML_file)
-        names(urls) <- files
-        urls <- Filter(length, urls)
-        if(length(urls)) {
-            parents <- rep.int(.file_path_relative_to_dir(names(urls),
-                                                          dir),
-                               lengths(urls))
-            urls <- unlist(urls, use.names = FALSE)
-        }
-    }
-    url_db(urls, parents)
+    url_db_from_HTML_files(dir, files = files)
 }
 
 url_db_from_package_README_md <-
@@ -325,7 +390,7 @@ function(db, remote = TRUE, verbose = FALSE)
                         R = rep.int("", length(u))) {
         y <- data.frame(URL = u, From = I(p), Status = s, Message = m,
                         New = new, CRAN = cran, Spaces = spaces, R = R,
-                        stringsAsFactors = FALSE)
+                        row.names = NULL, stringsAsFactors = FALSE)
         y$From <- p
         class(y) <- c("check_url_db", "data.frame")
         y
@@ -408,7 +473,7 @@ function(db, remote = TRUE, verbose = FALSE)
                  (grepl("^https?://cran.r-project.org/web/views/[[:alnum:]]+[.]html$",
                         ul)) ||
                  startsWith(ul, "http://cran.r-project.org") ||
-                 any(substring(ul, 1L, nchar(mirrors)) == mirrors))
+                 any(startsWith(ul, mirrors)))
         R <- grepl("^http://(www|bugs|journal).r-project.org", ul)
         spaces <- grepl(" ", u)
         c(if(cran) u else "", if(spaces) u else "", if(R) u else "")
@@ -524,13 +589,13 @@ function(x, ...)
 
     paste0(sprintf("URL: %s", u),
            sprintf("\nFrom: %s",
-                   sapply(x$From, paste, collapse = "\n      ")),
+                   vapply(x$From, paste, "", collapse = "\n      ")),
            ifelse((s <- x$Status) == "",
                   "",
                   sprintf("\nStatus: %s", s)),
            ifelse((m <- x$Message) == "",
                   "",
-                  sprintf("\nMessage: %s", m)),
+                  sprintf("\nMessage: %s", gsub("\n", "\n  ", m))),
            ifelse((m <- x$Spaces) == "",
                   "",
                   "\nURL contains spaces"),
@@ -551,12 +616,35 @@ function(x, ...)
     invisible(x)
 }
 
+as.matrix.check_url_db <-
+function(x, ...)
+{
+    n <- lengths(x[["From"]])
+    y <- do.call(cbind,
+                 c(list(URL = rep.int(x[["URL"]], n),
+                        Parent = unlist(x[["From"]])),
+                   lapply(x[-c(1L, 2L)], rep.int, n)))
+    rownames(y) <- NULL
+    y
+}
+
 .curl_GET_status <-
 function(u, verbose = FALSE)
 {
     if(verbose)
         message(sprintf("processing %s", u))
-    g <- tryCatch(curl::curl_fetch_memory(u), error = identity)
+    ## Configure curl handle for better luck with JSTOR URLs/DOIs.
+    ## Alternatively, special-case requests to
+    ##   https?://doi.org/10.2307
+    ##   https?://www.jstor.org
+    h <- curl::new_handle()
+    curl::handle_setopt(h,
+                        cookiesession = 1,
+                        followlocation = 1,
+                        http_version = 2L,
+                        ssl_enable_alpn = 0)
+    g <- tryCatch(curl::curl_fetch_memory(u, handle = h),
+                  error = identity)
     if(inherits(g, "error"))
         -1L
     else

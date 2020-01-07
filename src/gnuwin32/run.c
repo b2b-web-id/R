@@ -2,7 +2,7 @@
  *  R : A Computer Language for Statistical Data Analysis
  *  file run.c: a simple 'reading' pipe (and a command executor)
  *  Copyright  (C) 1999-2001  Guido Masarotto and Brian Ripley
- *             (C) 2007-2017  The R Core Team
+ *             (C) 2007-2019  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@
 
 #define WIN32_LEAN_AND_MEAN 1
 #include <windows.h>
+#include <mmsystem.h> /* for timeGetTime */
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
@@ -54,11 +55,6 @@ static char *expandcmd(const char *cmd, int whole)
     /* make a copy as we manipulate in place */
     strcpy(buf, cmd);
 
-    // This is the return value.
-    if (!(s = (char *) malloc(MAX_PATH + strlen(cmd)))) {
-	strcpy(RunError, "Insufficient memory (expandcmd)");
-	return NULL;
-    }
     /* skip leading spaces */
     for (p = buf; *p && isspace(*p); p++);
     /* find the command itself, possibly double-quoted */
@@ -73,6 +69,12 @@ static char *expandcmd(const char *cmd, int whole)
 	}
 	c = *q; /* character after the command, normally a space */
 	*q = '\0';
+    }
+
+    // This is the return value.
+    if (!(s = (char *) malloc(MAX_PATH + strlen(cmd)))) {
+	strcpy(RunError, "Insufficient memory (expandcmd)");
+	return NULL;
     }
 
     /*
@@ -141,13 +143,18 @@ extern size_t Rf_utf8towcs(wchar_t *wc, const char *s, size_t n);
 static void pcreate(const char* cmd, cetype_t enc,
 		      int newconsole, int visible,
 		      HANDLE hIN, HANDLE hOUT, HANDLE hERR,
-		      PROCESS_INFORMATION *pi)
+		      pinfo *pi)
 {
     DWORD ret;
     STARTUPINFO si;
     STARTUPINFOW wsi;
-    HANDLE dupIN, dupOUT, dupERR;
+    HANDLE dupIN, dupOUT, dupERR, job, port;
     WORD showWindow = SW_SHOWDEFAULT;
+    DWORD flags;
+    BOOL inJob;
+    Rboolean breakaway;
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+    JOBOBJECT_ASSOCIATE_COMPLETION_PORT cport;
     int inpipe;
     char *ecmd;
     SECURITY_ATTRIBUTES sa;
@@ -222,19 +229,133 @@ static void pcreate(const char* cmd, cetype_t enc,
 	}
     }
 
+    /* Originally, the external process has been waited for only using
+       waitForSingleObject, but that has been proven unreliable: sometimes
+       the output file would still be opened (and hence locked) by some
+       child process after waitForSingleObject would finish. This has been
+       observed also while running tests and particularly when building
+       vignettes, resulting in spurious "Permission denied" errors.
+
+       This has been happening almost surely due to a child process not
+       waiting for its own children to finish, which has been reported
+       to happen with Linux utilities ported to Windows as used for tests
+       in Haskell/GHC. Inspired by Haskell process and a blog post about
+       waiting for a process tree to finish, we now use job objects to
+       wait also for process trees with this issue:
+
+	https://github.com/haskell/process
+	https://blogs.msdn.microsoft.com/oldnewthing/20130405-00/?p=4743
+
+       In addition, we try to be easy on applications coded to rely on that
+       they do not run in a job, when running in old Windows that do not
+       support nested jobs. With nested jobs support, it might make sense
+       to not breakaway to better support nested R processes.
+    */
+
+    /* Creating the process with CREATE_BREAKAWAY_FROM_JOB is safe when
+       the process is not in any job or when it is in a job that allows it.
+       The documentation does not say what would happen if we set the flag,
+       but run in a job that does not allow it, so better don't. */
+    breakaway = FALSE;
+    if (IsProcessInJob(GetCurrentProcess(), NULL, &inJob) && inJob) {
+	/* The documentation does not say that it would be ok to use
+	   QueryInformationJobObject when the process is not in the job,
+	   so we have better tested that upfront. */
+	ZeroMemory(&jeli, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+	ret = QueryInformationJobObject(
+		NULL,
+	        JobObjectExtendedLimitInformation,
+	        &jeli,
+	        sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION),
+		NULL);
+	breakaway = ret &&
+		(jeli.BasicLimitInformation.LimitFlags &
+	         JOB_OBJECT_LIMIT_BREAKAWAY_OK);
+    }
+
+    /* create a job that allows breakaway */
+    job = CreateJobObject(NULL, NULL);
+    if (job) {
+	ZeroMemory(&jeli, sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+	jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+	ret = SetInformationJobObject(
+		job,
+		JobObjectExtendedLimitInformation,
+		&jeli,
+                sizeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+	if (!ret) {
+	    CloseHandle(job);
+	    job = NULL;
+	}
+    }
+
+    /* create a completion port to learn when processes exit */
+    if (job) {
+	port = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 1);
+	if (!port) {
+	    CloseHandle(job);
+	    job = NULL;
+	}
+    }
+    if (job) {
+	ZeroMemory(&cport, sizeof(JOBOBJECT_ASSOCIATE_COMPLETION_PORT));
+	cport.CompletionKey = job; /* use job handle as key */
+	cport.CompletionPort = port;
+	ret = SetInformationJobObject(
+	    job,
+	    JobObjectAssociateCompletionPortInformation,
+	    &cport,
+	    sizeof(JOBOBJECT_ASSOCIATE_COMPLETION_PORT));
+	if (!ret) {
+	    CloseHandle(job);
+	    CloseHandle(port);
+	    job = NULL;
+	}
+    }
+
+    flags = 0;
+    if (job)
+	flags |= CREATE_SUSPENDED; /* assign to job before it runs */
+    if (newconsole && (visible == 1))
+	flags |= CREATE_NEW_CONSOLE;
+    if (job && breakaway)
+	flags |= CREATE_BREAKAWAY_FROM_JOB;
+
     if(enc == CE_UTF8) {
 	int n = strlen(ecmd); /* max no of chars */
 	wchar_t wcmd[n+1];
 	Rf_utf8towcs(wcmd, ecmd, n+1);
-	ret = CreateProcessW(NULL, wcmd, &sa, &sa, TRUE,
-			     (newconsole && (visible == 1)) ?
-			     CREATE_NEW_CONSOLE : 0,
-			     NULL, NULL, &wsi, pi);
+	ret = CreateProcessW(NULL, wcmd, &sa, &sa, TRUE, flags,
+			     NULL, NULL, &wsi, &(pi->pi));
     } else
-	ret = CreateProcess(NULL, ecmd, &sa, &sa, TRUE,
-			    (newconsole && (visible == 1)) ?
-			    CREATE_NEW_CONSOLE : 0,
-			    NULL, NULL, &si, pi);
+	ret = CreateProcess(NULL, ecmd, &sa, &sa, TRUE, flags,
+			    NULL, NULL, &si, &(pi->pi));
+
+    if (ret && job) {
+	/* process was created as suspended */
+	if (!AssignProcessToJobObject(job, pi->pi.hProcess)) {
+	    /* will fail running on Windows without support for nested jobs,
+	       when running in a job that does not allow breakaway */
+	    CloseHandle(job);
+	    CloseHandle(port);
+	    job = NULL;
+	}
+	ResumeThread(pi->pi.hThread);
+    }
+
+    if (ret && job) {
+	/* process is running in new job */
+	pi->job = job;
+	pi->port = port;
+    } else {
+	if (job) {
+	    CloseHandle(job);
+	    CloseHandle(port);
+	    job = NULL;
+	}
+	pi->job = NULL;
+	pi->port = NULL;
+    }
 
     if (inpipe) {
 	CloseHandle(dupIN);
@@ -243,18 +364,9 @@ static void pcreate(const char* cmd, cetype_t enc,
     }
     if (!ret)
 	snprintf(RunError, 500, _("'CreateProcess' failed to run '%s'"), ecmd);
-    else CloseHandle(pi->hThread);
+    else CloseHandle(pi->pi.hThread);
     free(ecmd);
     return;
-}
-
-static int pwait(HANDLE p)
-{
-    DWORD ret;
-
-    WaitForSingleObject(p, INFINITE);
-    GetExitCodeProcess(p, &ret);
-    return ret;
 }
 
 /* used in rpipeOpen */
@@ -263,7 +375,21 @@ threadedwait(LPVOID param)
 {
     rpipe *p = (rpipe *) param;
 
-    p->exitcode = pwait(p->pi.hProcess);
+    if (p->timeoutMillis) {
+	DWORD wres = WaitForSingleObject(p->pi.pi.hProcess, p->timeoutMillis);
+	if (wres == WAIT_TIMEOUT) {
+	    TerminateProcess(p->pi.pi.hProcess, 124);
+	    p->timedout = 1;
+	    /* wait up to 10s for the  process to actually terminate */
+	    WaitForSingleObject(p->pi.pi.hProcess, 10000);
+	}
+    } else 
+	WaitForSingleObject(p->pi.pi.hProcess, INFINITE);
+
+    DWORD ret;
+    GetExitCodeProcess(p->pi.pi.hProcess, &ret);
+    p->exitcode = ret;
+    
     FlushFileBuffers(p->write);
     FlushFileBuffers(p->read);
     p->active = 0;
@@ -337,26 +463,99 @@ BOOL CALLBACK TerminateWindow(HWND hwnd, LPARAM lParam)
 
 extern void GA_askok(const char *info);
 
-static void terminate_process(void *p)
+static void waitForJob(pinfo *pi, DWORD timeoutMillis, int* timedout)
 {
-    PROCESS_INFORMATION *pi = (PROCESS_INFORMATION*)p;
-    EnumWindows((WNDENUMPROC)TerminateWindow, (LPARAM)pi->dwProcessId);
+    DWORD code, ret;
+    ULONG_PTR key;
+    DWORD beforeMillis;
+    JOBOBJECT_BASIC_ACCOUNTING_INFORMATION jbai;
+    LPOVERLAPPED overlapped; /* not used */
+    DWORD queryMillis;
 
-    if (WaitForSingleObject(pi->hProcess, 5000) == WAIT_TIMEOUT) {
-	if (R_Interactive)
-	    GA_askok(_("Child process not responding.  R will terminate it."));
-	TerminateProcess(pi->hProcess, 99);
+    if (timeoutMillis)
+	beforeMillis = timeGetTime();
+
+    queryMillis = 0;
+    for(;;) {
+	ret = GetQueuedCompletionStatus(pi->port, &code, &key,
+					&overlapped, queryMillis);
+	if (ret && code == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO &&
+	    (HANDLE)key == pi->job)
+	    break;
+
+	/* start with short query timeouts because notifications often get lost,
+	   this is essentially polling */
+
+	if (queryMillis == 0)
+	    queryMillis = 1;
+	else if (queryMillis < 100)
+	    queryMillis *= 2;
+
+	if (timeoutMillis && (timeGetTime() - beforeMillis >= timeoutMillis)) {
+	    if (timedout)
+		*timedout = 1;
+	    break;
+	}
+
+	/* Check also explicitly because notifications are documented to get
+	   lost and they often do. */
+	ZeroMemory(&jbai, sizeof(JOBOBJECT_BASIC_ACCOUNTING_INFORMATION));
+	ret = QueryInformationJobObject(
+		pi->job,
+		JobObjectBasicAccountingInformation,
+		&jbai,
+		sizeof(JOBOBJECT_BASIC_ACCOUNTING_INFORMATION),
+		NULL);
+	if (ret && jbai.ActiveProcesses == 0)
+	    break;
     }
+    CloseHandle(pi->port);
+    CloseHandle(pi->job);
 }
 
-static int pwait2(HANDLE p)
+static void terminate_process(void *p)
+{
+    pinfo *pi = (pinfo*) p;
+    EnumWindows((WNDENUMPROC)TerminateWindow, (LPARAM)pi->pi.dwProcessId);
+
+    if (WaitForSingleObject(pi->pi.hProcess, 5000) == WAIT_TIMEOUT) {
+	if (R_Interactive)
+	    GA_askok(_("Child process not responding.  R will terminate it."));
+	TerminateProcess(pi->pi.hProcess, 99);
+    }
+
+    if (pi->job)
+	waitForJob(pi, 2000, NULL);
+}
+
+static int pwait2(pinfo *pi, DWORD timeoutMillis, int* timedout)
 {
     DWORD ret;
 
-    while( WaitForSingleObject(p, 100) == WAIT_TIMEOUT )
-	R_CheckUserInterrupt();
+    if (!timeoutMillis) {
+	while( WaitForSingleObject(pi->pi.hProcess, 100) == WAIT_TIMEOUT )
+	    R_CheckUserInterrupt();
+    } else {
+	DWORD beforeMillis = timeGetTime();
+	while( WaitForSingleObject(pi->pi.hProcess, 100) == WAIT_TIMEOUT ) {
+	    R_CheckUserInterrupt();
+	    DWORD afterMillis = timeGetTime();
+	    if (afterMillis - beforeMillis >= timeoutMillis) {
+		TerminateProcess(pi->pi.hProcess, 124);
+		if (timedout)
+		    *timedout = 1;
+		/* wait up to 10s for the process to actually terminate */
+		WaitForSingleObject(pi->pi.hProcess, 10000);
+		break;
+	    }
+	}
+    }
 
-    GetExitCodeProcess(p, &ret);
+    GetExitCodeProcess(pi->pi.hProcess, &ret);
+
+    if (pi->job)
+	waitForJob(pi, timeoutMillis, timedout);
+
     return ret;
 }
 
@@ -373,9 +572,19 @@ static int pwait2(HANDLE p)
 int runcmd(const char *cmd, cetype_t enc, int wait, int visible,
 	   const char *fin, const char *fout, const char *ferr)
 {
+    return runcmd_timeout(cmd, enc, wait, visible, fin, fout, ferr, 0, NULL);
+}
+
+int runcmd_timeout(const char *cmd, cetype_t enc, int wait, int visible,
+                   const char *fin, const char *fout, const char *ferr,
+                   int timeout, int *timedout)
+{
+    if (!wait && timeout)
+	error("Timeout with background running processes is not supported.");
+    
     HANDLE hIN = getInputHandle(fin), hOUT, hERR;
     int ret = 0;
-    PROCESS_INFORMATION pi;
+    pinfo pi;
     int close1 = 0, close2 = 0, close3 = 0;
     
     if (hIN && fin && fin[0]) close1 = 1;
@@ -391,21 +600,22 @@ int runcmd(const char *cmd, cetype_t enc, int wait, int visible,
     }
 
 
-    memset(&pi, 0, sizeof(pi));
+    memset(&(pi.pi), 0, sizeof(PROCESS_INFORMATION));
     pcreate(cmd, enc, !wait, visible, hIN, hOUT, hERR, &pi);
-    if (pi.hProcess) {
+    if (pi.pi.hProcess) {
 	if (wait) {
 	    RCNTXT cntxt;
 	    begincontext(&cntxt, CTXT_CCODE, R_NilValue, R_BaseEnv, R_BaseEnv,
 		     R_NilValue, R_NilValue);
 	    cntxt.cend = &terminate_process;
 	    cntxt.cenddata = &pi;
-	    ret = pwait2(pi.hProcess);
+	    DWORD timeoutMillis = (DWORD) (1000*timeout);
+	    ret = pwait2(&pi, timeoutMillis, timedout);
 	    endcontext(&cntxt);
 	    snprintf(RunError, 501, _("Exit code was %d"), ret);
 	    ret &= 0xffff;
 	} else ret = 0;
-	CloseHandle(pi.hProcess);
+	CloseHandle(pi.pi.hProcess);
     } else {
     	ret = NOLAUNCH;
     }
@@ -425,7 +635,8 @@ int runcmd(const char *cmd, cetype_t enc, int wait, int visible,
  */
 rpipe * rpipeOpen(const char *cmd, cetype_t enc, int visible,
 		  const char *finput, int io,
-		  const char *fout, const char *ferr)
+		  const char *fout, const char *ferr,
+		  int timeout)
 {
     rpipe *r;
     HANDLE hTHIS, hIN, hOUT, hERR, hReadPipe, hWritePipe;
@@ -438,11 +649,14 @@ rpipe * rpipeOpen(const char *cmd, cetype_t enc, int visible,
 	return NULL;
     }
     r->active = 0;
-    r->pi.hProcess = NULL;
+    r->pi.pi.hProcess = NULL;
+    r->pi.job = NULL;
     r->thread = NULL;
+    r->timedout = 0;
+    r->timeoutMillis = (DWORD) (1000*timeout);
     res = CreatePipe(&hReadPipe, &hWritePipe, NULL, 0);
     if (res == FALSE) {
-	rpipeClose(r);
+	rpipeClose(r, NULL);
 	strcpy(RunError, "CreatePipe failed");
 	return NULL;
     }
@@ -458,7 +672,7 @@ rpipe * rpipeOpen(const char *cmd, cetype_t enc, int visible,
 		r->read, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE,
 		&(r->pi));
 	r->active = 1;
-	if (!r->pi.hProcess) return NULL; else return r;
+	if (!r->pi.pi.hProcess) return NULL; else return r;
     }
 
     /* pipe for R to read from */
@@ -491,10 +705,10 @@ rpipe * rpipeOpen(const char *cmd, cetype_t enc, int visible,
     if (close3) CloseHandle(hERR);
 
     r->active = 1;
-    if (!r->pi.hProcess)
+    if (!r->pi.pi.hProcess)
 	return NULL;
     if (!(r->thread = CreateThread(NULL, 0, threadedwait, r, 0, &id))) {
-	rpipeClose(r);
+	rpipeClose(r, NULL);
 	strcpy(RunError, "CreateThread failed");
 	return NULL;
     }
@@ -578,7 +792,7 @@ char * rpipeGets(rpipe * r, char *buf, int len)
     return buf;
 }
 
-int rpipeClose(rpipe * r)
+int rpipeClose(rpipe *r, int *timedout)
 {
     int   i;
 
@@ -588,12 +802,14 @@ int rpipeClose(rpipe * r)
        but also may have been terminated too early; retrieve the exit
        code again to avoid race condition */
     DWORD ret;
-    GetExitCodeProcess(r->pi.hProcess, &ret);
+    GetExitCodeProcess(r->pi.pi.hProcess, &ret);
     r->exitcode = ret;
     CloseHandle(r->read);
     CloseHandle(r->write);
-    CloseHandle(r->pi.hProcess);
+    CloseHandle(r->pi.pi.hProcess);
     i = r->exitcode;
+    if (timedout)
+	*timedout = r->timedout;
     free(r);
     return i &= 0xffff;
 }
@@ -615,7 +831,7 @@ static Rboolean Wpipe_open(Rconnection con)
 
     io = con->mode[0] == 'w';
     if(io) visible = 1; /* Somewhere to put the output */
-    rp = rpipeOpen(con->description, con->enc, visible, NULL, io, NULL, NULL);
+    rp = rpipeOpen(con->description, con->enc, visible, NULL, io, NULL, NULL, 0);
     if(!rp) {
 	warning("cannot open cmd `%s'", con->description);
 	return FALSE;
@@ -632,7 +848,7 @@ static Rboolean Wpipe_open(Rconnection con)
 
 static void Wpipe_close(Rconnection con)
 {
-    con->status = rpipeClose( ((RWpipeconn)con->private) ->rp);
+    con->status = rpipeClose( ((RWpipeconn)con->private) ->rp, NULL);
     con->isopen = FALSE;
 }
 
@@ -700,7 +916,7 @@ static size_t Wpipe_write(const void *ptr, size_t size, size_t nitems,
     DWORD towrite = nitems * size, write, ret;
 
     if(!rp->active) return 0;
-    GetExitCodeProcess(rp->pi.hProcess, &ret);
+    GetExitCodeProcess(rp->pi.pi.hProcess, &ret);
     if(ret != STILL_ACTIVE) {
 	rp->active = 0;
 	warning("broken Windows pipe");

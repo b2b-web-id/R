@@ -1,6 +1,6 @@
 % File src/library/tools/man/package_native_routine_registration_skeleton.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2017 R Core Team
+% Copyright 2017-9 R Core Team
 % Distributed under GPL 2 or later
 
 \name{package_native_routine_registration_skeleton}
@@ -59,8 +59,9 @@ package_native_routine_registration_skeleton(dir, con = stdout(),
   \file{init.c}).
   
   The default value of \code{character_only} is appropriate when working
-  on a package without any existing registration: \code{character_only =
-  FALSE} can be used to suggest updates for a package which has been
+  on a package without any existing registration:
+  \code{character_only = FALSE}
+  can be used to suggest updates for a package which has been
   extended since registration.  For the default value, if \code{.NAME}
   values are found which are not character strings (e.g.\sspace{}names
   or expressions) this is noted via a comment in the output.
@@ -128,6 +129,14 @@ package_native_routine_registration_skeleton(dir, con = stdout(),
   like\preformatted{
     ctags -x *.c
   }.  (The \sQuote{Exuberant} version allows a lot more control.)
+}
+
+\section{Extracting Fortran prototypes}{
+  \command{gfortran} 9.2 and later can extract C prototypes for Fortran
+  subroutines with a special flag:\preformatted{
+    gfortran -c -fc-prototypes-external file.f
+}
+   although ironically not for functions declared \code{bind(C)}.
 }
 
 \seealso{

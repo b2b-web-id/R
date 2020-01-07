@@ -110,7 +110,7 @@ imagedir:
 	$(MAKE) --no-print-directory -C ../../../tests -f Makefile.win \
 	  INST_TO=../src/gnuwin32/installer/$(RPREFIX)/tests install-tests
 #
-	$(FIND) $(RPREFIX) -name .svn -prune -exec rm -rf \{\} \;
+	$(FIND) $(RPREFIX) -name .svn -prune -exec rm -Rf \{\} \;
 	$(FIND) $(RPREFIX) -name \*~ -delete
 
 md5sums:
@@ -127,7 +127,7 @@ fixups:
 	$(RM) $(RPREFIX)/Tcl*/lib/*.lib
 ifneq ($(strip $(QPDF)),)
 	@for f in $(PDF_FILES); do \
-	  $(QPDF)/bin/qpdf --stream-data=compress $${f} tmp.pdf; \
+	  $(QPDF)/bin/qpdf $${f} tmp.pdf; \
 	  mv tmp.pdf $${f}; \
 	done
 endif
@@ -198,8 +198,8 @@ $(RPREFIX)-$(SUFF).msi: R.wxs License.rtf
 
 ## too often this fails to empty directories.
 clean:
-	rm -rf R.iss *.log R.wxs files.wxs R.wixobj uuidgen.o uuidgen.exe uuids
-	-rm -rf $(RPREFIX)
+	rm -Rf R.iss *.log R.wxs files.wxs R.wixobj uuidgen.o uuidgen.exe uuids
+	-rm -Rf $(RPREFIX)
 
 distclean: clean
 	rm -f R*-win*.exe R*-win*.msi

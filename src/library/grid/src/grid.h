@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2001-3 Paul Murrell
- *                2003-2016 The R Core Team
+ *                2003-2019 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -305,6 +305,8 @@ SEXP L_pretty(SEXP scale);
 SEXP L_locator();
 SEXP L_convert(SEXP x, SEXP whatfrom,
 	       SEXP whatto, SEXP unitto);
+SEXP L_devLoc(SEXP x, SEXP y);
+SEXP L_devDim(SEXP x, SEXP y);
 SEXP L_layoutRegion(SEXP layoutPosRow, SEXP layoutPosCol);
 
 SEXP L_stringMetric(SEXP label);
@@ -497,6 +499,10 @@ SEXP gpFontSizeSXP(SEXP gp);
 SEXP gpLineHeightSXP(SEXP gp);
 
 void gcontextFromgpar(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd);
+void initGContext(SEXP gp, const pGEcontext gc, pGEDevDesc dd, int* gpIsScalar, 
+                  const pGEcontext gcCache);
+void updateGContext(SEXP gp, int i, const pGEcontext gc, pGEDevDesc dd, 
+                    int* gpIsScalar, const pGEcontext gcCache);
 
 void initGPar(pGEDevDesc dd);
 
@@ -598,7 +604,7 @@ void setGridStateElement(pGEDevDesc dd, int elementIndex, SEXP value);
 
 SEXP gridCallback(GEevent task, pGEDevDesc dd, SEXP data);
 
-int gridRegisterIndex;
+extern int gridRegisterIndex;
 
 
 /* From grid.c */

@@ -1,7 +1,7 @@
 #  File src/library/grid/R/primitives.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -63,6 +63,12 @@ rep.arrow <- function(x, ...) {
     newa <- lapply(X = newa, FUN = "[", index, ...)
     class(newa) <- "arrow"
     newa
+}
+
+str.arrow <- function(object, ...) {
+  o <- oldClass(object)
+  oldClass(object) <- setdiff(o, "arrow")
+  str(object)
 }
 
 ######################################
@@ -653,10 +659,16 @@ validDetails.pathgrob <- function(x) {
         stop("'x' and 'y' and 'id' must all be same length")
     if (!is.null(x$id))
         x$id <- as.integer(x$id)
+    if (!is.null(x$pathId))
+    	x$pathId <- as.integer(x$pathId)
     if (!is.null(x$id.lengths) && (sum(x$id.lengths) != length(x$x)))
         stop("'x' and 'y' and 'id.lengths' must specify same overall length")
+    if (!is.null(x$pathId.lengths) && (sum(x$pathId.lengths) != length(x$x)))
+    	stop("'x' and 'y' and 'pathId.lengths' must specify same overall length")
     if (!is.null(x$id.lengths))
         x$id.lengths <- as.integer(x$id.lengths)
+    if (!is.null(x$pathId.lengths))
+    	x$pathId.lengths <- as.integer(x$pathId.lengths)
     x
 }
 
@@ -694,36 +706,58 @@ heightDetails.pathgrob <- function(x) {
 
 
 drawDetails.pathgrob <- function(x, recording=TRUE) {
-      if (is.null(x$id) && is.null(x$id.lengths))
-          grid.Call.graphics(C_polygon, x$x, x$y,
-                             list(as.integer(seq_along(x$x))))
-  else {
-    if (is.null(x$id)) {
-      n <- length(x$id.lengths)
-      id <- rep(1L:n, x$id.lengths)
-    } else {
-      n <- length(unique(x$id))
-      id <- x$id
+    hasMultiple <- !(is.null(x$pathId) && is.null(x$pathId.lengths))
+    if (hasMultiple) {
+        if (is.null(x$pathId)) {
+            n <- length(x$pathId.lengths)
+            pathId <- rep(1L:n, x$pathId.lengths)
+        } else {
+            pathId <- x$pathId
+        }
     }
-    index <- split(as.integer(seq_along(x$x)), id)
-    grid.Call.graphics(C_path, x$x, x$y, index,
-                       switch(x$rule, winding=1L, evenodd=0L))
-  }
+    if (is.null(x$id) && is.null(x$id.lengths)) {
+        if (hasMultiple) {
+            grid.Call.graphics(C_polygon, x$x, x$y,
+                               split(as.integer(seq_along(x$x)), pathId))
+        } else {
+            grid.Call.graphics(C_polygon, x$x, x$y,
+                               list(as.integer(seq_along(x$x))))
+        }
+    } else {
+        if (is.null(x$id)) {
+            n <- length(x$id.lengths)
+            id <- rep(1L:n, x$id.lengths)
+        } else {
+            n <- length(unique(x$id))
+            id <- x$id
+        }
+        if (hasMultiple) {
+            index <- mapply(split,
+                            x=split(as.integer(seq_along(x$x)), pathId), 
+                            f=split(id, pathId),
+                            SIMPLIFY = FALSE, USE.NAMES = FALSE)
+        } else {
+            index <- list(split(as.integer(seq_along(x$x)), id))
+        }
+        grid.Call.graphics(C_path, x$x, x$y, index,
+                           switch(x$rule, winding=1L, evenodd=0L))
+    }
 }
 
 pathGrob <- function(x, y,
                      id=NULL, id.lengths=NULL,
+                     pathId=NULL, pathId.lengths=NULL,
                      rule="winding",
                      default.units="npc",
                      name=NULL, gp=gpar(), vp=NULL) {
-  if (!is.unit(x))
-    x <- unit(x, default.units)
-  if (!is.unit(y))
-    y <- unit(y, default.units)
-  grob(x=x, y=y, id=id,
-       id.lengths=id.lengths,
-       rule=rule,
-       name=name, gp=gp, vp=vp, cl="pathgrob")
+    if (!is.unit(x))
+        x <- unit(x, default.units)
+    if (!is.unit(y))
+        y <- unit(y, default.units)
+    grob(x=x, y=y, id=id, id.lengths=id.lengths,
+         pathId=pathId, pathId.lengths=pathId.lengths,
+         rule=rule,
+         name=name, gp=gp, vp=vp, cl="pathgrob")
 }
 
 grid.path <- function(...) {
@@ -754,7 +788,7 @@ validDetails.xspline <- function(x) {
     x$id.lengths <- as.integer(x$id.lengths)
   if (!(is.null(x$arrow) || inherits(x$arrow, "arrow")))
       stop("invalid 'arrow' argument")
-  if (any(x$shape < -1 || x$shape > 1))
+  if (any(x$shape < -1 | x$shape > 1))
     stop("'shape' must be between -1 and 1")
   x$open <- as.logical(x$open)
   # Force all first and last shapes to be 0 for open xsplines

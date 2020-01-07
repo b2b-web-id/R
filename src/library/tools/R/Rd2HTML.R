@@ -1,6 +1,6 @@
 #  File src/library/tools/R/Rd2HTML.R
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2018 The R Core Team
 #  Part of the R package, https://www.R-project.org
 #
 #  This program is free software; you can redistribute it and/or modify
@@ -272,9 +272,9 @@ Rd2HTML <-
 	    inPara <<- FALSE
 	    return("</p>\n")
 	}
-        start <- attr(x, "srcref")[2L] # FIXME: what if no srcref?, start col
-	if (start == 1) x <- psub("^\\s+", "", x)
-	if (isTRUE(!inPara) && !all(grepl("^[[:blank:]\n]*$", x, perl = TRUE))) {
+	## TODO: can we get 'start col' if no srcref ?
+	if (utils:::getSrcByte(x) == 1L) x <- psub("^\\s+", "", x)
+	if (isFALSE(inPara) && !all(grepl("^[[:blank:]\n]*$", x, perl = TRUE))) {
 	    x <- c("<p>", x)
 	    inPara <<- TRUE
 	}
@@ -282,7 +282,7 @@ Rd2HTML <-
     }
 
     enterPara <- function(enter = TRUE) {
-	if (enter && isTRUE(!inPara)) {
+	if (enter && isFALSE(inPara)) {
             of0("<p>")
             inPara <<- TRUE
         }
@@ -374,7 +374,7 @@ Rd2HTML <-
                 if (!OK) {
                     ## so how about as a topic?
                     file <- utils:::index.search(parts$targetfile, pkgpath)
-                    if (!length(file)) {
+                    if (length(file)) {
                         warnRd(block, Rdfile,
                                "file link ", sQuote(parts$targetfile),
                                " in package ", sQuote(parts$pkg),
@@ -416,7 +416,7 @@ Rd2HTML <-
     }
 
     writeBlock <- function(block, tag, blocktag) {
-        doParas <- !(blocktag %in% c("\\tabular"))
+        doParas <- (blocktag %notin% c("\\tabular"))
 	switch(tag,
                UNKNOWN =,
                VERB = of1(vhtmlify(block, inEqn)),
@@ -694,7 +694,7 @@ Rd2HTML <-
     		})
     	    },
     	    { # default
-    	    	if (inlist && !(blocktag %in% c("\\itemize", "\\enumerate"))
+    	    	if (inlist && (blocktag %notin% c("\\itemize", "\\enumerate"))
     	    	           && !(tag == "TEXT" && isBlankRd(block))) {
     	    	    switch(blocktag,
     	    	    "\\arguments" =,

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1997--2018  The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2017  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Pulic License as published by
@@ -69,8 +69,7 @@ strsplit grep [g]sub [g]regexpr
 /* As from TRE 0.8.0, tre.h replaces regex.h */
 #include <tre/tre.h>
 
-/* Some systems using --with-system-pcre might have pcre headers in
-   a subdirectory -- not seen recently.
+/* Some systems might have pcre headers in a subdirectory -- not seen recently.
 */
 #ifdef HAVE_PCRE_PCRE_H
 # include <pcre/pcre.h>
@@ -78,13 +77,13 @@ strsplit grep [g]sub [g]regexpr
 # include <pcre.h>
 #endif
 
-/* 
+/*
    Default maximum stack size: note this is reserved but not allocated
    until needed.  The help says 1M suffices, but we found more was
    needed for strings around a million bytes.
 */
 #define JIT_STACK_MAX 64*1024*1024
-/* 
+/*
    This will stay reserved until the end of the sesiion, but at 64MB
    that is not an issue -- and most sessions will not use PCRE with
    more than 10 strings.
@@ -99,7 +98,7 @@ static void setup_jit(pcre_extra *re_pe)
 	if (p) {
 	    char *endp;
 	    double xdouble = R_strtod(p, &endp);
-	    if (xdouble >= 0 && xdouble <= 1000) 
+	    if (xdouble >= 0 && xdouble <= 1000)
 		stmax = (int)(xdouble*1024*1024);
 	    else warning ("R_PCRE_JIT_STACK_MAXSIZE invalid and ignored");
 	}
@@ -138,21 +137,19 @@ static SEXP mkCharWLen(const wchar_t *wc, int nc)
     R_CheckStack2(sizeof(wchar_t)*(nc+1));
     wt = (wchar_t *) alloca((nc+1)*sizeof(wchar_t));
     wcsncpy(wt, wc, nc); wt[nc] = 0;
-    nb = wcstoutf8(NULL, wt, nc);
-    R_CheckStack2(sizeof(char)*(nb+1));
-    xi = (char *) alloca((nb+1)*sizeof(char));
-    wcstoutf8(xi, wt, nb + 1);
-    if (nb > INT_MAX)
-	error("R character strings are limited to 2^31-1 bytes");
-    return mkCharLenCE(xi, (int)nb, CE_UTF8);
+    nb = wcstoutf8(NULL, wt, INT_MAX);
+    R_CheckStack2(sizeof(char)*nb);
+    xi = (char *) alloca(nb*sizeof(char));
+    wcstoutf8(xi, wt, nb);
+    return mkCharLenCE(xi, (int)nb-1, CE_UTF8);
 }
 
 static SEXP mkCharW(const wchar_t *wc)
 {
-    size_t nb = wcstoutf8(NULL, wc, 0);
-    char *xi = (char *) Calloc(nb+1, char);
+    size_t nb = wcstoutf8(NULL, wc, INT_MAX);
+    char *xi = (char *) Calloc(nb, char);
     SEXP ans;
-    wcstoutf8(xi, wc, nb + 1);
+    wcstoutf8(xi, wc, nb);
     ans = mkCharCE(xi, CE_UTF8);
     Free(xi);
     return ans;
@@ -229,7 +226,7 @@ static long R_pcre_max_recursions()
     return (long) ((ans <= LONG_MAX) ? ans : -1L);
 }
 
-static void 
+static void
 set_pcre_recursion_limit(pcre_extra **re_pe_ptr, const long limit)
 {
     if (limit >= 0) {
@@ -530,7 +527,7 @@ SEXP attribute_hidden do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		error(_("invalid split pattern '%s'"), split);
 	    }
 	    re_pe = pcre_study(re_pcre,
-			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0, 
+			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0,
 			       &errorptr);
 	    if (errorptr)
 		warning(_("PCRE pattern study error\n\t'%s'\n"), errorptr);
@@ -580,7 +577,7 @@ SEXP attribute_hidden do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		bufp = buf;
 		if (*bufp) {
 		    int rc;
-		    while((rc = pcre_exec(re_pcre, re_pe, bufp, 
+		    while((rc = pcre_exec(re_pcre, re_pe, bufp,
 					  (int) strlen(bufp),
 					  0, 0, ovector, 30)) >= 0) {
 			/* Empty matches get the next char, so move by one. */
@@ -597,7 +594,7 @@ SEXP attribute_hidden do_strsplit(SEXP call, SEXP op, SEXP args, SEXP env)
 		bufp = buf;
 		pt = Realloc(pt, strlen(buf)+1, char);
 		for (j = 0; j < ntok; j++) {
-		    int rc = pcre_exec(re_pcre, re_pe, bufp, 
+		    int rc = pcre_exec(re_pcre, re_pe, bufp,
 				       (int) strlen(bufp), 0, 0,
 				       ovector, 30);
 		    pcre_exec_error(rc, i);
@@ -945,6 +942,9 @@ SEXP attribute_hidden do_grep(SEXP call, SEXP op, SEXP args, SEXP env)
 	    if (!isNull(nmold))
 		setAttrib(ans, R_NamesSymbol, duplicate(nmold));
 	    UNPROTECT(2); /* ans, nmold */
+	} else if (PRIMVAL(op)) { // grepl case
+	    ans = allocVector(LGLSXP, n);
+	    for (i = 0; i < n; i++)  LOGICAL(ans)[i] = NA_LOGICAL;
 	} else {
 	    ans = allocVector(INTSXP, n);
 	    for (i = 0; i < n; i++)  INTEGER(ans)[i] = NA_INTEGER;
@@ -1023,7 +1023,7 @@ SEXP attribute_hidden do_grep(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if (pcre_st) {
 	    re_pe = pcre_study(re_pcre,
-			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0, 
+			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0,
 			       &errorptr);
 	    if (errorptr)
 		warning(_("PCRE pattern study error\n\t'%s'\n"), errorptr);
@@ -1082,9 +1082,9 @@ SEXP attribute_hidden do_grep(SEXP call, SEXP op, SEXP args, SEXP env)
 	    else if (perl_opt) {
 		int rc =
 		    pcre_exec(re_pcre, re_pe, s, (int) strlen(s), 0, 0, ov, 0);
-		if(rc >= 0) INTEGER(ind)[i] = 1;
+		if(rc >= 0) LOGICAL(ind)[i] = 1;
 		else {
-		    INTEGER(ind)[i] = 0;
+		    LOGICAL(ind)[i] = 0;
 		    pcre_exec_error(rc, i);
 		}
 	    } else {
@@ -1593,9 +1593,9 @@ char *pcre_string_adj(char *target, const char *orig, const char *repl,
 			wc = (wchar_t *) alloca((nc+1)*sizeof(wchar_t));
 			utf8towcs(wc, xi, nc + 1);
 			for (j = 0; j < nc; j++) wc[j] = towctrans(wc[j], tr);
-			nb = (int) wcstoutf8(NULL, wc, 0);
-			wcstoutf8(xi, wc, nb + 1);
-			for (j = 0; j < nb; j++) *t++ = *xi++;
+			nb = (int) wcstoutf8(NULL, wc, INT_MAX);
+			wcstoutf8(xi, wc, nb);
+			for (j = 0; j < nb - 1; j++) *t++ = *xi++;
 		    }
 		} else
 		    for (i = ovec[2*k] ; i < ovec[2*k+1] ; i++) {
@@ -1726,7 +1726,8 @@ SEXP attribute_hidden do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
     }
 
     if (!useBytes) {
-	Rboolean onlyASCII = IS_ASCII(STRING_ELT(pat, 0));
+	Rboolean onlyASCII = (IS_ASCII(STRING_ELT(pat, 0)) &&
+			      IS_ASCII(STRING_ELT(rep, 0)));
 	if (onlyASCII)
 	    for (i = 0; i < n; i++) {
 		if(STRING_ELT(text, i) == NA_STRING) continue;
@@ -1738,7 +1739,8 @@ SEXP attribute_hidden do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	useBytes = onlyASCII;
     }
     if (!useBytes) {
-	Rboolean haveBytes = IS_BYTES(STRING_ELT(pat, 0));
+	Rboolean haveBytes = (IS_BYTES(STRING_ELT(pat, 0)) ||
+			      IS_BYTES(STRING_ELT(rep, 0)));
 	if (!haveBytes)
 	    for (i = 0; i < n; i++)
 		if (IS_BYTES(STRING_ELT(text, i))) {
@@ -1751,7 +1753,9 @@ SEXP attribute_hidden do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
     }
     if (!useBytes) {
 	if (!fixed_opt && mbcslocale) use_UTF8 = TRUE;
-	else if (IS_UTF8(STRING_ELT(pat, 0))) use_UTF8 = TRUE;
+	else if (IS_UTF8(STRING_ELT(pat, 0)) ||
+		 IS_UTF8(STRING_ELT(rep, 0)))
+	    use_UTF8 = TRUE;
 	if (!use_UTF8)
 	    for (i = 0; i < n; i++)
 		if (IS_UTF8(STRING_ELT(text, i))) {
@@ -1805,7 +1809,7 @@ SEXP attribute_hidden do_gsub(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if (pcre_st) {
 	    re_pe = pcre_study(re_pcre,
-			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0, 
+			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0,
 			       &errorptr);
 	    if (errorptr)
 		warning(_("PCRE pattern study error\n\t'%s'\n"), errorptr);
@@ -2136,7 +2140,7 @@ static int getNc(const char *s, int st)
 
 static SEXP
 gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
-		R_xlen_t i)
+		R_xlen_t i, SEXP itype)
 {
     int matchIndex = -1, j, st, foundAll = 0, foundAny = 0, rc;
     size_t len, offset = 0;
@@ -2220,6 +2224,7 @@ gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
     }
     setAttrib(ans, install("match.length"), matchlen);
     if(useBytes) {
+	setAttrib(ans, install("index.type"), itype);
 	setAttrib(ans, install("useBytes"), R_TrueValue);
     }
     UNPROTECT(4);
@@ -2228,7 +2233,7 @@ gregexpr_Regexc(const regex_t *reg, SEXP sstr, int useBytes, int use_WC,
 
 static SEXP
 gregexpr_fixed(const char *pattern, const char *string,
-	       Rboolean useBytes, Rboolean use_UTF8)
+	       Rboolean useBytes, Rboolean use_UTF8, SEXP itype)
 {
     int patlen, matchIndex, st = 0, foundAll = 0, foundAny = 0, j,
 	ansSize, nb = 0;
@@ -2301,6 +2306,7 @@ gregexpr_fixed(const char *pattern, const char *string,
     }
     setAttrib(ans, install("match.length"), matchlen);
     if(useBytes) {
+	setAttrib(ans, install("index.type"), itype);
 	setAttrib(ans, install("useBytes"), R_TrueValue);
     }
     UNPROTECT(4);
@@ -2373,7 +2379,8 @@ gregexpr_perl(const char *pattern, const char *string,
 	      pcre *re_pcre, pcre_extra *re_pe,
 	      Rboolean useBytes, Rboolean use_UTF8,
 	      int *ovector, int ovector_size,
-	      int capture_count, SEXP capture_names, R_xlen_t n)
+	      int capture_count, SEXP capture_names, R_xlen_t n,
+	      SEXP itype)
 {
     Rboolean foundAll = FALSE, foundAny = FALSE;
     int matchIndex = -1, start = 0;
@@ -2381,6 +2388,7 @@ gregexpr_perl(const char *pattern, const char *string,
     SEXP capturebuf, capturelenbuf;
     SEXP matchbuf, matchlenbuf; /* buffers for storing multiple matches */
     int bufsize = 1024;         /* starting size for buffers */
+    int slen = (int) strlen(string);
     PROTECT_INDEX cb, clb, mb, mlb;
 
     PROTECT_WITH_INDEX(capturebuf =
@@ -2389,9 +2397,9 @@ gregexpr_perl(const char *pattern, const char *string,
 		       allocVector(INTSXP, bufsize*capture_count), &clb);
     PROTECT_WITH_INDEX(matchbuf = allocVector(INTSXP, bufsize), &mb);
     PROTECT_WITH_INDEX(matchlenbuf = allocVector(INTSXP, bufsize), &mlb);
+
     while (!foundAll) {
-	int rc, slen = (int) strlen(string);
-	rc = pcre_exec(re_pcre, re_pe, string, slen, start, 0, ovector,
+	int rc = pcre_exec(re_pcre, re_pe, string, slen, start, 0, ovector,
 		       ovector_size);
 	pcre_exec_error(rc, n);
 	if (rc >= 0) {
@@ -2448,6 +2456,7 @@ gregexpr_perl(const char *pattern, const char *string,
     PROTECT(matchlen = allocVector(INTSXP, matchIndex + 1));
     setAttrib(ans, install("match.length"), matchlen);
     if(useBytes) {
+	setAttrib(ans, install("index.type"), itype);
 	setAttrib(ans, install("useBytes"), R_TrueValue);
     }
     UNPROTECT(1);
@@ -2513,7 +2522,7 @@ static SEXP gregexpr_BadStringAns(void)
 
 SEXP attribute_hidden do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP pat, text, ans;
+    SEXP pat, text, ans, itype;
     regex_t reg;
     regmatch_t regmatch[10];
     R_xlen_t i, n;
@@ -2557,6 +2566,8 @@ SEXP attribute_hidden do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 
     if (!isString(text))
 	error(_("invalid '%s' argument"), "text");
+
+    PROTECT(itype = ScalarString(mkChar(useBytes ? "bytes" : "chars")));
 
     n = XLENGTH(text);
     if (!useBytes) {
@@ -2632,7 +2643,7 @@ SEXP attribute_hidden do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 	}
 	if (pcre_st) {
 	    re_pe = pcre_study(re_pcre,
-			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0, 
+			       R_PCRE_use_JIT ?  PCRE_STUDY_JIT_COMPILE : 0,
 			       &errorptr);
 	    if (errorptr)
 		warning(_("PCRE pattern study error\n\t'%s'\n"), errorptr);
@@ -2688,6 +2699,7 @@ SEXP attribute_hidden do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 	PROTECT(matchlen = allocVector(INTSXP, n));
 	setAttrib(ans, install("match.length"), matchlen);
 	if(useBytes) {
+	    setAttrib(ans, install("index.type"), itype);
 	    setAttrib(ans, install("useBytes"), R_TrueValue);
 	}
 	UNPROTECT(1);
@@ -2811,16 +2823,17 @@ SEXP attribute_hidden do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
 			elt = gregexpr_BadStringAns();
 		    } else {
 			if (fixed_opt)
-			    elt = gregexpr_fixed(spat, s, useBytes, use_UTF8);
+			    elt = gregexpr_fixed(spat, s, useBytes, use_UTF8,
+				                 itype);
 			else
 			    elt = gregexpr_perl(spat, s, re_pcre, re_pe,
 						useBytes, use_UTF8, ovector,
 						ovector_size, capture_count,
-						capture_names, i);
+						capture_names, i, itype);
 		    }
 		} else
 		    elt = gregexpr_Regexc(&reg, STRING_ELT(text, i),
-					  useBytes, use_WC, i);
+					  useBytes, use_WC, i, itype);
 	    }
 	    SET_VECTOR_ELT(ans, i, elt);
 	    vmaxset(vmax);
@@ -2837,13 +2850,14 @@ SEXP attribute_hidden do_regexpr(SEXP call, SEXP op, SEXP args, SEXP env)
     } else
 	tre_regfree(&reg);
 
-    UNPROTECT(1);
+    UNPROTECT(2);
     return ans;
 }
 
+// .Internal(regexec(pattern, text, ignore.case, fixed, useBytes)) :
 SEXP attribute_hidden do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP pat, text, ans, matchpos, matchlen;
+    SEXP pat, text, ans, matchpos, matchlen, itype;
     int opt_icase, opt_fixed, useBytes;
 
     Rboolean use_WC = FALSE;
@@ -2885,6 +2899,8 @@ SEXP attribute_hidden do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 
     if(!isString(text))
 	error(_("invalid '%s' argument"), "text");
+
+    PROTECT(itype = ScalarString(mkChar(useBytes ? "bytes" : "chars")));
 
     n = XLENGTH(text);
 
@@ -2987,6 +3003,7 @@ SEXP attribute_hidden do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 		setAttrib(matchpos, install("match.length"), matchlen);
 		if(useBytes)
+		    setAttrib(matchpos, install("index.type"), itype);
 		    setAttrib(matchpos, install("useBytes"),
 			      R_TrueValue);
 		SET_VECTOR_ELT(ans, i, matchpos);
@@ -3003,6 +3020,7 @@ SEXP attribute_hidden do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 		PROTECT(matchlen = ScalarInteger(-1));
 		setAttrib(matchpos, install("match.length"), matchlen);
 		if(useBytes)
+		    setAttrib(matchpos, install("index.type"), itype);
 		    setAttrib(matchpos, install("useBytes"),
 			      R_TrueValue);
 		SET_VECTOR_ELT(ans, i, matchpos);
@@ -3015,7 +3033,7 @@ SEXP attribute_hidden do_regexec(SEXP call, SEXP op, SEXP args, SEXP env)
 
     tre_regfree(&reg);
 
-    UNPROTECT(1);
+    UNPROTECT(2);
 
     return ans;
 }

@@ -1,7 +1,7 @@
 #  File src/library/tools/R/translations.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2015 The R Core Team
+#  Copyright (C) 1995-2019 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ en_quote <- function(potfile, outfile)
     cmd <- paste("msgconv -t UTF-8 -o", tfile2, tfile)
     if(system(cmd) != 0L) stop("running msgconv failed", domain = NA)
     lines <- readLines(tfile2) # will be in UTF-8
-    starts <- grep("^msgstr", lines)
+    starts <- which(startsWith(lines, "msgstr"))
     current <- 1L; out <- character()
     for (s in starts) {
         if (current < s)
@@ -38,7 +38,7 @@ en_quote <- function(potfile, outfile)
         start <- sub('([^"]*)"(.*)"$', "\\1", lines[s])
         this <- sub('([^"]*)"(.*)"$', "\\2", lines[s])
         current <- s+1L
-        while(grepl('^"', lines[current])) {
+        while(startsWith(lines[current], '"')) {
             this <- c(this, sub('^"(.*)"$', "\\1", lines[current]))
             current <- current + 1L
         }
@@ -76,8 +76,8 @@ update_pkg_po <- function(pkgdir, pkg = NULL, version = NULL, copyright, bugs)
     same <- function(a, b)
     {
         tmpa <- readLines(a); tmpb <- readLines(b)
-        tmpa <- grep('^"POT-Creation-Date:', tmpa, invert = TRUE, value = TRUE)
-        tmpb <- grep('^"POT-Creation-Date:', tmpb, invert = TRUE, value = TRUE)
+        tmpa <- filtergrep('^"POT-Creation-Date:', tmpa)
+        tmpb <- filtergrep('^"POT-Creation-Date:', tmpb)
         identical(tmpa, tmpb)
     }
 
@@ -175,8 +175,7 @@ update_pkg_po <- function(pkgdir, pkg = NULL, version = NULL, copyright, bugs)
     } else {
         dom <- "R"
         od <- setwd("../../..")
-        cfiles <- grep("^#", readLines("po/POTFILES"),
-                       value = TRUE, invert = TRUE)
+        cfiles <- filtergrep("^#", readLines("po/POTFILES"))
     }
     cmd <- sprintf("xgettext --keyword=_ --keyword=N_ -o %s", shQuote(ofile))
     cmd <- c(cmd, paste0("--package-name=", name),
@@ -242,8 +241,8 @@ update_RGui_po <- function(srcdir)
     same <- function(a, b)
     {
         tmpa <- readLines(a); tmpb <- readLines(b)
-        tmpa <- grep('^"POT-Creation-Date:', tmpa, invert = TRUE, value = TRUE)
-        tmpb <- grep('^"POT-Creation-Date:', tmpb, invert = TRUE, value = TRUE)
+        tmpa <- filtergrep('^"POT-Creation-Date:', tmpa)
+        tmpb <- filtergrep('^"POT-Creation-Date:', tmpb)
         identical(tmpa, tmpb)
     }
     ## Follow previous version by always collating in C.
@@ -317,7 +316,7 @@ make_translations_pkg <- function(srcdir, outDir = ".", append = "-1")
                     ver[1], ver[2], ver[1], ver[2] + 1)
     lines <- c(lines, deps)
     writeLines(lines, file.path(dest, "DESCRIPTION"))
-    cmd <- file.path(R.home(), "bin", "R")
+    cmd <- shQuote(file.path(R.home(), "bin", "R"))
     cmd <- paste(cmd, "CMD", "build", shQuote(dest))
     if(system(cmd) != 0L) stop("R CMD build failed")
     tarball <- Sys.glob(file.path(tempdir(), "translations_*.tar.gz"))

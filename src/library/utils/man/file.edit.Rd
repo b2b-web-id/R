@@ -1,6 +1,6 @@
 % File src/library/utils/man/file.edit.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2014 R Core Team
+% Copyright 1995-2018 R Core Team
 % Distributed under GPL 2 or later
 
 \name{file.edit}
@@ -16,13 +16,15 @@ file.edit(\dots, title = file, editor = getOption("editor"),
     files to be displayed.  These will be tilde-expanded: see
     \code{\link{path.expand}}.}
   \item{title}{the title to use in the editor; defaults to the filename.}
-  \item{editor}{the text editor to be used.  See \sQuote{Details}.}
+  \item{editor}{the text editor to be used, usually as a character
+    string naming (or giving the path to) the text editor you want to
+    use  See \sQuote{Details}.} 
   \item{fileEncoding}{the encoding to assume for the file: the default
     is to assume the native encoding.  See the \sQuote{Encoding} section
     of the help for \code{\link{file}}.}
 }
 \details{
-  The behaviour of this function is very system dependent.  Currently
+  The behaviour of this function is very system-dependent.  Currently
   files can be opened only one at a time on Unix; on Windows, the
   internal editor allows multiple files to be opened, but has a limit of
   50 simultaneous edit windows.
@@ -39,10 +41,14 @@ file.edit(\dots, title = file, editor = getOption("editor"),
   \code{editor}.  On Unix the default is set from the environment
   variables \env{EDITOR} or \env{VISUAL} if either is set, otherwise
   \code{vi} is used.
-#ifdef windows
 
+  \code{editor} can also be an \R function, in which case it is called
+  with the arguments \code{name}, \code{file}, and \code{title}.  Note
+  that such a function will need to independently implement all
+  desired functionality.
+
+  On Windows,
   UTF-8-encoded paths not valid in the current locale can be used.
-#endif
 }
 \seealso{
   \code{\link{files}},

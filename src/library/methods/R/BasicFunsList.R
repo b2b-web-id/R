@@ -137,7 +137,8 @@ isBaseFun <- function(fun) {
 }
 
 inBasicFuns <- function(f) {
-    !is.null(.BasicFunsList[[f]])
+    fun <- .BasicFunsList[[f]]
+    !is.null(fun) && !identical(fun, FALSE)
 }
 
 dispatchIsInternal <- function(fdef) {
@@ -149,7 +150,7 @@ genericForBasic <- function(f, where = topenv(parent.frame()),
 {
     ans <- .BasicFunsList[[f]]
     ## this element may not exist (yet, during loading), don't test null
-    if(mustFind && identical(ans, FALSE))
+    if(mustFind && isFALSE(ans))
         stop(gettextf("methods may not be defined for primitive function %s in this version of R",
                       sQuote(f)),
              domain = NA)

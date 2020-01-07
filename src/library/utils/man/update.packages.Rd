@@ -27,13 +27,13 @@ update.packages(lib.loc = NULL, repos = getOption("repos"),
 
 old.packages(lib.loc = NULL, repos = getOption("repos"),
              contriburl = contrib.url(repos, type),
-             instPkgs = installed.packages(lib.loc = lib.loc),
-             method, available = NULL, checkBuilt = FALSE,
+             instPkgs = installed.packages(lib.loc = lib.loc, \dots),
+             method, available = NULL, checkBuilt = FALSE, \dots,
              type = getOption("pkgType"))
 
 new.packages(lib.loc = NULL, repos = getOption("repos"),
              contriburl = contrib.url(repos, type),
-             instPkgs = installed.packages(lib.loc = lib.loc),
+             instPkgs = installed.packages(lib.loc = lib.loc, \dots),
              method, available = NULL, ask = FALSE, \dots,
              type = getOption("pkgType"))
 }
@@ -85,7 +85,10 @@ new.packages(lib.loc = NULL, repos = getOption("repos"),
   }
   \item{\dots}{
     Arguments such as \code{destdir} and \code{dependencies} to be
-    passed to \code{\link{install.packages}}.
+    passed to \code{\link{install.packages}} and
+    \code{ignore_repo_cache}, \code{max_repo_cache_age} and
+    \code{noCache} to \code{\link{available.packages}} or
+    \code{\link{installed.packages}}.
   }
   \item{type}{character, indicating the type of package to download and
     install.  See \code{\link{install.packages}}.
@@ -103,9 +106,9 @@ new.packages(lib.loc = NULL, repos = getOption("repos"),
   but it is advertised as being suitable for this version.)
 
   \code{new.packages} does the same comparison but reports uninstalled
-  packages that are available at the repositories.  If \code{ask !=
-  FALSE} it asks which packages should be installed in the first element
-  of \code{lib.loc}.
+  packages that are available at the repositories.  If
+  \code{ask != FALSE} it asks which packages should be installed in the
+  first element of \code{lib.loc}.
 
   The main function of the set is \code{update.packages}.  First a list
   of all packages found in \code{lib.loc} is created and compared with

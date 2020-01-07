@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
- *  Copyright (C) 1997--2014  The R Core Team
+ *  Copyright (C) 1997--2018  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,12 +64,12 @@ FILE *R_OpenInitFile(void)
 static int HaveHOME=-1;
 static char UserHOME[PATH_MAX];
 static char newFileName[PATH_MAX];
+
 const char *R_ExpandFileName(const char *s)
 {
     char *p;
 
-    if(s[0] != '~') return s;
-    if(isalpha(s[1])) return s;
+    if(s[0] != '~' || (s[0] && isalpha(s[1]))) return s;
     if(HaveHOME < 0) {
 	HaveHOME = 0;
 	p = getenv("R_USER"); /* should be set so the rest is a safety measure */
@@ -99,6 +99,26 @@ const char *R_ExpandFileName(const char *s)
 	strcat(newFileName, s+1);
 	return newFileName;
     } else return s;
+}
+
+/* from sysutils.c */
+void reEnc2(const char *x, char *y, int ny,
+	    cetype_t ce_in, cetype_t ce_out, int subst);
+
+/* The following is a version of R_ExpandFileName that assumes
+   s is in UTF-8 and returns the final result in that encoding as well. */
+const char *R_ExpandFileNameUTF8(const char *s)
+{
+    if (s[0] !='~' || (s[0] && isalpha(s[1]))) return s;
+    else {
+    	char home[PATH_MAX];
+    	reEnc2(R_ExpandFileName("~"), home, PATH_MAX, CE_NATIVE, CE_UTF8, 3);
+    	if (strlen(home) + strlen(s+1) < PATH_MAX) {
+    	    strcpy(newFileName, home);
+    	    strcat(newFileName, s+1);
+    	    return newFileName;
+    	} else return s;
+    }
 }
 
 /*
@@ -155,12 +175,40 @@ double R_getClockIncrement(void)
 }
 
 /*
- * flag =0 don't wait/ignore stdout
- * flag =1 wait/ignore stdout
- * flag =2 wait/copy stdout to the console
- * flag =3 wait/return stdout (intern=TRUE)
- * Add 10 to minimize application
- * Add 20 to make application "invisible"
+ * Stderr, Stdout
+ *   =FALSE .. drop output
+ *   =TRUE  .. return output
+ *   =""    .. print to standard error/output
+ *   =fname .. redirect to file of that name
+ *
+ * Redirection and dropping is supported with all flag values. Printing is
+ * supported with all flag values on non-RGui only (and happens via standard
+ * handles). For returning output (anywhere) and printing (on RGui),
+ * restrictions apply (below).
+ * 
+ * flag =0 don't wait
+ *   returning of output not supported
+ *   RGui: non-redirected standard error and standard output always dropped
+ *         (printing not supported)
+ *
+ * flag =1 wait
+ *   otherwise like flag =0
+ *
+ * flag =2 wait/printing in RGui
+ *   returning of output not supported
+ *   non-RGui: works like flag =1
+ *   RGui: standard error and/or standard output is printed on console;
+ *         flag=2 may only be used when at least one of the outputs
+ *         is to be printed
+ *
+ * flag =3 wait/return output
+ *   standard error and/or standard output is returned
+ *   flag=3 may only be used when at least one of the outputs is to be returned
+ *   RGui: printing is not supported (one cannot return one output and print
+ *         the other)
+ * 
+ * Add 10 to flag to minimize application
+ * Add 20 to flag make application "invisible"
 */
 
 #include "run.h"
@@ -173,6 +221,8 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
     const char *fout = "", *ferr = "";
     int   vis = 0, flag = 2, i = 0, j, ll = 0;
     SEXP  cmd, fin, Stdout, Stderr, tlist = R_NilValue, tchar, rval;
+    PROTECT_INDEX ti;
+    int timeout = 0, timedout = 0;
 
     checkArity(op, args);
     cmd = CAR(args);
@@ -191,7 +241,15 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
     Stdout = CAR(args);
     args = CDR(args);
     Stderr = CAR(args);
-    
+    args = CDR(args);
+    timeout = asInteger(CAR(args));
+    if (timeout == NA_INTEGER || timeout < 0 || timeout > 2000000)
+	/* the limit could be increased, but not much as in milliseconds it
+	   has to fit into a 32-bit unsigned integer */
+	errorcall(call, _("invalid '%s' argument"), "timeout");
+    if (timeout && !flag)
+	errorcall(call, "Timeout with background running processes is not supported.");
+
     if (CharacterMode == RGui) {
 	/* This is a rather conservative approach: if
 	   Rgui is launched from a console window it does have
@@ -212,48 +270,55 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 
     if (flag < 2) { /* Neither intern = TRUE nor
 		       show.output.on.console for Rgui */
-	ll = runcmd(CHAR(STRING_ELT(cmd, 0)),
+	ll = runcmd_timeout(CHAR(STRING_ELT(cmd, 0)),
 		    getCharCE(STRING_ELT(cmd, 0)),
-		    flag, vis, CHAR(STRING_ELT(fin, 0)), fout, ferr);
+		    flag, vis, CHAR(STRING_ELT(fin, 0)), fout, ferr,
+		    timeout, &timedout);
+	if (ll == NOLAUNCH) warning(runerror());
     } else {
 	/* read stdout +/- stderr from pipe */
-	int m = 0;
-	if(flag == 2 /* show on console */ || CharacterMode == RGui) m = 3;
-	if(TYPEOF(Stderr) == LGLSXP)
-	    m = asLogical(Stderr) ? 2 : 0;
-	if(m  && TYPEOF(Stdout) == LGLSXP && asLogical(Stdout)) m = 3;
+	int m = -1;
+	if ((TYPEOF(Stderr) == LGLSXP && asLogical(Stderr)) ||
+	   (CharacterMode == RGui && TYPEOF(Stderr) == STRSXP && ferr && !ferr[0]))
+	    /* read stderr from pipe */
+	    m = 2;
+	if ((TYPEOF(Stdout) == LGLSXP && asLogical(Stdout)) ||
+	    (CharacterMode == RGui && TYPEOF(Stdout) == STRSXP && fout && !fout[0]))
+	    /* read stdout from pipe */
+	    m = (m == 2) ? 3 : 0;
+	if (m == -1)
+	    /* does not happen with system()/system2() */
+	    error(_("invalid %s argument"), "flag");
+
 	fp = rpipeOpen(CHAR(STRING_ELT(cmd, 0)), getCharCE(STRING_ELT(cmd, 0)),
-		       vis, CHAR(STRING_ELT(fin, 0)), m, fout, ferr);
+		       vis, CHAR(STRING_ELT(fin, 0)), m, fout, ferr, timeout);
 	if (!fp) {
 	    /* If intern = TRUE generate an error */
 	    if (flag == 3) error(runerror());
 	    ll = NOLAUNCH;
 	} else {
-	    /* FIXME: use REPROTECT */
-	    if (flag == 3) {
-		PROTECT(tlist);
-		/* honour intern = FALSE, ignore.stdout = TRUE */
-		if (m > 0 ||
-		    (!(TYPEOF(Stdout) == LGLSXP && !asLogical(Stdout))))
-		    for (i = 0; rpipeGets(fp, buf, INTERN_BUFSIZE); i++) {
-			ll = strlen(buf) - 1;
-			if ((ll >= 0) && (buf[ll] == '\n')) buf[ll] = '\0';
-			tchar = mkChar(buf);
-			UNPROTECT(1); /* tlist */
-			PROTECT(tlist = CONS(tchar, tlist));
-		    }
-
-	    } else {
+	    if (flag == 3) { /* intern */
+		PROTECT_WITH_INDEX(tlist, &ti);
+		for (i = 0; rpipeGets(fp, buf, INTERN_BUFSIZE); i++) {
+		    ll = strlen(buf) - 1;
+		    if ((ll >= 0) && (buf[ll] == '\n')) buf[ll] = '\0';
+		    tchar = mkChar(buf);
+		    REPROTECT(tlist = CONS(tchar, tlist), ti);
+		}
+	    } else { /* print on RGui console */
 		for (i = 0; rpipeGets(fp, buf, INTERN_BUFSIZE); i++)
 		    R_WriteConsole(buf, strlen(buf));
 	    }
-	    ll = rpipeClose(fp);
+	    ll = rpipeClose(fp, &timedout);
 	}
     }
-    if(ll) {
-	warningcall(R_NilValue, 
-		    _("running command '%s' had status %d"), 
-		    CHAR(STRING_ELT(cmd, 0)), ll);
+    if (timedout) {
+	ll = 124;
+	warning(_("command '%s' timed out after %ds"),
+	        CHAR(STRING_ELT(cmd, 0)), timeout);
+    } else if (flag == 3 && ll) {
+	warning(_("running command '%s' had status %d"), 
+	        CHAR(STRING_ELT(cmd, 0)), ll);
     }
     if (flag == 3) { /* intern = TRUE: convert pairlist to list */
 	PROTECT(rval = allocVector(STRSXP, i));
@@ -265,7 +330,7 @@ SEXP do_system(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    SEXP lsym = install("status");
 	    setAttrib(rval, lsym, ScalarInteger(ll));
 	}
-	UNPROTECT(2);
+	UNPROTECT(2); /* tlist, rval */
 	return rval;
     } else {
 	rval = ScalarInteger(ll);

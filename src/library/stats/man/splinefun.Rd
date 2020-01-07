@@ -1,6 +1,6 @@
 % File src/library/stats/man/splinefun.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2019 R Core Team
 % Distributed under GPL 2 or later
 
 \name{splinefun}
@@ -44,9 +44,11 @@ splinefunH(x, y, m)
        interpolation interval (when \code{xout} is unspecified).}
   \item{xout}{an optional set of values specifying where interpolation
     is to take place.}
-  \item{ties}{Handling of tied \code{x} values.  Either a function
-    with a single vector argument returning a single number result or
-    the string \code{"ordered"}.}
+  \item{ties}{handling of tied \code{x} values.  The string
+    \code{"ordered"} or a function (or the name of a function) taking a
+    single vector argument and returning a single number or a length-2
+    \code{\link{list}} of both, see \code{\link{approx}} and its
+    \sQuote{Details} section, and the example below.}
 }
 \details{
   The inputs can contain missing values which are deleted, so at least
@@ -92,25 +94,30 @@ splinefunH(x, y, m)
   loaded into a different \R session.  This is safer in \R >= 3.0.0.
 }
 \references{
-  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
+  Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988).
   \emph{The New S Language}.
   Wadsworth & Brooks/Cole.
 
   Dougherty, R. L., Edelman, A. and Hyman, J. M. (1989)
   Positivity-, monotonicity-, or convexity-preserving cubic and quintic
   Hermite interpolation.
-  \emph{Mathematics of Computation} \bold{52}, 471--494.
+  \emph{Mathematics of Computation}, \bold{52}, 471--494.
+  \doi{10.1090/S0025-5718-1989-0962209-1}.
 
-  Forsythe, G. E., Malcolm, M. A. and Moler, C. B. (1977)
-  \emph{Computer Methods for Mathematical Computations}.  Wiley.
+  Forsythe, G. E., Malcolm, M. A. and Moler, C. B. (1977).
+  \emph{Computer Methods for Mathematical Computations}.
+  Wiley.
 
-  Fritsch, F. N. and Carlson, R. E. (1980)
-  Monotone piecewise cubic interpolation, \emph{SIAM Journal on
-    Numerical Analysis} \bold{17}, 238--246.
+  Fritsch, F. N. and Carlson, R. E. (1980).
+  Monotone piecewise cubic interpolation.
+  \emph{SIAM Journal on Numerical Analysis}, \bold{17}, 238--246.
+  \doi{10.1137/0717021}.
 
-  Hyman, J. M. (1983)
+  Hyman, J. M. (1983).
   Accurate monotonicity preserving cubic interpolation.
-  \emph{SIAM J. Sci. Stat. Comput.} \bold{4}, 645--654.
+  \emph{SIAM Journal on Scientific and Statistical Computing}, \bold{4},
+  645--654.
+  \doi{10.1137/0904045}.
 }
 \seealso{
   \code{\link{approx}} and \code{\link{approxfun}} for constant and
@@ -176,6 +183,16 @@ tx <- table(x); mx <- as.numeric(names(tx[tx > 1]))
 ry <- matrix(unlist(tapply(y, match(x, mx), range, simplify = FALSE)),
              ncol = 2, byrow = TRUE)
 segments(mx, ry[, 1], mx, ry[, 2], col = "blue", lwd = 2)
+
+## Another example with sorted x, but ties:
+set.seed(8); x <- sort(round(rnorm(30), 1)); y <- round(sin(pi * x) + rnorm(30)/10, 3)
+summary(diff(x) == 0) # -> 7 duplicated x-values
+str(spline(x, y, n = 201, ties="ordered")) # all '$y' entries are NaN
+## The default (ties=mean) is ok, but most efficient to use instead is
+sxyo <- spline(x, y, n = 201, ties= list("ordered", mean))
+sapply(sxyo, summary)# all fine now
+plot(x, y, main = "spline(x,y, ties=list(\"ordered\", mean)  for when x has ties")
+lines(sxyo, col="blue")
 
 ## An example of monotone interpolation
 n <- 20
