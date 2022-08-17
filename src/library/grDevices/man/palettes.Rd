@@ -142,13 +142,13 @@ suitable palette from \code{hcl.colors} instead of
   Zeileis, A., Fisher, J. C., Hornik, K., Ihaka, R., McWhite, C. D., Murrell, P., Stauffer, R. and Wilke, C. O. (2019).
   \dQuote{colorspace: A toolbox for manipulating and assessing colors and palettes.}
   arXiv:1903.06490, arXiv.org E-Print Archive.
-  \url{http://arxiv.org/abs/1903.06490}.
+  \url{https://arxiv.org/abs/1903.06490}.
 
   Ihaka, R. (2003).
   \dQuote{Colour for presentation graphics.}
   Proceedings of the 3rd International Workshop on Distributed Statistical Computing (DSC 2003),
   March 20-22, 2003, Technische Universität Wien, Vienna, Austria.
-  \url{http://www.ci.tuwien.ac.at/Conferences/DSC-2003}.
+  \url{http://www.ci.tuwien.ac.at/Conferences/DSC-2003/}.
 
   Zeileis, A., Hornik, K. and Murrell, P. (2009).
   Escaping RGBland: Selecting colors for statistical graphics.
@@ -212,7 +212,7 @@ hcl.swatch <- function(type = NULL, n = 5, nrow = 11,
         rect(rep(0:(n-1), n), rev(y), rep(1:n, n), rev(y) - 0.5,
              col = cols[, subset], border = border)
         palette <- palette[-subset]
-        cols <- cols[, -subset]
+        cols <- cols[, -subset, drop = FALSE]
     }
 
     par(mfrow = c(1, 1), mar = c(5.1, 4.1, 4.1, 2.1), cex = 1)

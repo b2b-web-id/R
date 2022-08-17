@@ -1,6 +1,6 @@
 R FAQ
 Frequently Asked Questions on R
-Version 2020-02-20
+Version 2020-08-03
 Kurt Hornik
 
 
@@ -277,7 +277,7 @@ Subversion repository, but currently not via anonymous rsync (nor CVS).
 
    Tarballs with daily snapshots of the r-devel and r-patched
 development versions of R can be found at
-<https://stat.ethz.ch/R/daily>.
+<https://stat.ethz.ch/R/daily/>.
 
 2.5 How can R be installed?
 ===========================
@@ -476,7 +476,7 @@ can be found at
 
      John M. Chambers (2008), "Software for Data Analysis: Programming
      with R". Springer, New York, ISBN 978-0-387-75935-7,
-     <http://statweb.stanford.edu/~jmc4/Rbook/>.
+     <https://statweb.stanford.edu/~jmc4/Rbook/>.
 
      Peter Dalgaard (2008), "Introductory Statistics with R", 2nd
      edition.  Springer, ISBN 978-0-387-79053-4,
@@ -484,7 +484,7 @@ can be found at
 
      Robert Gentleman (2008), "R Programming for Bioinformatics".
      Chapman & Hall/CRC, Boca Raton, FL, ISBN 978-1-420-06367-7,
-     <https://www.bioconductor.org/pub/RBioinf/>.
+     <https://master.bioconductor.org/help/publications/books/r-programming-for-bioinformatics/>.
 
      Stefano M. Iacus (2008), "Simulation and Inference for Stochastic
      Differential Equations: With R Examples".  Springer, New York, ISBN
@@ -511,7 +511,8 @@ can be found at
    Last, but not least, Ross' and Robert's experience in designing and
 implementing R is described in Ihaka & Gentleman (1996), "R: A Language
 for Data Analysis and Graphics", _Journal of Computational and Graphical
-Statistics_, *5*, 299-314.
+Statistics_, *5*, 299-314 (doi: 10.1080/10618600.1996.10474713
+(https://doi.org/10.1080/10618600.1996.10474713)).
 
 2.8 Citing R
 ============
@@ -735,20 +736,20 @@ S.
 
    * John M. Chambers (1998), "Programming with Data," New York:
      Springer, ISBN 0-387-98503-4
-     (<http://statweb.stanford.edu/~jmc4/Sbook/>).
+     (<https://statweb.stanford.edu/~jmc4/Sbook/>).
 
      This "_Green Book_" describes version 4 of S, a major revision of S
      designed by John Chambers to improve its usefulness at every stage
      of the programming process.
 
-   See <http://statweb.stanford.edu/~jmc4/papers/96.7.ps> for further
+   See <https://statweb.stanford.edu/~jmc4/papers/96.7.ps> for further
 information on the "Evolution of the S Language".
 
 3.2 What is S-PLUS?
 ===================
 
 S-PLUS is a value-added version of S currently sold by TIBCO Software
-Inc (http://www.tibco.com/) as 'TIBCO Spotfire S+'.  See
+Inc (https://www.tibco.com/) as 'TIBCO Spotfire S+'.  See
 <https://en.wikipedia.org/wiki/S-PLUS> for more information.
 
 3.3 What are the differences between R and S?
@@ -913,7 +914,8 @@ Further information is provided in the standard R reference "R: A
 Language for Data Analysis and Graphics" (*note What documentation
 exists for R?::) and in Robert Gentleman and Ross Ihaka (2000), "Lexical
 Scope and Statistical Computing", _Journal of Computational and
-Graphical Statistics_, *9*, 491-508.
+Graphical Statistics_, *9*, 491-508 (doi: 10.1080/10618600.2000.10474895
+(https://doi.org/10.1080/10618600.2000.10474895)).
 
    Nested lexically scoped functions also imply a further major
 difference.  Whereas S stores all objects as separate files in a
@@ -1150,16 +1152,17 @@ of TeX constructs.  See the help page for 'plotmath', which features an
 impressive on-line example.  More details can be found in Paul Murrell
 and Ross Ihaka (2000), "An Approach to Providing Mathematical Annotation
 in Plots", _Journal of Computational and Graphical Statistics_, *9*,
-582-599.
+582-599 (doi: 10.1080/10618600.2000.10474900
+(https://doi.org/10.1080/10618600.2000.10474900)).
 
 3.5 What is R-plus?
 ===================
 
 For a very long time, there was no such thing.
 
-   Revolution Analytics (http://revolutionanalytics.com/) has released
-REvolution R, now available as Microsoft R (see
-<http://blog.revolutionanalytics.com/2016/01/microsoft-r-open.html> for
+   Revolution Analytics has released REvolution R, now available as
+Microsoft R (see
+<https://blog.revolutionanalytics.com/2016/01/microsoft-r-open.html> for
 more information).
 
    See also
@@ -1175,12 +1178,12 @@ section "Web and Server Frameworks", for up-to-date information on R web
 interface packages.
 
    Early references on R web interfaces include Jeff Banfield (1999),
-"Rweb: Web-based Statistical Analysis"
-(<https://www.jstatsoft.org/v004/i01>), David Firth (2003), "CGIwithR:
-Facilities for processing web forms using R"
-(<https://www.jstatsoft.org/v008/i10>), and Angelo Mineo and Alfredo
+"Rweb: Web-based Statistical Analysis" (doi: 10.18637/jss.v004.i01
+(https://doi.org/10.18637/jss.v004.i01)), David Firth (2003), "CGIwithR:
+Facilities for processing web forms using R" (doi: 10.18637/jss.v008.i10
+(https://doi.org/10.18637/jss.v008.i10)), and Angelo Mineo and Alfredo
 Pontillo (2006), "Using R via PHP for Teaching Purposes: R-php"
-(<https://www.jstatsoft.org/v017/i04>).
+(doi: 10.18637/jss.v017.i04 (https://doi.org/10.18637/jss.v017.i04)).
 
 5 R Add-On Packages
 *******************
@@ -1302,7 +1305,7 @@ matured, the functional scope of the software packages broadened to
 include the analysis of all types of genomic data, such as SAGE,
 sequence, or SNP data.  In addition, there are metadata (annotation, CDF
 and probe) and experiment data packages.  See
-<https://www.bioconductor.org/download/> for available packages and a
+<https://master.bioconductor.org/install/> for available packages and a
 complete taxonomy via BioC Views.
 
 5.1.4 Other add-on packages
@@ -1601,7 +1604,7 @@ different name.
 To remove all objects in the currently active environment (typically
 '.GlobalEnv'), you can do
 
-     rm(list = ls(all = TRUE))
+     rm(list = ls(all.names = TRUE))
 
 (Without 'all = TRUE', only the objects with names not starting with a
 '.' are removed.)
@@ -2005,7 +2008,7 @@ Ghostscript you can use 'bitmap()', which produces a PostScript or PDF
 file then converts it to any bitmap format supported by Ghostscript.  On
 some installations this produces ugly output, on others it is perfectly
 satisfactory.  Many systems now come with Xvfb from X.Org
-(http://www.x.org/) (possibly as an optional install), which is an X11
+(https://www.x.org/) (possibly as an optional install), which is an X11
 server that does not require a screen; and there is the *GDD*
 (https://CRAN.R-project.org/package=GDD) package from CRAN, which
 produces PNG, JPEG and GIF bitmaps without X11.
@@ -2219,12 +2222,12 @@ carefully.
 of _Statistical Analysis and Data Display: An Intermediate Course with
 Examples in R_, Richard M. Heiberger and Burt Holland (Springer 2015,
 second edition).  This appendix is a free download from
-<http://link.springer.com/content/pdf/bbm%3A978-1-4939-2122-5%2F1.pdf>.
+<https://link.springer.com/content/pdf/bbm%3A978-1-4939-2122-5%2F1.pdf>.
 
    For more information, see e.g. David Goldberg (1991), "What Every
 Computer Scientist Should Know About Floating-Point Arithmetic", _ACM
 Computing Surveys_, *23/1*, 5-48, also available via
-<http://www.validlab.com/goldberg/paper.pdf>.
+<https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html>.
 
    Here is another example, this time using addition:
 

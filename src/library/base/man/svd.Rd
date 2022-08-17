@@ -1,6 +1,6 @@
 % File src/library/base/man/svd.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
 \name{svd}
@@ -22,7 +22,7 @@ La.svd(x, nu = min(n, p), nv = min(n, p))
     This must between \code{0} and \code{n = nrow(x)}.}
   \item{nv}{the number of right singular vectors to be computed.
     This must be between \code{0} and \code{p = ncol(x)}.}
-  \item{LINPACK}{logical.  Defunct and ignored.}
+  \item{LINPACK}{logical.  Defunct and ignored with a warning.}
 }
 \details{
   The singular value decomposition plays an important role in many
@@ -67,14 +67,14 @@ La.svd(x, nu = min(n, p), nv = min(n, p))
   The main functions used are the LAPACK routines \code{DGESDD} and
   \code{ZGESDD}.
 
-  LAPACK is from \url{http://www.netlib.org/lapack} and its guide is
+  LAPACK is from \url{https://www.netlib.org/lapack/} and its guide is
   listed in the references.
 }
 \references{
   Anderson. E. and ten others (1999)
   \emph{LAPACK Users' Guide}. Third Edition. SIAM.\cr
   Available on-line at
-  \url{http://www.netlib.org/lapack/lug/lapack_lug.html}.
+  \url{https://www.netlib.org/lapack/lug/lapack_lug.html}.
 
   The \href{https://en.wikipedia.org/wiki/Singular-value_decomposition}{%
     \sQuote{Singular-value decomposition}} Wikipedia article.

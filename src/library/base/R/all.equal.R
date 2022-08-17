@@ -1,7 +1,7 @@
 #  File src/library/base/R/all.equal.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2018 The R Core Team
+#  Copyright (C) 1995-2021 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -230,14 +230,24 @@ all.equal.environment <- function (target, current, all.names=TRUE, ...) {
 
 all.equal.factor <- function(target, current, ..., check.attributes = TRUE)
 {
-    if(!inherits(target, "factor"))
-	return("'target' is not a factor")
     if(!inherits(current, "factor"))
 	return("'current' is not a factor")
     msg <-  if(check.attributes) attr.all.equal(target, current, ...)
-    n <- all.equal(as.character(target), as.character(current),
-                   check.attributes = check.attributes, ...)
-    if(is.character(n)) msg <- c(msg, n)
+    class(target) <- class(current) <- NULL
+    nax <- is.na(target)
+    nay <- is.na(current)
+    n <- sum(nax != nay)
+    if(n > 1L)
+	msg <- c(msg, paste(n, "NA mismatches"))
+    else if (n == 1L)
+        msg <- c(msg, paste("1, NA mismatch"))
+    else { ## n == 0: nax == nay (w/ recycling!)
+	target  <- levels(target) [target [!nax]]
+	current <- levels(current)[current[!nay]]
+	n <- all.equal(target, current,
+		       check.attributes = check.attributes, ...)
+	if(is.character(n)) msg <- c(msg, n)
+    }
     if(is.null(msg)) TRUE else msg
 }
 
@@ -268,10 +278,13 @@ all.equal.language <- function(target, current, ...)
     if(mt == "expression" && mc == "expression")
 	return(all.equal.list(target, current, ...))
     ttxt <- paste(deparse(target), collapse = "\n")
-    ctxt <- paste(deparse(current), collapse = "\n")
+    ## try: if 'current' is not "language" and deparse() bails out for DOTSXP, see PR#18029
+    ctxt <- tryCatch(paste(deparse(current), collapse = "\n"), error=function(e) NULL)
     msg <- c(if(mt != mc)
 	     paste0("Modes of target, current: ", mt, ", ", mc),
-	     if(ttxt != ctxt) {
+	     if(is.null(ctxt))
+		 "current is not deparse()able"
+	     else if(ttxt != ctxt) {
 		 if(pmatch(ttxt, ctxt, 0L))
 		     "target is a subset of current"
 		 else if(pmatch(ctxt, ttxt, 0L))

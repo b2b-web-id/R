@@ -1,7 +1,7 @@
 #  File src/library/base/R/dates.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2018 The R Core Team
+#  Copyright (C) 1995-2020 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@ as.Date.character <- function(x, format,
                               optional = FALSE, ...)
 {
     charToDate <- function(x) {
+	is.na(x) <- !nzchar(x) # PR#17909
 	xx <- x[1L]
         if(is.na(xx)) {
             j <- 1L
@@ -70,7 +71,13 @@ as.Date.character <- function(x, format,
 
 as.Date.numeric <- function(x, origin, ...)
 {
-    if(missing(origin)) stop("'origin' must be supplied")
+    if(missing(origin)) {
+        if(!length(x))
+            return(.Date(numeric()))
+        if(!any(is.finite(x)))
+            return(.Date(x))
+        stop("'origin' must be supplied")
+    }
     as.Date(origin, ...) + x
 }
 
@@ -78,6 +85,8 @@ as.Date.default <- function(x, ...)
 {
     if(inherits(x, "Date"))
 	x
+    else if(is.null(x))
+        .Date(numeric())
     else if(is.logical(x) && all(is.na(x)))
 	.Date(as.numeric(x))
     else
@@ -233,7 +242,8 @@ as.list.Date <- function(x, ...)
     lapply(unclass(x), .Date, oldClass(x))
 
 c.Date <- function(..., recursive = FALSE)
-    .Date(c(unlist(lapply(list(...), unclass))))# recursive=recursive << FIXME?
+    .Date(c(unlist(lapply(list(...),
+                          function(e) unclass(as.Date(e))))))
 
 mean.Date <- function (x, ...)
     .Date(mean(unclass(x), ...))
@@ -421,7 +431,7 @@ months.Date <- function(x, abbreviate = FALSE)
 
 quarters.Date <- function(x, ...)
 {
-    x <- (as.POSIXlt(x)$mon) %/% 3L
+    x <- as.POSIXlt(x)$mon %/% 3L
     paste0("Q", x+1L)
 }
 
@@ -475,4 +485,3 @@ xtfrm.Date <- function(x) as.numeric(x)
 ## Added in 3.5.0.
 
 .Date <- function(xx, cl = "Date") `class<-`(xx, cl)
-

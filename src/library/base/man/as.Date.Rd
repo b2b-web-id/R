@@ -1,6 +1,6 @@
 % File src/library/base/man/as.Date.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2017 R Core Team
+% Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
 \name{as.Date}
@@ -37,7 +37,8 @@ as.Date(x, \dots)
   \item{format}{\code{\link{character}} string.  If not specified, it will try
     \code{tryFormats} one by one on the first non-\code{NA} element, and
     give an error if none works.  Otherwise, the processing is via
-    \code{\link{strptime}}.}
+    \code{\link{strptime}()} whose help page describes available
+    conversion specifications.}
   \item{tryFormats}{\code{\link{character}} vector of \code{format}
     strings to try if \code{format} is not specified.}
   \item{optional}{\code{\link{logical}} indicating to return \code{NA}
@@ -120,7 +121,7 @@ as.Date(x, \dots)
   \emph{ISO 8601. Data elements and interchange formats --
     Information interchange -- Representation of dates and times.}
   For links to versions available on-line see (at the time of writing)
-  \url{http://www.qsl.net/g1smd/isopdf.htm}.
+  \url{https://www.qsl.net/g1smd/isopdf.htm}.
 }
 \seealso{
   \link{Date} for details of the date class;

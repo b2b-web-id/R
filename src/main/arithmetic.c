@@ -56,6 +56,11 @@
 
 /* Override the SVID matherr function:
    the main difference here is not to print warnings.
+
+   This used to be common but was removed in glibc 2.27 having
+   previously been marked as obsolete.
+
+   macOS had it for x86_64 even in 11.0, but not for arm64.
  */
 #ifndef __cplusplus
 int matherr(struct exception *exc)
@@ -1635,8 +1640,11 @@ SEXP attribute_hidden do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
 
     if (length(args) >= 2 &&
 	isSymbol(CADR(args)) && R_isMissing(CADR(args), env)) {
-	double digits = 0;
-	if(PRIMVAL(op) == 10004) digits = 6.0; // for signif()
+#define SET_DEFAULT_digits_			\
+	double digits = 0.; /* round() */	\
+	if(PRIMVAL(op) == 10004) /* signif() */	\
+	    digits = 6.
+	SET_DEFAULT_digits_;
 	PROTECT(args = list2(CAR(args), ScalarReal(digits))); nprotect++;
     }
 
@@ -1648,13 +1656,18 @@ SEXP attribute_hidden do_Math2(SEXP call, SEXP op, SEXP args, SEXP env)
     n = length(args);
     if (n != 1 && n != 2)
 	error(ngettext("%d argument passed to '%s' which requires 1 or 2 arguments",
-		       "%d arguments passed to '%s'which requires 1 or 2 arguments", n),
+		       "%d arguments passed to '%s' which requires 1 or 2 arguments", n),
 	      n, PRIMNAME(op));
 
+    static SEXP R_x_Symbol = NULL;
     if (! DispatchGroup("Math", call2, op, args, env, &res)) {
 	if(n == 1) {
-	    double digits = 0.0;
-	    if(PRIMVAL(op) == 10004) digits = 6.0;
+	    if(R_x_Symbol == NULL) R_x_Symbol = install("x");
+	    // Ensure  we do not call it with a mis-named argument:
+	    if(CAR(args) == R_MissingArg ||
+	       (TAG(args) != R_NilValue && TAG(args) != R_x_Symbol))
+		error(_("argument \"%s\" is missing, with no default"), "x");
+	    SET_DEFAULT_digits_;
 	    SETCDR(args, CONS(ScalarReal(digits), R_NilValue));
 	} else {
 	    /* If named, do argument matching by name */

@@ -1,6 +1,6 @@
 % File src/library/base/man/solve.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
 \name{solve}
@@ -25,7 +25,7 @@ solve(a, b, \dots)
   \item{tol}{the tolerance for detecting linear dependencies in the
     columns of \code{a}.  The default is \code{.Machine$double.eps}. Not
     currently used with complex matrices \code{a}.}
-  \item{LINPACK}{logical.  Defunct and ignored.}
+  \item{LINPACK}{logical.  Defunct and ignored with a warning.}
   \item{\dots}{further arguments passed to or from other methods}
 }
 \details{
@@ -50,13 +50,13 @@ solve(a, b, \dots)
   The default method is an interface to the LAPACK routines \code{DGESV}
   and \code{ZGESV}.
 
-  LAPACK is from \url{http://www.netlib.org/lapack}.
+  LAPACK is from \url{https://www.netlib.org/lapack/}.
 }
 \references{
   Anderson. E. and ten others (1999)
   \emph{LAPACK Users' Guide}. Third Edition. SIAM.\cr
   Available on-line at
-  \url{http://www.netlib.org/lapack/lug/lapack_lug.html}.
+  \url{https://www.netlib.org/lapack/lug/lapack_lug.html}.
 
   Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
   \emph{The New S Language}.

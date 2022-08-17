@@ -43,6 +43,7 @@
 #include <Rinterface.h>
 #include <Fileio.h>
 #include <ctype.h>			/* toupper */
+#include <float.h> // -> FLT_RADIX
 #include <limits.h>
 #include <string.h>
 #include <stdlib.h>			/* for realpath */
@@ -117,11 +118,16 @@ static void Init_R_Machine(SEXP rho)
 
     R_dec_min_exponent = (int) floor(log10(R_AccuracyInfo.xmin)); /* smallest decimal exponent */
 
+    /*
 #ifdef HAVE_LONG_DOUBLE
 # define MACH_SIZE 18+10
 #else
 # define MACH_SIZE 18
 #endif
+    */
+    int MACH_SIZE = 18;
+    if (sizeof(LDOUBLE) > sizeof(double)) MACH_SIZE += 10;
+    
     SEXP ans = PROTECT(allocVector(VECSXP, MACH_SIZE)),
 	 nms = PROTECT(allocVector(STRSXP, MACH_SIZE));
 
@@ -183,32 +189,37 @@ static void Init_R_Machine(SEXP rho)
     SET_STRING_ELT(nms, 17, mkChar("sizeof.pointer"));
     SET_VECTOR_ELT(ans, 17, ScalarInteger(sizeof(SEXP)));
 
+/* This used to be just
 #ifdef HAVE_LONG_DOUBLE
-    static struct {
-	int ibeta, it, irnd, ngrd, machep, negep, iexp, minexp, maxexp;
-	long double eps, epsneg, xmin, xmax;
-    } R_LD_AccuracyInfo;
+   but platforms can have the type and it be identical to double
+   (as on ARM).  So do the same as capabilities("long.double")
+*/
+#ifdef HAVE_LONG_DOUBLE
+    if (sizeof(LDOUBLE) > sizeof(double)) {
+	static struct {
+	    int ibeta, it, irnd, ngrd, machep, negep, iexp, minexp, maxexp;
+	    long double eps, epsneg, xmin, xmax;
+	} R_LD_AccuracyInfo;
+	
+	machar_LD(&R_LD_AccuracyInfo.ibeta,
+		  &R_LD_AccuracyInfo.it,
+		  &R_LD_AccuracyInfo.irnd,
+		  &R_LD_AccuracyInfo.ngrd,
+		  &R_LD_AccuracyInfo.machep,
+		  &R_LD_AccuracyInfo.negep,
+		  &R_LD_AccuracyInfo.iexp,
+		  &R_LD_AccuracyInfo.minexp,
+		  &R_LD_AccuracyInfo.maxexp,
+		  &R_LD_AccuracyInfo.eps,
+		  &R_LD_AccuracyInfo.epsneg,
+		  &R_LD_AccuracyInfo.xmin,
+		  &R_LD_AccuracyInfo.xmax);
+ 
+	SET_STRING_ELT(nms, 18+0, mkChar("longdouble.eps"));
+	SET_VECTOR_ELT(ans, 18+0, ScalarReal((double) R_LD_AccuracyInfo.eps));
 
-    machar_LD(&R_LD_AccuracyInfo.ibeta,
-	      &R_LD_AccuracyInfo.it,
-	      &R_LD_AccuracyInfo.irnd,
-	      &R_LD_AccuracyInfo.ngrd,
-	      &R_LD_AccuracyInfo.machep,
-	      &R_LD_AccuracyInfo.negep,
-	      &R_LD_AccuracyInfo.iexp,
-	      &R_LD_AccuracyInfo.minexp,
-	      &R_LD_AccuracyInfo.maxexp,
-	      &R_LD_AccuracyInfo.eps,
-	      &R_LD_AccuracyInfo.epsneg,
-	      &R_LD_AccuracyInfo.xmin,
-	      &R_LD_AccuracyInfo.xmax);
-
-    SET_STRING_ELT(nms, 18+0, mkChar("longdouble.eps"));
-    SET_VECTOR_ELT(ans, 18+0, ScalarReal((double) R_LD_AccuracyInfo.eps));
-
-    SET_STRING_ELT(nms, 18+1, mkChar("longdouble.neg.eps"));
-    SET_VECTOR_ELT(ans, 18+1, ScalarReal((double) R_LD_AccuracyInfo.epsneg));
-
+	SET_STRING_ELT(nms, 18+1, mkChar("longdouble.neg.eps"));
+	SET_VECTOR_ELT(ans, 18+1, ScalarReal((double) R_LD_AccuracyInfo.epsneg));
     /*
     SET_STRING_ELT(nms, 18+2, mkChar("longdouble.xmin"));     // not representable as double
     SET_VECTOR_ELT(ans, 18+2, ScalarReal(R_LD_AccuracyInfo.xmin));
@@ -220,30 +231,31 @@ static void Init_R_Machine(SEXP rho)
     SET_VECTOR_ELT(ans, 18+4, ScalarInteger(R_LD_AccuracyInfo.ibeta));
     */
 
-    SET_STRING_ELT(nms, 18+2, mkChar("longdouble.digits"));
-    SET_VECTOR_ELT(ans, 18+2, ScalarInteger(R_LD_AccuracyInfo.it));
+	SET_STRING_ELT(nms, 18+2, mkChar("longdouble.digits"));
+	SET_VECTOR_ELT(ans, 18+2, ScalarInteger(R_LD_AccuracyInfo.it));
 
-    SET_STRING_ELT(nms, 18+3, mkChar("longdouble.rounding"));
-    SET_VECTOR_ELT(ans, 18+3, ScalarInteger(R_LD_AccuracyInfo.irnd));
+	SET_STRING_ELT(nms, 18+3, mkChar("longdouble.rounding"));
+	SET_VECTOR_ELT(ans, 18+3, ScalarInteger(R_LD_AccuracyInfo.irnd));
 
-    SET_STRING_ELT(nms, 18+4, mkChar("longdouble.guard"));
-    SET_VECTOR_ELT(ans, 18+4, ScalarInteger(R_LD_AccuracyInfo.ngrd));
+	SET_STRING_ELT(nms, 18+4, mkChar("longdouble.guard"));
+	SET_VECTOR_ELT(ans, 18+4, ScalarInteger(R_LD_AccuracyInfo.ngrd));
 
-    SET_STRING_ELT(nms, 18+5, mkChar("longdouble.ulp.digits"));
-    SET_VECTOR_ELT(ans, 18+5, ScalarInteger(R_LD_AccuracyInfo.machep));
+	SET_STRING_ELT(nms, 18+5, mkChar("longdouble.ulp.digits"));
+	SET_VECTOR_ELT(ans, 18+5, ScalarInteger(R_LD_AccuracyInfo.machep));
 
-    SET_STRING_ELT(nms, 18+6, mkChar("longdouble.neg.ulp.digits"));
-    SET_VECTOR_ELT(ans, 18+6, ScalarInteger(R_LD_AccuracyInfo.negep));
+	SET_STRING_ELT(nms, 18+6, mkChar("longdouble.neg.ulp.digits"));
+	SET_VECTOR_ELT(ans, 18+6, ScalarInteger(R_LD_AccuracyInfo.negep));
 
-    SET_STRING_ELT(nms, 18+7, mkChar("longdouble.exponent"));
-    SET_VECTOR_ELT(ans, 18+7, ScalarInteger(R_LD_AccuracyInfo.iexp));
+	SET_STRING_ELT(nms, 18+7, mkChar("longdouble.exponent"));
+	SET_VECTOR_ELT(ans, 18+7, ScalarInteger(R_LD_AccuracyInfo.iexp));
 
-    SET_STRING_ELT(nms, 18+8, mkChar("longdouble.min.exp"));
-    SET_VECTOR_ELT(ans, 18+8, ScalarInteger(R_LD_AccuracyInfo.minexp));
+	SET_STRING_ELT(nms, 18+8, mkChar("longdouble.min.exp"));
+	SET_VECTOR_ELT(ans, 18+8, ScalarInteger(R_LD_AccuracyInfo.minexp));
 
-    SET_STRING_ELT(nms, 18+9, mkChar("longdouble.max.exp"));
-    SET_VECTOR_ELT(ans, 18+9, ScalarInteger(R_LD_AccuracyInfo.maxexp));
+	SET_STRING_ELT(nms, 18+9, mkChar("longdouble.max.exp"));
+	SET_VECTOR_ELT(ans, 18+9, ScalarInteger(R_LD_AccuracyInfo.maxexp));
 
+    }
 #endif
 
     setAttrib(ans, R_NamesSymbol, nms);
@@ -3292,7 +3304,17 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     SET_STRING_ELT(ans, i, mkChar(p));
     SET_STRING_ELT(nms, i++, mkChar("iconv"));
 #ifdef HAVE_LIBREADLINE
-    SET_STRING_ELT(ans, i, mkChar(rl_library_version));
+    /* libedit reports "EditLine wrapper": so we look at
+       rl_readline_version, which is currently 0x0402 */
+    const char *rl = rl_library_version;
+    if (streql(rl, "EditLine wrapper")) {
+	int num = rl_readline_version;
+	int maj = num / 256, min = num % 256;
+	char buf[40];
+	snprintf(buf, 40, "%d.%d (%s)", maj, min, rl);
+	SET_STRING_ELT(ans, i, mkChar(buf));
+    } else
+	SET_STRING_ELT(ans, i, mkChar(rl));
 #else
     SET_STRING_ELT(ans, i, mkChar(""));
 #endif
@@ -3305,7 +3327,7 @@ do_eSoftVersion(SEXP call, SEXP op, SEXP args, SEXP rho)
     && defined(HAVE_DECL_RTLD_NEXT) && HAVE_DECL_RTLD_NEXT
 
     /* Look for blas function dgemm and try to figure out in which
-       binary/shared library is it defined. This is based on experimentation
+       binary/shared library is it defined. That is based on experimentation
        and heuristics, and depends on implementation details
        of dynamic linkers.
     */

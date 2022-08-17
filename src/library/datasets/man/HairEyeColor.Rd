@@ -33,7 +33,7 @@
   as mosaic plots, sieve diagrams or association plots.
 }
 \source{
-  \url{http://euclid.psych.yorku.ca/ftp/sas/vcd/catdata/haireye.sas}
+  \url{http://www.datavis.ca/sas/vcd/catdata/haireye.sas}
 
   Snee (1974) gives the two-way table aggregated over \code{Sex}.  The
   \code{Sex} split of the \sQuote{Brown hair, Brown eye} cell was
@@ -55,7 +55,7 @@
   Mosaic displays for loglinear models.
   \emph{Proceedings of the Statistical Graphics Section},
   American Statistical Association, pp.\sspace{}61--68.
-  \url{http://www.math.yorku.ca/SCS/Papers/asa92.html}
+  \url{http://www.datavis.ca/papers/asa92.html}
 
   Friendly, M. (2000).
   \emph{Visualizing Categorical Data}.

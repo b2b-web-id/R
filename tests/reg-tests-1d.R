@@ -2015,6 +2015,13 @@ dim(x) <- 2
 dimnames(x) <- list(c("a", "b"))
 stopifnot(! is.null(names(sort.int(x))))
 
+## is.unsorted fastpass incorrectly returned TRUE when constant-valued x was sorted descending
+x <- c(1, 1, 1)
+xs <- sort(x, decreasing = TRUE)
+stopifnot(!is.unsorted(xs, strictly = FALSE)) ## is.unsorted should be FALSE
+y <- as.integer(x)
+ys <- sort(x, decreasing = TRUE)
+stopifnot(!is.unsorted(ys, strictly = FALSE))
 
 ## match() with length one x and POSIXlt table (PR#17459):
 d <- as.POSIXlt("2018-01-01")
@@ -3917,6 +3924,27 @@ if(englishMsgs) { cat("checking (default = ) English error messages\n")
 ##
 
 
+## check raw string parse data
+p <- parse(text = 'r"-(hello)-"', keep.source = TRUE)
+stopifnot(identical(getParseData(p)$text, c("r\"-(hello)-\"", "")))
+rm(p)
+# (wrong in R 4.0.0; reorted by Gabor Csardi)
+
+
+## make sure there is n aliasing in assignments with partial matching
+v <- list(misc = c(1))
+v$mi[[1]] <- 2
+stopifnot(v$misc == 1)
+rm(v)
+# defensive reference counts needed; missing in R 4.0.0
+
+
+## multi-encodings in vector-case for duplicated/match -- PR#17809
+c_latin1 <- "\xe4"
+Encoding(c_latin1) <- "latin1"
+c_utf8 <- enc2utf8(c_latin1)
+x <- list(c_latin1, c_utf8, letters)
+stopifnot(identical(duplicated(x)[2], TRUE))
 
 ## keep at end
 rbind(last =  proc.time() - .pt,

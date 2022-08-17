@@ -5,7 +5,326 @@
 \title{R News}
 \encoding{UTF-8}
 
-\section{\Rlogo CHANGES IN 4.0.0}{
+\section{\Rlogo CHANGES IN R 4.0.5}{
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item The change to the internal table in \R 4.0.4 for
+      \code{iswprint} has been reverted: it contained some errors in
+      printability of \sQuote{East Asian} characters.
+
+      \item For packages using \samp{LazyData}, \command{R CMD build}
+      ignored the \option{--resave-data} option and the
+      \samp{BuildResaveData} field of the \file{DESCRIPTION} file (in \R
+      versions 4.0.0 to 4.0.4). 
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.0.4}{
+
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item File \file{share/texmf/tex/latex/jss.cls} has been updated
+      to work with LaTeX versions since Oct 2020.
+
+      \item Unicode character width tables (as used by
+      \code{nchar(, type = "w")}) have been updated to Unicode 12.1
+      by Brodie Gaslam (\PR{17781}), including many emoji.
+
+      \item The internal table for \code{iswprint} (used on Windows,
+      macOS and AIX) has been updated to include many recent Unicode
+      characters.
+    }
+  }
+
+  \subsection{INSTALLATION on a UNIX-ALIKE}{
+    \itemize{
+      \item If an external BLAS is specified by \option{--with-blas=foo}
+      or \emph{via} environment variable \env{BLAS_LIBS} is not found,
+      this is now a configuration error.  The previous behaviour was not
+      clear from the documentation: it was to continue the search as if
+      \option{--with-blas=yes} was specified.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{all.equal(x,y)} now \dQuote{sees} the two different
+      \code{NA}s in factors, thanks to Bill Dunlap and others in
+      \PR{17897}.
+
+      \item \code{(~ NULL)[1]} and similar formula subsetting now works,
+      thanks to a report and patch by Henrik Bengtsson in \PR{17935}.
+      Additionally, subsetting leaving an empty formula now works too,
+      thanks to suggestions by Suharto Anggono.
+
+      \item \code{.traceback(n)} keeps source references again, as before
+      \R 4.0.0, fixing a regression; introduced by the \PR{17580}, reported
+      including two patch proposals by Brodie Gaslam.
+
+      \item \code{unlist(plst, recursive=FALSE)} no longer drops content
+      for pairlists with list components, thanks to the report and patch
+      by Suharto Anggono in \PR{17950}.
+
+      \item \code{iconvlist()} now also works on MUSL based (Linux)
+      systems, from a report and patch suggestion by Wesley Chan in
+      \PR{17970}.
+
+      \item \code{round()} and \code{signif()} no longer tolerate wrong
+      argument names, notably in 1-argument calls; reported by Shane
+      Mueller on R-devel (mailing list); later reported as \PR{17976}.
+
+      \item \code{.Machine} has \code{longdouble.*} elements only if
+      \code{capabilities("long.double")} is true, as documented.
+      (Previously they were included if the platform had \code{long
+	double} identical to \code{double}, as ARM does.)
+
+      \item \code{p.adjust(numeric(), n=0)} now works, fixing \PR{18002}.
+
+      \item \code{identical(x,y)} no longer prints "Unknown Type .." for
+      \code{typeof(x) == "..."} objects.
+
+      \item Fix (auto-)\code{print()}ing of named complex vectors, see
+      \PR{17868} and \PR{18019}.
+
+      \item \code{all.equal(<language>, <...>)} now works, fixing \PR{18029}.
+
+      \item \code{as.data.frame.list(L, row.names=NULL)} now behaves in line
+      with \code{data.frame()}, disregarding names of components of
+      \code{L}, fixing \PR{18034}, reported by Kevin Tappe.
+
+      \item \code{checkRdaFiles(ff)$version} is now correct also when
+      \code{ff} contains files of different versions, thanks to a report
+      and patch from Sebastian Meyer in \PR{18041}.
+
+      \item macOS: Quartz device live drawing could fail (no plot is shown)
+      if the system changes the drawing context after view update (often
+      the case since macOS Big Sur). System log may show
+      "CGContextDelegateCreateForContext: invalid context" error.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.0.3}{
+
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item On platforms using \command{configure} option
+      \option{--with-internal-tzcode}, additional values
+      \code{"internal"} and (on macOS only) \code{"macOS"} are accepted
+      for the environment variable \env{TZDIR}.  (See \code{?TZDIR}.)
+
+      On macOS, \code{"macOS"} is used by default if the system timezone
+      database is a newer version than that in the \R installation.
+
+      \item When \code{install.packages(type = "source")} fails to find
+       a package in a repository it mentions package versions which are
+       excluded by their \R version requirement and links to hints on
+       why a package might not be found.
+
+       \item The default value for \code{options("timeout")} can be set
+       from environment variable \env{R_DEFAULT_INTERNET_TIMEOUT}, still
+       defaulting to 60 (seconds) if that is not set or invalid.
+
+       This may be needed when child \R processes are doing downloads,
+       for example during the installation of source packages which
+       download jars or other forms of data.
+     }
+  }
+
+  \subsection{LINK-TIME OPTIMIZATION on a UNIX-ALIKE}{
+    \itemize{
+      \item There is now support for parallelized Link-Time Optimization
+      (LTO) with GCC and for \sQuote{thin} LTO with
+      \command{clang} \emph{via} setting the \samp{LTO} macro.
+
+      \item There is support for setting a different LTO flag for the
+      Fortran compiler, including to empty when mixing \command{clang}
+      and \command{gfortran} (as on macOS).  See file \file{config.site}.
+
+      \item There is a new \samp{LTO_LD} macro to set linker options for
+      LTO compilation, for example to select an alternative linker or
+      to parallelize thin LTO.
+    }
+  }
+
+    \subsection{DEPRECATED AND DEFUNCT}{
+    \itemize{
+
+      \item The \code{LINPACK} argument to \code{chol.default()},
+      \code{chol2inv()}, \code{solve.default()} and \code{svd()} has been
+      defunct since \R 3.1.0.  Using it now gives a warning which will
+      become an error in \R 4.1.0.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item The code mitigating stack overflow with PCRE regexps on very
+      long strings is enabled for PCRE2 < 10.30 also when JIT is enabled,
+      since stack overflows have been seen in that case.
+      %% Ubuntu 16.04LTS has PCRE2 10.21
+
+      \item Fix to correctly show the group labels in \code{dotchart()}
+      (which where lost in the \code{ylab} improvement for \R 4.0.0).
+
+      \item \code{addmargins(*, ..)} now also works when \code{fn()} is a
+      local function, thanks to bug report and patch \PR{17124} from Alex
+      Bertram.
+
+      \item \code{rank(x)} and hence \code{sort(x)} now work when \code{x}
+      is an object (as per \code{is.object(x)}) of type \code{"raw"}
+      \emph{and} provides a valid \code{`[`} method, e.g., for
+      \code{gmp::as.bigz(.)} numbers.
+
+      \item \code{chisq.test(*, simulate.p.value=TRUE)} and
+      \code{r2dtable()} now work correctly for large table entries (in the
+      millions).  Reported by Sebastian Meyer and investigated by more
+      helpers in \PR{16184}.
+
+      \item Low-level socket read/write operations have been fixed to
+      correctly signal communication errors. Previously, such errors could
+      lead to a segfault due to invalid memory access. Reported
+      and debugged by Dmitriy Selivanov in \PR{17850}.
+
+      \item \code{quantile(x, pr)} works more consistently for \code{pr}
+      values slightly outside [0,1], thanks to Suharto Anggono's \PR{17891}.
+
+      Further, \code{quantile(x, prN, names=FALSE)} now works even when
+      \code{prN} contains \code{NA}s, thanks to Anggono's \PR{17892}.
+      Ditto for ordered factors or \code{Date} objects
+      when \code{type = 1} or \code{3}, thanks to \PR{17899}.
+
+      \item Libcurl-based internet access, including
+      \code{curlGetHeaders()}, was not respecting the \code{"timeout"}
+      option.  If this causes unanticipated timeouts, consider
+      increasing the default by setting \env{R_DEFAULT_INTERNET_TIMEOUT}.
+
+      \item \code{as.Date(<char>)} now also works with an initial
+      \code{""}, thanks to Michael Chirico's \PR{17909}.
+
+      \item \code{isS3stdGeneric(f)} now detects an S3 generic also when it
+      it is \code{trace()}d, thanks to Gabe Becker's \PR{17917}.
+
+      \item \code{R_allocLD()} has been fixed to return memory aligned for
+      long double type \PR{16534}.
+
+      \item \code{fisher.test()} no longer segfaults when called again after
+      its internal stack has been exceeded \PR{17904}.
+
+      \item Accessing a long vector represented by a compact integer
+      sequence no longer segfaults (reported and debugged by Hugh
+      Parsonage).
+
+      \item \code{duplicated()} now works also for strings with multiple
+      encodings inside a single vector \PR{17809}.
+
+      \item \code{phyper(11, 15, 0, 12, log.p=TRUE)} no longer gives
+      \code{NaN}; reported as \PR{17271} by Alexey Stukalov.
+
+      \item Fix incorrect calculation in \code{logLik.nls()} \PR{16100}, patch
+      from Sebastian Meyer.
+
+      \item A very old bug could cause a segfault in \code{model.matrix()}
+      when terms involved logical variables.  Part of \PR{17879}.
+
+      \item \code{model.frame.default()} allowed \code{data = 1}, leading to
+      involuntary variable capture (rest of \PR{17879}).
+
+      \item \code{tar()} no longer skips non-directory files, thanks to a
+      patch by Sebastian Meyer, fixing the remaining part of \PR{16716}.
+    }
+  }
+}
+
+
+\section{\Rlogo CHANGES IN R 4.0.2}{
+
+  \subsection{UTILITIES}{
+    \itemize{
+      \item \command{R CMD check} skips vignette re-building (with a
+      warning) if the \samp{VignetteBuilder} package(s) are not available.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item Paths with non-ASCII characters caused problems for
+      package loading on Windows \PR{17833}.
+
+      \item Using \pkg{tcltk} widgets no longer crashes R on
+      Windows.
+
+      \item \code{source(*, echo=TRUE)} no longer fails in some cases with
+      empty lines; reported by Bill Dunlap in \PR{17769}.
+
+      \item \code{on.exit()} now correctly matches named arguments, thanks
+      to \PR{17815} (including patch) by Brodie Gaslam.
+
+      \item \code{regexpr(*, perl=TRUE)} no longer returns incorrect
+      positions into text containing characters outside of the Unicode
+      Basic Multilingual Plane on Windows.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.0.1}{
+
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item \code{paste()} and \code{paste0()} gain a new optional
+      argument \code{recycle0}.  When set to true, zero-length
+      arguments are recycled leading to \code{character(0)} after the
+      \code{sep}-concatenation, i.e., to the empty string \code{""} if
+      \code{collapse} is a string and to the zero-length value
+      \code{character(0)} when \code{collapse = NULL}.
+
+      A package whose code uses this should depend on \samp{R (>= 4.0.1)}.
+
+      \item The \code{summary(<warnings>)} method now maps the counts
+      correctly to the warning messages.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{aov(frml, ...)} now also works where the \code{formula}
+      deparses to more than 500 characters, thanks to a report and patch
+      proposal by Jan Hauffa.
+
+      \item Fix a dozen places (code, examples) as \code{Sys.setlocale()}
+      returns the new rather than the previous setting.
+
+      \item Fix for adding two complex \pkg{grid} units via \code{sum()}.
+      Thanks to Gu Zuguang for the report and Thomas Lin Pedersen for
+      the patch.
+
+      \item Fix \code{parallel::mclapply(..., mc.preschedule=FALSE)}
+      to handle raw vector results correctly. \PR{17779}
+
+      \item Computing the \code{base} value, i.e., 2, \dQuote{everywhere},
+      now uses \code{FLT_RADIX}, as the original \file{machar} code looped
+      indefinitely on the ppc64 architecture for the \code{longdouble} case.
+
+      \item In \R 4.0.0, \code{sort.list(x)} when \code{is.object(x)} was
+      true, e.g., for \code{x <- I(letters)}, was accidentally using
+      \code{method = "radix"}.  Consequently, e.g., \code{merge(<data.frame>)}
+      was much slower than previously; reported in \PR{17794}.
+
+      \item \code{plot(y ~ x, ylab = quote(y[i]))} now works, as e.g., for
+      \code{xlab}; related to \PR{10525}.
+
+      \item \code{parallel::detect.cores(all.tests = TRUE)} tries a
+      matching OS name before the other tests (which were intended only
+      for unknown OSes).
+
+      \item Parse data for raw strings is now recorded correctly. Reported
+      by Gabor Csardi.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.0.0}{
 
   \subsection{SIGNIFICANT USER-VISIBLE CHANGES}{
     \itemize{
@@ -197,7 +516,8 @@
 
       \item \code{sort.list(x)} now works for non-atomic objects
       \code{x} and \code{method = "auto"} (the default) or
-      \code{"radix"} in cases \code{order(x)} works.
+      \code{"radix"} in cases \code{order(x)} works, typically via a
+      \code{xtfrm()} method.
 
       \item Where they are available, \code{writeBin()} allows
       long vectors.% (those of length \eqn{\ge 2^{31}}{>= 2^31}).
@@ -742,7 +1062,7 @@
       \item \code{scan()} issues with UTF-8 data when running in a DBCS
       locale have been resolved (\PR{16520}, \PR{16584}).
 
-      \item \command{RTerm} now accepts enhanced/arrow keys also with
+      \item \command{Rterm} now accepts enhanced/arrow keys also with
       ConPTY.
 
       \item \R can can now be started \emph{via} the launcher icon in a

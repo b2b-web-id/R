@@ -1,7 +1,7 @@
 #  File src/library/base/R/datetime.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2019 The R Core Team
+#  Copyright (C) 1995-2021 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,25 @@ Sys.timezone <- function(location = TRUE)
     tz <- Sys.getenv("TZ")
     if(nzchar(tz)) return(tz)
     if(.Platform$OS.type == "windows") return(.Internal(tzone_name()))
+
+    if(!nzchar(Sys.getenv("TZDIR")) && grepl("darwin", R.Version()$os) &&
+       dir.exists(zp <-file.path(R.home("share"), "zoneinfo")))  {
+        ## On macOS, have choice of system or internal zoneinfo
+        ## so chose system if newer.
+        veri <- try(readLines(file.path(zp, "VERSION")), silent = TRUE)
+        vers <- try(readLines("/var/db/timezone/zoneinfo/+VERSION"),
+                    silent = TRUE)
+        if(!inherits(veri, "try-error") && !inherits(vers, "try-error") &&
+           vers != veri) {
+            yri <- substr(veri, 1L, 4L); sufi <- substr(veri, 5, 5)
+            yrs <- substr(vers, 1L, 4L); sufs <- substr(vers, 5, 5)
+            if (yrs > yri || (yrs == yri && sufs > sufi))
+                Sys.setenv(TZDIR = "macOS")
+        }
+    }
+    if(Sys.getenv("TZDIR") == "macOS" && grepl("darwin", R.Version()$os))
+        Sys.setenv(TZDIR = "/var/db/timezone/zoneinfo")
+
 
     ## At least tzcode and glibc respect TZDIR.
     ## glibc uses $(datadir)/zoneinfo
@@ -253,13 +272,22 @@ as.POSIXlt.character <-
 
 as.POSIXlt.numeric <- function(x, tz = "", origin, ...)
 {
-    if(missing(origin)) stop("'origin' must be supplied")
+    if(missing(origin)) {
+        if(!length(x))
+            return(as.POSIXlt.character(character(), tz))
+        if(!any(is.finite(x)))
+            return(as.POSIXlt.character(rep_len(NA_character_,
+                                                length(x)),
+                                        tz))
+        stop("'origin' must be supplied")
+    }
     as.POSIXlt(as.POSIXct(origin, tz = "UTC", ...) + x, tz = tz)
 }
 
 as.POSIXlt.default <- function(x, tz = "", optional = FALSE, ...)
 {
     if(inherits(x, "POSIXlt")) return(x)
+    if(is.null(x)) return(as.POSIXlt.character(character(), tz))
     if(is.logical(x) && all(is.na(x)))
         return(as.POSIXlt(as.POSIXct.default(x), tz = tz))
     if(optional)
@@ -312,13 +340,20 @@ as.POSIXct.POSIXlt <- function(x, tz = "", ...)
 
 as.POSIXct.numeric <- function(x, tz = "", origin, ...)
 {
-    if(missing(origin)) stop("'origin' must be supplied")
+    if(missing(origin)) {
+        if(!length(x))
+            return(.POSIXct(numeric(), tz))
+        if(!any(is.finite(x)))
+            return(.POSIXct(x, tz))
+        stop("'origin' must be supplied")
+    }
     .POSIXct(as.POSIXct(origin, tz = "GMT", ...) + x, tz)
 }
 
 as.POSIXct.default <- function(x, tz = "", ...)
 {
     if(inherits(x, "POSIXct")) return(x)
+    if(is.null(x)) return(.POSIXct(numeric(), tz))
     if(is.character(x) || is.factor(x))
 	return(as.POSIXct(as.POSIXlt(x, tz, ...), tz, ...))
     if(is.logical(x) && all(is.na(x)))
@@ -562,7 +597,8 @@ anyNA.POSIXlt <- function(x, recursive = FALSE)
 ## <FIXME> check the argument validity
 ## This is documented to remove the timezone
 c.POSIXct <- function(..., recursive = FALSE)
-    .POSIXct(c(unlist(lapply(list(...), unclass))))
+    .POSIXct(c(unlist(lapply(list(...),
+                             function(e) unclass(as.POSIXct(e))))))
 
 ## we need conversion to POSIXct as POSIXlt objects can be in different tz.
 c.POSIXlt <- function(..., recursive = FALSE)
@@ -1341,25 +1377,32 @@ OlsonNames <- function(tzdir = NULL)
         if(.Platform$OS.type == "windows")
             tzdir <- Sys.getenv("TZDIR", file.path(R.home("share"), "zoneinfo"))
         else {
-            ## Try known locations in turn.
-            ## The list is not exhaustive (mac OS 10.13's
-            ## /usr/share/zoneinfo is a symlink) and there is a risk that
-            ## the wrong one is found.
-            ## We assume that if the second exists that the system was
-            ## configured with --with-internal-tzcode
-            tzdirs <- c(Sys.getenv("TZDIR"), # defaults to ""
-                        file.path(R.home("share"), "zoneinfo"),
-                        "/usr/share/zoneinfo", # Linux, macOS, FreeBSD
-                        "/share/zoneinfo", # in musl's search
-                        "/usr/share/lib/zoneinfo", # Solaris, AIX
-                        "/usr/lib/zoneinfo",   # early glibc
-                        "/usr/local/etc/zoneinfo", # tzcode default
-                        "/etc/zoneinfo", "/usr/etc/zoneinfo")
-            tzdirs <- tzdirs[file.exists(tzdirs)]
-            if (!length(tzdirs)) {
-                warning("no Olson database found")
-                return(character())
-            } else tzdir <- tzdirs[1L]
+            if(Sys.getenv("TZDIR") == "internal")
+                tzdir <- file.path(R.home("share"), "zoneinfo")
+            else if (grepl("darwin", R.Version()$os) &&
+                     Sys.getenv("TZDIR") == "macOS") {
+                tzdir <- "/var/db/timezone/zoneinfo"
+            } else {
+                ## Try known locations in turn.
+                ## The list is not exhaustive (mac OS 10.13's
+                ## /usr/share/zoneinfo is a symlink) and there is a risk that
+                ## the wrong one is found.
+                ## We assume that if the second exists that the system was
+                ## configured with --with-internal-tzcode
+                tzdirs <- c(Sys.getenv("TZDIR"), # defaults to ""
+                            file.path(R.home("share"), "zoneinfo"),
+                            "/usr/share/zoneinfo", # Linux, macOS, FreeBSD
+                            "/share/zoneinfo", # in musl's search
+                            "/usr/share/lib/zoneinfo", # Solaris, AIX
+                            "/usr/lib/zoneinfo",   # early glibc
+                            "/usr/local/etc/zoneinfo", # tzcode default
+                            "/etc/zoneinfo", "/usr/etc/zoneinfo")
+                tzdirs <- tzdirs[file.exists(tzdirs)]
+                if (!length(tzdirs)) {
+                    warning("no Olson database found")
+                    return(character())
+                } else tzdir <- tzdirs[1L]
+            }
         }
     } else if(!dir.exists(tzdir))
         stop(sprintf("%s is not a directory", sQuote(tzdir)), domain = NA)

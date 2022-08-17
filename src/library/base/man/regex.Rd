@@ -1,6 +1,6 @@
 % File src/library/base/man/regex.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2019 R Core Team
+% Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
 \name{regex}
@@ -73,11 +73,15 @@
   \samp{b} or \samp{c}.  A range of characters may be specified by
   giving the first and last characters, separated by a hyphen.  (Because
   their interpretation is locale- and implementation-dependent,
-  character ranges are best avoided.)  The only portable way to specify
-  all ASCII letters is to list them all as the character class\cr
+  character ranges are best avoided.  Some but not all implementations
+  include both cases in ranges when doing caseless matching.)  The only
+  portable way to specify all ASCII letters is to list them all as the
+  character class\cr
   \samp{[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz]}.\cr (The
-  current implementation uses numerical order of the encoding.)
-
+  current implementation uses numerical order of the encoding, normally a
+  single-byte encoding or Unicode points.)
+  %% but see the comment in tre-parse.c l.300.
+  
   Certain named classes of characters are predefined.  Their
   interpretation depends on the \emph{locale} (see \link{locales}); the
   interpretation below is that of the POSIX locale.
@@ -206,19 +210,19 @@
 
   For complete details please consult the man pages for PCRE, especially
   \command{man pcrepattern} and \command{man pcreapi}, on your system or
-  from the sources at \url{http://www.pcre.org}.  (The version in use can be
+  from the sources at \url{https://www.pcre.org}.  (The version in use can be
   found by calling \code{\link{extSoftVersion}}.  It need not be the version
   described in the system's man page.  PCRE1 (reported as version < 10.00 by
   \code{\link{extSoftVersion}}) has been feature-frozen for some time
   (essentially 2012), the man pages at
-  \url{http://www.pcre.org/original/doc/html/} should be a good match.
+  \url{https://www.pcre.org/original/doc/html/} should be a good match.
   PCRE2 (PCRE version >= 10.00) has man pages at
-  \url{http://www.pcre.org/current/doc/html/}).
+  \url{https://www.pcre.org/current/doc/html/}).
 
   Perl regular expressions can be computed byte-by-byte or
   (UTF-8) character-by-character: the latter is used in all multibyte
   locales and if any of the inputs are marked as UTF-8 (see
-  \code{\link{Encoding}}).
+  \code{\link{Encoding}}.
 
   All the regular expressions described for extended regular expressions
   are accepted except \samp{\\<} and \samp{\\>}: in Perl all backslashed
@@ -339,21 +343,21 @@
 }
 \author{
   This help page is based on the TRE documentation and the POSIX
-  standard, and the \code{pcrepattern} man page from PCRE 8.36.
+  standard, and the \code{pcre2pattern} man page from PCRE2 10.35
 }
 \seealso{
   \code{\link{grep}}, \code{\link{apropos}}, \code{\link{browseEnv}},
   \code{\link{glob2rx}}, \code{\link{help.search}}, \code{\link{list.files}},
   \code{\link{ls}} and \code{\link{strsplit}}.
 
-  The TRE documentation at
-  \url{http://laurikari.net/tre/documentation/regex-syntax/}.
+  The \href{https://htmlpreview.github.io/?https://raw.githubusercontent.com/laurikari/tre/master/doc/tre-syntax.html}{TRE regexp syntax}.
 
   The POSIX 1003.2 standard at
-  \url{http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html}.
+  \url{https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap09.html}.
 
-  The \code{pcrepattern} \command{man} page (found as part of
-  \url{http://www.pcre.org/original/pcre.txt}), and details of Perl's own
-  implementation at \url{http://perldoc.perl.org/perlre.html}.
+  The \code{pcre2pattern} or \code{pcrepattern} \command{man} page
+  (found as part of \url{https://www.pcre.org/original/pcre.txt}), and
+  details of Perl's own implementation at
+  \url{https://perldoc.perl.org/perlre}.
 }
 \keyword{character}

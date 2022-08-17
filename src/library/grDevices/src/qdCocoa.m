@@ -1,6 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
  *  Copyright (C) 2007  The R Foundation
+ *  Copyright (C) 2007--2020  The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -334,6 +335,13 @@ static QuartzFunctions_t *qf;
 {
     CGRect rect;
     CGContextRef ctx = [[NSGraphicsContext currentContext] graphicsPort];
+    /* we have to retain our copy, beause we may need to create a layer
+       based on the context in NewPage outside of drawRect: */
+    if (ci->context != ctx) {
+        if (ci->context)
+            CGContextRelease(ci->context);
+        CGContextRetain(ctx);
+    }
     ci->context = ctx;
     ci->bounds = [self bounds];        
     rect = CGRectMake(0.0, 0.0, ci->bounds.size.width, ci->bounds.size.height);
@@ -500,8 +508,10 @@ static void QuartzCocoa_SaveHistory(QuartzCocoaDevice *ci, int last) {
 }
 
 - (void)windowWillClose:(NSNotification *)aNotification {
-    ci->closing = YES;
-    qf->Kill(ci->qd);
+    if (ci) {
+        ci->closing = YES;
+        qf->Kill(ci->qd);
+    }
 }
 
 - (void)resetCursorRects
@@ -701,6 +711,15 @@ static void QuartzCocoa_Close(QuartzDesc_t dev,void *userInfo) {
     if (ci->pars.title) free((void*)ci->pars.title);
     if (ci->pars.file) free((void*)ci->pars.file);
 
+    if (ci->layer)
+        CGLayerRelease(ci->layer);
+
+    /* release context (if we had one) */
+    if (ci->context) {
+        CGContextRelease(ci->context);
+        ci->context = 0;
+    }
+
     /* close the window (if it's not already closing) */
     if (ci && ci->view && !ci->closing)
         [[ci->view window] close];
@@ -895,8 +914,8 @@ QuartzDesc_t QuartzCocoa_DeviceCreate(void *dd, QuartzFunctions_t *fn, QuartzPar
 	return NULL;
     }
 
-    /* FIXME: check allocations [better now, but strdups below are not covered; also check dev->pars] */
     dev = malloc(sizeof(QuartzCocoaDevice));
+    if (dev == NULL) error("allocation failure in QuartzCocoa_DeviceCreate");
     memset(dev, 0, sizeof(QuartzCocoaDevice));
 
     QuartzBackend_t qdef = {
@@ -923,6 +942,7 @@ QuartzDesc_t QuartzCocoa_DeviceCreate(void *dd, QuartzFunctions_t *fn, QuartzPar
     /* copy parameters for later */
     memcpy(&dev->pars, par, (par->size < sizeof(QuartzParameters_t))? par->size : sizeof(QuartzParameters_t));
     if (par->size > sizeof(QuartzParameters_t)) dev->pars.size = sizeof(QuartzParameters_t);
+    /* FIXME: strdup can return NULL */
     if (par->family) dev->pars.family = strdup(par->family);
     if (par->title) dev->pars.title = strdup(par->title);
     if (par->file) dev->pars.file = strdup(par->file);

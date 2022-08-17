@@ -1,6 +1,6 @@
 
-R version 4.0.0 RC (2020-04-16 r78240) -- "Arbor Day"
-Copyright (C) 2020 The R Foundation for Statistical Computing
+R version 4.0.3 Patched (2021-02-03 r79936) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2021 The R Foundation for Statistical Computing
 Platform: x86_64-pc-linux-gnu (64-bit)
 
 R is free software and comes with ABSOLUTELY NO WARRANTY.
@@ -2201,7 +2201,7 @@ Aye   Buzz Hum
   Si    13  10
   Yes    6   7
 
-> addmargins(A)
+> (aA <- addmargins(A))
 , , Sea = Black
 
      Bee
@@ -2248,7 +2248,7 @@ Aye   Buzz Hum Sum
   Sum   87  90 177
 
 > ## Don't show: 
-> stopifnot(is.table(addmargins(A)))
+> stopifnot(is.table(aA))
 > ## End(Don't show)
 > ftable(A)
          Sea Black Dead Red White
@@ -2259,7 +2259,7 @@ Si  Buzz         5   10   4    13
     Hum          7    7   7    10
 Yes Buzz         7   10   8     6
     Hum          7    3   7     7
-> ftable(addmargins(A))
+> ftable(aA)
          Sea Black Dead Red White Sum
 Aye Bee                              
 Oui Buzz         7    8   2     7  24
@@ -2276,9 +2276,9 @@ Sum Buzz        19   28  14    26  87
     Sum         37   45  40    55 177
 > 
 > # Non-commutative functions - note differences between resulting tables:
-> ftable( addmargins( A, c(3, 1),
-+                    FUN = list( list(Min = min, Max = max), 
-+                                Sum = sum ) ) )
+> ftable( addmargins(A, c(3, 1),
++                    FUN = list(list(Min = min, Max = max),
++                               Sum = sum)))
 Margins computed over dimensions
 in the following order:
 1: Sea
@@ -2293,9 +2293,9 @@ Yes Buzz         7   10   8     6   6  10
     Hum          7    3   7     7   3   7
 Sum Buzz        19   28  14    26  12  31
     Hum         18   17  26    29  14  29
-> ftable( addmargins( A, c(1, 3),
-+                    FUN = list( Sum = sum,
-+                                list(Min = min, Max = max) ) ) )
+> ftable( addmargins(A, c(1, 3),
++                    FUN = list(Sum = sum,
++                               list(Min = min, Max = max))))
 Margins computed over dimensions
 in the following order:
 1: Aye
@@ -3710,6 +3710,28 @@ arima(presidents, c(2, 0, 1))  5 838.1272
 fit3                           5 838.1639
 arima(presidents, c(3, 0, 1))  6 838.8124
 > 
+> ## An example of using the  'fixed'  argument:
+> ## Note that the period of the seasonal component is taken to be
+> ## frequency(presidents), i.e. 4.
+> (fitSfx <- arima(presidents, order=c(2,0,1), seasonal=c(1,0,0),
++                  fixed=c(NA, NA, 0.5, -0.1, 50), transform.pars=FALSE))
+
+Call:
+arima(x = presidents, order = c(2, 0, 1), seasonal = c(1, 0, 0), transform.pars = FALSE, 
+    fixed = c(NA, NA, 0.5, -0.1, 50))
+
+Coefficients:
+         ar1     ar2  ma1  sar1  intercept
+      0.2047  0.6269  0.5  -0.1         50
+s.e.  0.0734  0.0747  0.0   0.0          0
+
+sigma^2 estimated as 84.01:  log likelihood = -416.07,  aic = 838.14
+> ## The partly-fixed & smaller model seems better (as we "knew too much"):
+> AIC(fitSfx, arima(presidents, order=c(2,0,1), seasonal=c(1,0,0)))
+                                                             df      AIC
+fitSfx                                                        3 838.1406
+arima(presidents, order = c(2, 0, 1), seasonal = c(1, 0, 0))  6 839.7095
+> 
 > ## An example of ARIMA forecasting:
 > predict(fit3, 3)
 $pred
@@ -3926,7 +3948,7 @@ sigma^2 estimated as 0.4566:  log likelihood = -101.2,  aic = 212.4
 > 
 > asOneSidedFormula("age")
 ~age
-<environment: 0x6222ce8>
+<environment: 0x544b0b0>
 > asOneSidedFormula(~ age)
 ~age
 > 
@@ -4963,7 +4985,7 @@ function (V)
     r[cbind(1L:p, 1L:p)] <- 1
     r
 }
-<bytecode: 0x6f7add8>
+<bytecode: 0x61e74d8>
 <environment: namespace:stats>
 > stopifnot(all.equal(Cl, cov2cor(cov(longley))),
 +           all.equal(cor(longley, method = "kendall"),
@@ -7587,7 +7609,7 @@ attr(,".Environment")
 > environment(as.formula("y ~ x"))
 <environment: R_GlobalEnv>
 > environment(as.formula("y ~ x", env = new.env()))
-<environment: 0x6ba8128>
+<environment: 0x5f97170>
 > 
 > 
 > ## Create a formula for a model with a large number of variables:
@@ -12281,14 +12303,14 @@ attr(,"class")
 $linkfun
 function (mu) 
 mu^lambda
-<bytecode: 0x5cc1a18>
-<environment: 0x5ccc000>
+<bytecode: 0x5580280>
+<environment: 0x5588948>
 
 $linkinv
 function (eta) 
 pmax(eta^(1/lambda), .Machine$double.eps)
-<bytecode: 0x5cc56f8>
-<environment: 0x5ccc000>
+<bytecode: 0x5580130>
+<environment: 0x5588948>
 
 > 
 > 
@@ -12821,7 +12843,8 @@ Cumulative Proportion  0.4173 0.6498 0.7569
 > ### ** Examples
 > 
 > ## Don't show: 
-> old <- Sys.setlocale("LC_COLLATE", "C")
+> old <- Sys.getlocale("LC_COLLATE")
+>        invisible(Sys.setlocale("LC_COLLATE", "C"))
 > ## End(Don't show)
 > require(utils)
 > 
@@ -12912,7 +12935,7 @@ predict.smooth.spline.fit :
 	 function (object, x, deriv = 0, ...)  NULL 
 > ## IGNORE_RDIFF_END
 > ## Don't show: 
-> old <- Sys.setlocale("LC_COLLATE", old)
+> invisible(Sys.setlocale("LC_COLLATE", old))
 > ## End(Don't show)
 > 
 > 
@@ -14393,7 +14416,8 @@ Quade F = 3.8293, num df = 4, denom df = 24, p-value = 0.01519
 > 
 > ### Compare different types
 > quantAll <- function(x, prob, ...)
-+   t(vapply(1:9, function(typ) quantile(x, prob=prob, type = typ, ...), quantile(x, prob, type=1)))
++   t(vapply(1:9, function(typ) quantile(x, prob=prob, type = typ, ...),
++            quantile(x, prob, type=1, ...)))
 > p <- c(0.1, 0.5, 1, 2, 5, 10, 50)/100
 > signif(quantAll(x, p), 4)
         0.1%   0.5%     1%     2%     5%    10%      50%
@@ -14406,6 +14430,10 @@ Quade F = 3.8293, num df = 4, denom df = 24, p-value = 0.01519
  [7,] -2.997 -2.592 -2.424 -2.245 -1.727 -1.339 -0.03473
  [8,] -3.004 -2.595 -2.430 -2.258 -1.731 -1.342 -0.03473
  [9,] -3.004 -2.595 -2.429 -2.257 -1.730 -1.341 -0.03473
+> 
+> ## 0% and 100% are equal to min(), max() for all types:
+> stopifnot(t(quantAll(x, prob=0:1)) == range(x))
+> 
 > ## for complex numbers:
 > z <- complex(re=x, im = -10*x)
 > signif(quantAll(z, p), 4)
@@ -16357,7 +16385,7 @@ Median  -0.50 -0.13613265
 Mean    -0.50 -0.08208311
 3rd Qu.  0.75  0.50611122
 Max.     2.00  1.03072752
-> plot(x, y, main = "spline(x,y, ties=list(\"ordered\", mean)  for when x has ties")
+> plot(x, y, main = "spline(x,y, ties=list(\"ordered\", mean))  for when x has ties")
 > lines(sxyo, col="blue")
 > 
 > ## An example of monotone interpolation
@@ -16497,8 +16525,8 @@ Step function with continuity 'f'= 0.2 ,  3 knots at
 > unclass(sfun0)
 function (v) 
 .approxfun(x, y, v, method, yleft, yright, f, na.rm)
-<bytecode: 0x558c3c8>
-<environment: 0x69fccf0>
+<bytecode: 0x49bde58>
+<environment: 0x461a858>
 attr(,"call")
 stepfun(1:3, y0, f = 0)
 > ls(envir = environment(sfun0))
@@ -18907,7 +18935,7 @@ Number of Fisher Scoring iterations: 6
 > cleanEx()
 > options(digits = 7L)
 > base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
-Time elapsed:  7.156 0.231 7.433 0 0 
+Time elapsed:  13.858 0.43 14.881 0 0 
 > grDevices::dev.off()
 null device 
           1 

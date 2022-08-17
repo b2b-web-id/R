@@ -1,6 +1,6 @@
 % File src/library/base/man/timezones.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2021 R Core Team
 % Distributed under GPL 2 or later
 
 \name{timezones}
@@ -62,14 +62,18 @@ OlsonNames(tzdir = NULL)
   If it is unset or empty the \emph{system} time zone is used (the one
   returned by \code{Sys.timezone}).
 
-  Time zones did not come into use until the second half of the
-  nineteenth century and were not widely adopted until the twentieth,
-  and \emph{daylight saving time} (DST, also known as \emph{summer
-  time}) was first introduced in the early twentieth century, most
-  widely in 1916.  Over the last 100 years places have changed their
-  affiliation between major time zones, have opted out of (or in to) DST
-  in various years or adopted DST rule changes late or not at all.  (The
-  UK experimented with DST throughout 1971, only.)
+  %% arguably, 'railway time' in the UK in 1840 was earliest.
+  Time zones did not come into use until the middle of the nineteenth
+  century and were not widely adopted until the twentieth, and
+  \emph{daylight saving time} (DST, also known as \emph{summer time})
+  was first introduced in the early twentieth century, most widely in
+  1916.  Over the last 100 years places have changed their affiliation
+  between major time zones, have opted out of (or in to) DST in various
+  years or adopted DST rule changes late or not at all.  (The UK
+  experimented with DST throughout 1971, only.)  In a few countries (one
+  is the Irish Republic) it is the summer time which is the
+  \sQuote{standard} time and a different name is used in winter.  And
+  there can be multiple changes during a year, for example for Ramadan.
 
   A quite common system implementation of \code{POSIXct} is as signed
   32-bit integers and so only goes back to the end of 1901: on such
@@ -78,9 +82,8 @@ OlsonNames(tzdir = NULL)
   1902 (so used local \sQuote{mean time} based on longitude) but for a
   few places there had been time-zone changes before then.  64-bit
   representations are becoming common; unfortunately on some 64-bit OSes
-  (notably macOS) the database information is 32-bit and so only
-  available for the range 1901--2038, and incompletely for the end
-  years.
+  the database information is 32-bit and so only available for the range
+  1901--2038, and incompletely for the end years.
 
   As from \R 3.5.0, when a time zone location is first found in a
   session, its value is cached in object \code{.sys.timezone} in the
@@ -103,7 +106,7 @@ OlsonNames(tzdir = NULL)
 
   \code{OlsonNames} returns a character vector, see the examples for
   typical cases.  It may have an attribute \code{"Version"}, something
-  like \samp{"2017c"}.
+  like \samp{"2020a"}.
 }
 
 \section{Time zone names}{
@@ -114,7 +117,7 @@ OlsonNames(tzdir = NULL)
   for the C function \code{tzset} can be helpful, but it can also be
   inaccurate.  There is a cumbersome POSIX specification (listed under
   environment variable \env{TZ} at
-  \url{http://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08}),
+  \url{https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/V1_chap08.html#tag_08}),
   which is often at least partially supported, but there are other more
   user-friendly ways to specify time zones.
 
@@ -154,21 +157,28 @@ OlsonNames(tzdir = NULL)
   location in the file system varies,
   e.g.\sspace{}\file{/usr/share/zoneinfo} (Linux, macOS, FreeBSD),
   \file{/usr/share/lib/zoneinfo} (Solaris, AIX), \ldots.  It is likely
-  that there is a file named something like \file{zone.tab} under that
-  directory listing the locations known as time-zone names (but not for
-  example \code{EST5EDT}).  See also
-  \url{https://en.wikipedia.org/wiki/Zone.tab}.
+  that there is a file named something like \file{zone1970.tab} or
+  (older) \file{zone.tab} under that directory listing the locations
+  known as time-zone names (but not for example \code{EST5EDT}).  See
+  also \url{https://en.wikipedia.org/wiki/Zone.tab}.
 
   Where \R was configured with option \option{--with-internal-tzcode}
-  (the default on macOS and Windows: recommended on Solaris), the database at
+  (the default on Windows: recommended on Solaris), the database at
   \code{file.path(R.home("share"), "zoneinfo")} is used by default: file
-  \file{VERSION} in that directory states the version.  Environment
-  variable \env{TZDIR} can be used to point to a different
-  \file{zoneinfo} database: this is also supported by the native
-  services on some OSes, e.g.\sspace{}Linux using \code{glibc} except in
-  secure modes.
+  \file{VERSION} in that directory states the version.  That option is
+  also the default on macOS but there whichever is more recent of the
+  system database at \file{/var/db/timezone/zoneinfo} and that
+  distributed with \R is used by default.  Environment variable
+  \env{TZDIR} can be used to point to a different \file{zoneinfo}
+  database: value \code{"internal"} indicates the database from the
+  \R sources and \code{"macOS"} indicates the system database. (Setting
+  either of those values would not be recognized by other software using
+  \env{TZDIR}.)
+
+  Setting \env{TZDIR} is also supported by the native services on some
+  OSes, e.g.\sspace{}Linux using \code{glibc} except in secure modes.
   %% But not Linux with musl
-  
+
   Time zones given by name (\emph{via} environment variable \env{TZ}, in
   \code{tz} arguments to functions such as \code{\link{as.POSIXlt}} and
   perhaps the system time zone) are loaded from the currently selected

@@ -68,7 +68,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \itemize{
     \item On a Unix-alike method \code{"libcurl"} is used except
     \code{"internal"} for \samp{file://} URLs, where \code{"libcurl"}
-    uses the library of that name (\url{http://curl.haxx.se/libcurl/}).
+    uses the library of that name (\url{https://curl.se/libcurl/}).
 
     \item On Windows the \code{"wininet"} method is used apart from for
     \samp{ftps://} URLs where \code{"libcurl"} is tried.  The
@@ -78,7 +78,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
     Support for method \code{"libcurl"} is optional on Windows: use
     \code{\link{capabilities}("libcurl")} to see if it is supported on
     your build.  It uses an external library of that name
-    (\url{http://curl.haxx.se/libcurl/}) against which \R can be compiled.
+    (\url{https://curl.se/libcurl/}) against which \R can be compiled.
   }
 
   When method \code{"libcurl"} is used, it provides
@@ -128,7 +128,17 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   and \code{"libcurl"} methods only.
 
   The timeout for many parts of the transfer can be set by the option
-  \code{timeout} which defaults to 60 seconds.
+  \code{timeout} which defaults to 60 seconds.  This is often
+  insufficient for downloads of large files (50MB or more) and
+  so should be increased when \code{download.file} is used in packages
+  to do so.  Note that the user can set the default timeout by the
+  environment variable \env{R_DEFAULT_INTERNET_TIMEOUT} in recent
+  versions of \R, so to ensure that this is not decreased packages should
+  use something like
+  \preformatted{
+    options(timeout = max(300, getOption("timeout")))
+  }
+  (It is unrealistic to require download times of less than 1s/MB.)
 
   The level of detail provided during transfer can be set by the
   \code{quiet} argument and the \code{internet.info} option: the details
@@ -159,10 +169,10 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   line endings to \code{\\r\\n} (aka \file{CRLF}).
 
   On Windows, if \code{mode} is not supplied (\code{\link{missing}()})
-  and \code{url} ends in one of
-  \code{.gz}, \code{.bz2}, \code{.xz}, \code{.tgz}, \code{.zip},
-  \code{.rda}, \code{.rds} or \code{.RData}, \code{mode = "wb"} is set
-  such that a binary transfer is done to help unwary users.
+  and \code{url} ends in one of \code{.gz}, \code{.bz2}, \code{.xz},
+  \code{.tgz}, \code{.zip}, \code{.jar}, \code{.rda}, \code{.rds} or
+  \code{.RData}, \code{mode = "wb"} is set so that a binary transfer
+  is done to help unwary users.
 
   Code written to download binary files must use \code{mode = "wb"} (or
   \code{"ab"}), but the problems incurred by a text transfer will only
@@ -180,17 +190,17 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   user/password authentication if proper values are stored in the
   configuration file for \code{wget}.
 
-  \command{wget} (\url{http://www.gnu.org/software/wget/}) is commonly
+  \command{wget} (\url{https://www.gnu.org/software/wget/}) is commonly
   installed on Unix-alikes (but not macOS).  Windows binaries are
   available from Cygwin, gnuwin32 and elsewhere.
 
-  \command{curl} (\url{http://curl.haxx.se/}) is installed on macOS and
+  \command{curl} (\url{https://curl.se/}) is installed on macOS and
   commonly on Unix-alikes.  Windows binaries are available at that URL.
 }
 \section{Setting Proxies}{
   For the Windows-only method \code{"wininet"}, the \sQuote{Internet
   Options} of the system are used to choose proxies and so on; these are
-  set in the Control Panel and are those used for Internet Explorer.
+  set in the Control Panel and are those used for system browsers.
 
   The next two paragraphs apply to the internal code only.
 
@@ -227,14 +237,14 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \env{no_proxy}, \env{http_proxy} and \env{ftp_proxy}, and for the last
   two a contents of \code{[user:password@]machine[:port]} where the
   parts in brackets are optional.  See
-  \url{http://curl.haxx.se/libcurl/c/libcurl-tutorial.html} for details.
+  \url{https://curl.se/libcurl/c/libcurl-tutorial.html} for details.
 }
 \section{Secure URLs}{
   Methods which access \samp{https://} and \samp{ftps://} URLs should
   try to verify the site certificates.  This is usually done using the CA
   root certificates installed by the OS (although we have seen instances
   in which these got removed rather than updated). For further information
-  see \url{http://curl.haxx.se/docs/sslcerts.html}.
+  see \url{https://curl.se/docs/sslcerts.html}.
 
   This is an issue for \code{method = "libcurl"} on Windows, where the
   OS does not provide a suitable CA certificate bundle, so by default on
@@ -246,7 +256,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \file{\var{R_HOME}/etc/curl-ca-bundle.crt} and sets
   \env{CURL_CA_BUNDLE} to point to it if that environment variable is not
   already set.)  For an updated certificate bundle, see
-  \url{http://curl.haxx.se/docs/sslcerts.html}.
+  \url{https://curl.se/docs/sslcerts.html}.
   Currently one can download a copy from
   \url{https://raw.githubusercontent.com/bagder/ca-bundle/master/ca-bundle.crt}
   and set \env{CURL_CA_BUNDLE} to the full path to the downloaded file.

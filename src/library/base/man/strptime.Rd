@@ -272,7 +272,7 @@ strptime(x, format, tz = "")
 \section{Time zone offsets}{
   Offsets from GMT (also known as UTC) are part of the conversion
   between timezones and to/from class \code{"POSIXct"}, but cause
-  difficulties as they often computed incorrectly.
+  difficulties as they are often computed incorrectly.
 
   They conventionally have the opposite sign from time-zone
   specifications (see \code{\link{Sys.timezone}}): positive values are
@@ -346,7 +346,7 @@ strptime(x, format, tz = "")
     information interchange -- Part 1: Basic rules}.
   For links to versions available on-line see (at the time of writing)
   \url{https://dotat.at/tmp/ISO_8601-2004_E.pdf} and
-  \url{http://www.qsl.net/g1smd/isopdf.htm}; for information on the
+  \url{https://www.qsl.net/g1smd/isopdf.htm}; for information on the
   current official version, see \url{https://www.iso.org/iso/iso8601}.
 
   The POSIX 1003.1 standard, which is in some respects stricter than ISO 8601.

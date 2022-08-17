@@ -1,6 +1,6 @@
 % File src/library/base/man/chol.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2015 R Core Team
+% Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
 \name{chol}
@@ -21,7 +21,8 @@ chol(x, \dots)
     applies to numeric (or logical) symmetric, positive-definite matrices.}
   \item{\dots}{arguments to be based to or from methods.}
   \item{pivot}{Should pivoting be used?}
-  \item{LINPACK}{logical.  Should LINPACK be used (now ignored)?}
+  \item{LINPACK}{logical.  Should LINPACK be used (defunct, ignored with
+    a warning)?}
   \item{tol}{A numeric tolerance for use with \code{pivot = TRUE}.}
 }
 \value{
@@ -75,14 +76,14 @@ chol(x, \dots)
   This is an interface to the LAPACK routines \code{DPOTRF} and
   \code{DPSTRF},
 
-  LAPACK is from \url{http://www.netlib.org/lapack} and its guide is listed
+  LAPACK is from \url{https://www.netlib.org/lapack/} and its guide is listed
   in the references.
 }
 \references{
   Anderson. E. and ten others (1999)
   \emph{LAPACK Users' Guide}. Third Edition. SIAM.\cr
   Available on-line at
-  \url{http://www.netlib.org/lapack/lug/lapack_lug.html}.
+  \url{https://www.netlib.org/lapack/lug/lapack_lug.html}.
 
   Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988)
   \emph{The New S Language}.

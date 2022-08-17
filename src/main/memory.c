@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2019  The R Core Team.
+ *  Copyright (C) 1998--2020  The R Core Team.
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -2288,7 +2288,7 @@ long double *R_allocLD(size_t nelem)
 #endif
     if (ld_align > 8) {
 	uintptr_t tmp = (uintptr_t) R_alloc(nelem + 1, sizeof(long double));
-	tmp = (tmp + ld_align - 1) & ~ld_align;
+	tmp = (tmp + ld_align - 1) & ~((uintptr_t)ld_align - 1);
 	return (long double *) tmp;
     } else {
 	return (long double *) R_alloc(nelem, sizeof(long double));
@@ -3091,8 +3091,12 @@ static void R_gc_internal(R_size_t size_needed)
 	  VHEAP_FREE() < size_needed + R_MinFreeFrac * R_VSize)
 	num_old_gens_to_collect++;
 
-      if (size_needed > VHEAP_FREE())
-	R_VSize += size_needed - VHEAP_FREE();
+      if (size_needed > VHEAP_FREE()) {
+	  R_size_t expand = size_needed - VHEAP_FREE();
+	  if (R_VSize + expand > R_MaxVSize)
+	      mem_err_heap(size_needed);
+	  R_VSize += expand;
+      }
 
       gc_pending = TRUE;
       return;
@@ -3462,21 +3466,27 @@ void R_PreserveObject(SEXP object)
     R_PreciousList = CONS(object, R_PreciousList);
 }
 
-static SEXP RecursiveRelease(SEXP object, SEXP list)
+static SEXP DeleteFromList(SEXP object, SEXP list)
 {
-    if (!isNull(list)) {
-	if (object == CAR(list))
-	    return CDR(list);
-	else
-	    CDR(list) = RecursiveRelease(object, CDR(list));
+    if (CAR(list) == object)
+	return CDR(list);
+    else {
+	SEXP last = list;
+	for (SEXP head = CDR(list); head != R_NilValue; head = CDR(head)) {
+	    if (CAR(head) == object) {
+		SETCDR(last, CDR(head));
+		return list;
+	    }
+	    else last = head;
+	}
+	return list;
     }
-    return list;
 }
 
 void R_ReleaseObject(SEXP object)
 {
     R_CHECK_THREAD;
-    R_PreciousList =  RecursiveRelease(object, R_PreciousList);
+    R_PreciousList =  DeleteFromList(object, R_PreciousList);
 }
 
 /* This code is similar to R_PreserveObject/R_ReleasObject, but objects are
@@ -3613,8 +3623,8 @@ SEXP R_MakeExternalPtr(void *p, SEXP tag, SEXP prot)
 {
     SEXP s = allocSExp(EXTPTRSXP);
     EXTPTR_PTR(s) = p;
-    EXTPTR_PROT(s) = CHK(prot);
-    EXTPTR_TAG(s) = CHK(tag);
+    EXTPTR_PROT(s) = CHK(prot); if (prot) INCREMENT_REFCNT(prot);
+    EXTPTR_TAG(s) = CHK(tag); if (tag) INCREMENT_REFCNT(tag);
     return s;
 }
 
@@ -3669,8 +3679,8 @@ SEXP R_MakeExternalPtrFn(DL_FUNC p, SEXP tag, SEXP prot)
     SEXP s = allocSExp(EXTPTRSXP);
     tmp.fn = p;
     EXTPTR_PTR(s) = tmp.p;
-    EXTPTR_PROT(s) = CHK(prot);
-    EXTPTR_TAG(s) = CHK(tag);
+    EXTPTR_PROT(s) = CHK(prot); if (prot) INCREMENT_REFCNT(prot);
+    EXTPTR_TAG(s) = CHK(tag); if (tag) INCREMENT_REFCNT(tag);
     return s;
 }
 
@@ -4226,6 +4236,8 @@ SEXP (SETCAD4R)(SEXP x, SEXP y)
     CAR0(cell) = y;
     return y;
 }
+
+void *(EXTPTR_PTR)(SEXP x) { return EXTPTR_PTR(CHK(x)); }
 
 void (SET_MISSING)(SEXP x, int v) { SET_MISSING(CHKCONS(x), v); }
 

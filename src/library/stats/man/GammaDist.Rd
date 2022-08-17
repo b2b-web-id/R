@@ -1,6 +1,6 @@
 % File src/library/stats/man/GammaDist.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2018 R Core Team
+% Copyright 1995-2020 R Core Team
 % Distributed under GPL 2 or later
 
 \name{GammaDist}
@@ -44,11 +44,11 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
   \code{rgamma} generates random deviates.
 
   Invalid arguments will result in return value \code{NaN}, with a warning.
-  
+
   The length of the result is determined by \code{n} for
   \code{rgamma}, and is the maximum of the lengths of the
-  numerical arguments for the other functions.  
-  
+  numerical arguments for the other functions.
+
   The numerical arguments other than \code{n} are recycled to the
   length of the result.  Only the first elements of the logical
   arguments are used.
@@ -90,7 +90,7 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
 \note{
   The S (Becker \emph{et al}, 1988) parametrization was via \code{shape}
   and \code{rate}: S had no \code{scale} parameter. It is an error
-  to supply and \code{scale} and \code{rate}.
+  to supply both \code{scale} and \code{rate}.
 
   \code{pgamma} is closely related to the incomplete gamma function.  As
   defined by Abramowitz and Stegun 6.5.1 (and by \sQuote{Numerical
@@ -113,7 +113,7 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
 
   See also
   \url{https://en.wikipedia.org/wiki/Incomplete_gamma_function}, or
-  \url{http://dlmf.nist.gov/8.2#i}.
+  \url{https://dlmf.nist.gov/8.2#i}.
 }
 \source{
   \code{dgamma} is computed via the Poisson density, using code contributed
@@ -157,7 +157,7 @@ rgamma(n, shape, rate = 1, scale = 1/rate)
   Chapter 6: Gamma and Related Functions.
 
   NIST Digital Library of Mathematical Functions.
-  \url{http://dlmf.nist.gov/}, section 8.2.
+  \url{https://dlmf.nist.gov/}, section 8.2.
 }
 \seealso{
   \code{\link{gamma}} for the gamma function.

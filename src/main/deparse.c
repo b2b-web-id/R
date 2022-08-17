@@ -251,6 +251,7 @@ static SEXP deparse1WithCutoff(SEXP call, Rboolean abbrev, int cutoff,
     PrintDefaults(); /* from global options() */
     savedigits = R_print.digits;
     R_print.digits = DBL_DIG;/* MAX precision */
+    print2buff("", &localData); /* ensure allocation of buffer.data, PR#17876 */
 
     svec = R_NilValue;
     if (nlines > 0) {
@@ -1541,12 +1542,11 @@ static void vector2buff(SEXP vector, LocalParseData *d)
 	quote = isString(vector) ? '"' : 0;
     Rboolean surround = FALSE, allNA,
 	intSeq = FALSE; // := TRUE iff integer sequence 'm:n' (up *or* down)
-    if(TYPEOF(vector) == INTSXP) {
+    if(TYPEOF(vector) == INTSXP && tlen > 1) {
 	int *vec = INTEGER(vector);
 	// vec[1] - vec[0] could overflow, and does in package Rmpfr
 	double d_i = (double) vec[1] - (double)vec[0];
-	intSeq = (tlen > 1 &&
-		  vec[0] != NA_INTEGER &&
+	intSeq = (vec[0] != NA_INTEGER &&
 		  vec[1] != NA_INTEGER &&
 		  fabs(d_i) == 1);
 	if(intSeq) for(i = 2; i < tlen; i++) {
@@ -1763,9 +1763,8 @@ static void src2buff1(SEXP srcref, LocalParseData *d)
     PROTECT(srcref = eval(srcref, R_BaseEnv));
     n = length(srcref);
     for(i = 0 ; i < n ; i++) {
-	/* use EncodeChar also to produce embedded UTF-8 for character
-	   literals (with Rgui) */
-	print2buff(EncodeChar(STRING_ELT(srcref, i)), d);
+	/* FIXME: does not embed UTF-8 for RGui */
+	print2buff(translateChar(STRING_ELT(srcref, i)), d);
 	if(i < n-1) writeline(d);
     }
     UNPROTECT(3);
