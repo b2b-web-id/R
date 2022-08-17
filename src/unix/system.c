@@ -66,7 +66,11 @@ Rboolean UsingReadline = TRUE;  /* used in sys-std.c & ../main/platform.c
 
 /* call pointers to allow interface switching */
 
-void R_Suicide(const char *s) { ptr_R_Suicide(s); }
+void NORET R_Suicide(const char *s) {
+    ptr_R_Suicide(s);
+    // This should not have returned, but belt-and-braces
+    exit(2); // same status as Rstd_Suicide
+}
 void R_ShowMessage(const char *s) { ptr_R_ShowMessage(s); }
 int R_ReadConsole(const char *prompt, unsigned char *buf, int len, int addtohistory)
 { return ptr_R_ReadConsole(prompt, buf, len, addtohistory); }
@@ -78,8 +82,12 @@ void R_FlushConsole(void) { ptr_R_FlushConsole(); }
 #endif
 void R_ClearerrConsole(void) { ptr_R_ClearerrConsole(); }
 void R_Busy(int which) { ptr_R_Busy(which); }
-void R_CleanUp(SA_TYPE saveact, int status, int runLast)
-{ ptr_R_CleanUp(saveact, status, runLast); }
+void NORET R_CleanUp(SA_TYPE saveact, int status, int runLast)
+{
+    ptr_R_CleanUp(saveact, status, runLast);
+    // This should not have returned, but belt-and-braces
+    exit(status);
+}
 
 attribute_hidden
 int R_ShowFiles(int nfile, const char **file, const char **headers,
@@ -172,6 +180,8 @@ static char* unescape_arg(char *p, char* avp) {
 # include <thread.h>
 #endif
 #include <signal.h> /* thr_stksegment */
+
+extern int R_isWriteableDir(char *path);
 
 int Rf_initialize_R(int ac, char **av)
 {
@@ -448,9 +458,28 @@ int Rf_initialize_R(int ac, char **av)
 
     if(strlen(cmdlines)) { /* had at least one -e option */
 	size_t res;
-	if(ifp) R_Suicide(_("cannot use -e with -f or --file"));
-	ifp = tmpfile();
+	char *tm;
+	static char ifile[PATH_MAX] = "\0";
+	int ifd;
+
+	if(ifp) R_Suicide(_("cannot use -e with -f or --file"));    
+	/* tmpfile() does not respect TMPDIR on some systems (PR#17925).
+	   R_TempDir is not initialized, yet. */
+	tm = getenv("TMPDIR");
+	if (!R_isWriteableDir(tm)) {
+	    tm = getenv("TMP");
+	    if (!R_isWriteableDir(tm)) {
+		tm = getenv("TEMP");
+		if (!R_isWriteableDir(tm))
+		    tm = "/tmp";
+	    }
+	}
+	snprintf(ifile, PATH_MAX, "%s/Rscript%x.XXXXXX", tm, getpid());
+	ifd = mkstemp(ifile);
+	if (ifd > 0)
+	    ifp = fdopen(ifd, "w+");
 	if(!ifp) R_Suicide(_("creating temporary file for '-e' failed"));
+	unlink(ifile);
 	res = fwrite(cmdlines, strlen(cmdlines)+1, 1, ifp);
 	if(res != 1) error("fwrite error in initialize_R");
 	fflush(ifp);

@@ -233,7 +233,14 @@ capabilities <- function(what = NULL,
 }
 
 inherits <- function(x, what, which = FALSE)
-	.Internal(inherits(x, what, which))
+    .Internal(inherits(x, what, which))
+
+isa <- function(x, what) {
+    if(isS4(x))
+        methods::is(x, what)
+    else
+        all(class(x) %in% what)
+}
 
 NextMethod <- function(generic=NULL, object=NULL, ...)
     .Internal(NextMethod(generic, object,...))
@@ -273,7 +280,7 @@ iconvlist <- function()
     int <- .Internal(iconv(NULL, "", "", "", TRUE, FALSE))
     if(length(int)) return(sort.int(int))
     icfile <- system.file("iconvlist", package="utils")
-    if(!nchar(icfile, type="bytes"))
+    if(!nzchar(icfile))
         stop("'iconvlist' is not available on this system")
     ext <- readLines(icfile)
     if(!length(ext)) stop("'iconvlist' is not available on this system")
@@ -313,8 +320,9 @@ extSoftVersion <- function() .Internal(eSoftVersion())
 
 libcurlVersion <- function() .Internal(curlVersion())
 
-curlGetHeaders <- function(url, redirect = TRUE, verify = TRUE)
-    .Internal(curlGetHeaders(url, redirect, verify))
+curlGetHeaders <- function(url, redirect = TRUE, verify = TRUE,
+                           timeout = 0L, TLS = "")
+    .Internal(curlGetHeaders(url, redirect, verify, timeout, as.character(TLS)))
 
 
 lengths <- function(x, use.names=TRUE) .Internal(lengths(x, use.names))

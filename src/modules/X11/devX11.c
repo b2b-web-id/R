@@ -105,7 +105,7 @@ static Cursor cross_cursor = (Cursor) 0 ;
 static Display *display;			/* Display */
 static char dspname[101]="";
 static int screen;				/* Screen */
-static Window rootwin;				/* Root Window */
+static Window rootwin, group_leader;		/* Root Window, Group leader */
 static Visual *visual;				/* Visual */
 static int depth;				/* Pixmap depth */
 static int Vclass;				/* Visual class */
@@ -178,6 +178,12 @@ static void X11_Text(double x, double y, const char *str,
 		     double rot, double hadj,
 		     const pGEcontext gc, pDevDesc dd);
 static void X11_eventHelper(pDevDesc dd, int code);
+static SEXP     X11_setPattern(SEXP pattern, pDevDesc dd);
+static void     X11_releasePattern(SEXP ref, pDevDesc dd);
+static SEXP     X11_setClipPath(SEXP path, SEXP ref, pDevDesc dd);
+static void     X11_releaseClipPath(SEXP ref, pDevDesc dd);
+static SEXP     X11_setMask(SEXP path, SEXP ref, pDevDesc dd);
+static void     X11_releaseMask(SEXP ref, pDevDesc dd);
 
 	/*************************************************/
 	/* End of list of required device driver actions */
@@ -198,7 +204,7 @@ static double RedGamma	 = 1.0;
 static double GreenGamma = 1.0;
 static double BlueGamma	 = 1.0;
 
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 # include "cairoFns.c"
 
 	/************************/
@@ -361,7 +367,7 @@ static int Cairo_holdflush(pDevDesc dd, int level)
     }
     return xd->holdlevel;
 }
-#endif /* HAVE_WORKING_CAIRO */
+#endif /* HAVE_WORKING_X11_CAIRO */
 
 
 
@@ -753,7 +759,7 @@ static void handleEvent(XEvent event)
 	pDevDesc dd = (pDevDesc) temp;
 	pGEDevDesc gdd = desc2GEDesc(dd);
 	if(gdd->dirty) {
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	    pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 	    /* We can use the buffered copy where we have it */ 
 	    if(xd->buffered == 1) {
@@ -782,7 +788,7 @@ static void handleEvent(XEvent event)
 
 	    xd->windowWidth = event.xconfigure.width;
 	    xd->windowHeight = event.xconfigure.height;
-#if defined HAVE_WORKING_CAIRO
+#if defined HAVE_WORKING_X11_CAIRO
 	    if(xd->useCairo) {
 		if(xd->buffered) {
 		    cairo_surface_destroy(xd->cs); xd->cs = NULL;
@@ -1447,7 +1453,7 @@ X11_Open(pDevDesc dd, pX11Desc xd, const char *dsp,
     whitepixel = GetX11Pixel(R_RED(canvascolor), R_GREEN(canvascolor),
 			     R_BLUE(canvascolor));
     blackpixel = GetX11Pixel(0, 0, 0);
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
     if(xd->useCairo && Vclass != TrueColor) {
 	warning(_("cairo-based types may only work correctly on TrueColor visuals"));
     }
@@ -1611,6 +1617,16 @@ X11_Open(pDevDesc dd, pX11Desc xd, const char *dsp,
                             PropModeReplace,
                             (const unsigned char*) rlogo_icon, 2 + 99*77);
 
+	    /* set the window group leader */
+	    XWMHints * hints;
+	    hints = XAllocWMHints();
+	    if (hints) {
+		hints->window_group = group_leader;
+		hints->flags |= WindowGroupHint;
+		XSetWMHints(display, xd->window, hints);
+		XFree(hints);
+	    }
+
 	    /* set up protocols so that window manager sends */
 	    /* me an event when user "destroys" window */
 	    _XA_WM_PROTOCOLS = XInternAtom(display, "WM_PROTOCOLS", 0);
@@ -1625,7 +1641,7 @@ X11_Open(pDevDesc dd, pX11Desc xd, const char *dsp,
 		watch_cursor = XCreateFontCursor(display, XC_watch) ;
 	    if(xd->type==WINDOW) XDefineCursor(display, xd->window, arrow_cursor);
 
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	    if(xd->useCairo) {
 		cairo_status_t res;
 		if(xd->buffered) {
@@ -1687,6 +1703,11 @@ X11_Open(pDevDesc dd, pX11Desc xd, const char *dsp,
 		cairo_new_path(xd->cc);
 		cairo_paint(xd->cc);
 	    }
+
+            CairoInitPatterns(xd);
+            CairoInitClipPaths(xd);
+            CairoInitMasks(xd);
+            xd->appending = 0;
 #endif
 	}
 	/* Save the pDevDesc with the window for event dispatching */
@@ -2064,7 +2085,7 @@ static void X11_Close(pDevDesc dd)
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
 
     if (xd->type == WINDOW) {
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	if(xd->buffered > 1) removeBuffering(xd);
 #endif
 	/* process pending events */
@@ -2072,8 +2093,11 @@ static void X11_Close(pDevDesc dd)
 	inclose = TRUE;
 	R_ProcessX11Events((void*) NULL);
 
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	if(xd->useCairo) {
+            CairoDestroyMasks(xd);
+            CairoDestroyClipPaths(xd);
+            CairoDestroyPatterns(xd);
 	    if(xd->cs) cairo_surface_destroy(xd->cs);
 	    if(xd->cc) cairo_destroy(xd->cc);
 	    if(xd->xcs) cairo_surface_destroy(xd->xcs);
@@ -2095,6 +2119,7 @@ static void X11_Close(pDevDesc dd)
     if (numX11Devices == 0)  {
 	int fd = ConnectionNumber(display);
 	/* Free Resources Here */
+	XDestroyWindow(display, group_leader);
 	while (nfonts--)
 	      R_XFreeFont(display, fontcache[nfonts].font);
 	nfonts = 0;
@@ -2525,7 +2550,7 @@ static Rboolean X11_Locator(double *x, double *y, pDevDesc dd)
     int done = 0;
 
     if (xd->type > WINDOW) return 0;
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
     if (xd->holdlevel > 0)
 	error(_("attempt to use the locator after dev.hold()"));
     if (xd->buffered) Cairo_update(xd);
@@ -2691,7 +2716,7 @@ static void X11_Mode(int mode, pDevDesc dd)
 {
     pX11Desc xd = (pX11Desc) dd->deviceSpecific;
     if(xd->holdlevel > 0) {
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	if(mode == 0 && xd->buffered > 1)
 	    xd->last_activity = currentTime();
 #endif
@@ -2702,7 +2727,7 @@ static void X11_Mode(int mode, pDevDesc dd)
 	XSync(display, 0);
     }
     if(mode == 0) {
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	if(xd->buffered > 1) {
 	    xd->last_activity = currentTime();
 	    if((currentTime() - xd->last) > 0.5 /* 5*xd->update_interval */)
@@ -2719,6 +2744,24 @@ static void X11_Mode(int mode, pDevDesc dd)
 	XSync(display, 0);
     }
 }
+
+static SEXP X11_setPattern(SEXP pattern, pDevDesc dd) {
+    return R_NilValue;
+}
+
+static void X11_releasePattern(SEXP ref, pDevDesc dd) {} 
+
+static SEXP X11_setClipPath(SEXP path, SEXP ref, pDevDesc dd) {
+    return R_NilValue;
+}
+
+static void X11_releaseClipPath(SEXP ref, pDevDesc dd) {}
+
+static SEXP X11_setMask(SEXP path, SEXP ref, pDevDesc dd) {
+    return R_NilValue;
+}
+
+static void X11_releaseMask(SEXP ref, pDevDesc dd) {}
 
 
 	/*  X11 Device Driver Arguments	:	*/
@@ -2757,7 +2800,7 @@ Rboolean X11DeviceDriver(pDevDesc dd,
     xd = Rf_allocX11DeviceDesc(pointsize);
     if(!xd) return FALSE;
     xd->bg = bgcolor;
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
     xd->useCairo = useCairo != 0;
     xd->buffered = 0;
     switch(useCairo) {
@@ -2776,6 +2819,7 @@ Rboolean X11DeviceDriver(pDevDesc dd,
 	case 3: xd->antialias = CAIRO_ANTIALIAS_GRAY; break;
 	case 4: xd->antialias = CAIRO_ANTIALIAS_SUBPIXEL; break;
 	}
+        
     }
 #else
     /* Currently this gets caught at R level */
@@ -2808,7 +2852,7 @@ Rboolean X11DeviceDriver(pDevDesc dd,
     strncpy(xd->title, title, 100);
     xd->title[100] = '\0';
 
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
     {
 	SEXP timeouts = GetOption1(install("X11updates"));
 	double tm = asReal(timeouts);
@@ -2843,7 +2887,7 @@ Rf_setX11DeviceData(pDevDesc dd, double gamma_fac, pX11Desc xd)
     int res0 = (xd->res_dpi > 0) ? xd->res_dpi : 72;
     /*	Set up Data Structures. */
 
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
     if(xd->useCairo) {
 	dd->newPage = Cairo_NewPage;
 	dd->clip = Cairo_Clip;
@@ -2872,6 +2916,14 @@ Rf_setX11DeviceData(pDevDesc dd, double gamma_fac, pX11Desc xd)
 	dd->haveRaster = 2;
 	dd->haveCapture = (xd->type > WINDOW) ? 1 : 2;
 	dd->haveLocator = (xd->type > WINDOW) ? 1 : 2;
+
+        dd->setPattern = Cairo_SetPattern;
+        dd->releasePattern = Cairo_ReleasePattern;
+        dd->setClipPath = Cairo_SetClipPath;
+        dd->releaseClipPath = Cairo_ReleaseClipPath;
+        dd->setMask = Cairo_SetMask;
+        dd->releaseMask = Cairo_ReleaseMask;
+
     } else
 #endif
     {
@@ -2895,6 +2947,13 @@ Rf_setX11DeviceData(pDevDesc dd, double gamma_fac, pX11Desc xd)
 	dd->haveRaster = 3;
 	dd->haveCapture = (xd->type > WINDOW) ? 1 : 2;
 	dd->haveLocator = (xd->type > WINDOW) ? 1 : 2;
+
+        dd->setPattern      = X11_setPattern;
+        dd->releasePattern  = X11_releasePattern;
+        dd->setClipPath     = X11_setClipPath;
+        dd->releaseClipPath = X11_releaseClipPath;
+        dd->setMask         = X11_setMask;
+        dd->releaseMask     = X11_releaseMask;
     }
 
     dd->eventHelper = X11_eventHelper;
@@ -2945,7 +3004,7 @@ Rf_setX11DeviceData(pDevDesc dd, double gamma_fac, pX11Desc xd)
 	dd->ipr[0] = pixelWidth();
 	dd->ipr[1] = pixelHeight();
 	xd->lwdscale = 1.0/(96.0*pixelWidth());
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 	if(xd->useCairo) {
 # ifdef HAVE_PANGOCAIRO
 	    /* Pango's default resolution is 96 dpi */
@@ -2970,7 +3029,7 @@ Rf_setX11DeviceData(pDevDesc dd, double gamma_fac, pX11Desc xd)
     /* Device capabilities */
 
     dd->canClip = TRUE;
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
     dd->canHAdj = xd->useCairo ? 2 : 0;
 #else
     dd->canHAdj = 0;
@@ -2992,6 +3051,7 @@ Rf_setX11DeviceData(pDevDesc dd, double gamma_fac, pX11Desc xd)
     dd->deviceSpecific = (void *) xd;
 
     dd->displayListOn = TRUE;
+    dd->deviceVersion = R_GE_definitions;
 
     return TRUE;
 }
@@ -3084,6 +3144,9 @@ Rf_setX11Display(Display *dpy, double gamma_fac, X_COLORTYPE colormodel,
 #endif
     screen = DefaultScreen(display);
     rootwin = DefaultRootWindow(display);
+    group_leader = XCreateSimpleWindow( /* never mapped or visible */
+	display, rootwin, 0, 0, 1, 1, 0, 0, 0
+    );
     depth = DefaultDepth(display, screen);
     visual = DefaultVisual(display, screen);
     colormap = DefaultColormap(display, screen);
@@ -3252,7 +3315,7 @@ static SEXP in_do_X11(SEXP call, SEXP op, SEXP args, SEXP env)
 }
 
 
-#ifdef HAVE_WORKING_CAIRO
+#ifdef HAVE_WORKING_X11_CAIRO
 static int stride;
 static unsigned int Sbitgp(void *xi, int x, int y)
 {

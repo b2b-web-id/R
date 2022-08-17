@@ -1,6 +1,6 @@
 % File src/library/tools/man/getDepList.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 2008-2015 R Core Team
+% Copyright 2008-2021 R Core Team
 % Distributed under GPL 2 or later
 
 \name{dependsOnPkgs}
@@ -12,7 +12,7 @@
 }
 \usage{
 dependsOnPkgs(pkgs,
-              dependencies = c("Depends", "Imports", "LinkingTo"),
+              dependencies = "strong",
               recursive = TRUE, lib.loc = NULL,
               installed =
               utils::installed.packages(lib.loc, fields = "Enhances"))
@@ -22,8 +22,11 @@ dependsOnPkgs(pkgs,
   \item{dependencies}{a character vector listing the types of
     dependencies, a subset of
     \code{c("Depends", "Imports", "LinkingTo", "Suggests", "Enhances")}.
-    Character string \code{"all"} is shorthand for that vector, and
-    \code{"most"} currently shorthand for these apart from \code{"Enhances"}.}
+    Character string \code{"all"} is shorthand for that vector,
+    character string \code{"most"} for the same vector without
+    \code{"Enhances"},
+    character string \code{"strong"} (default) for the first three
+    elements of that vector.}
   \item{recursive}{logical: should reverse dependencies of reverse
     dependencies (and so on) be included?}
   \item{lib.loc}{a character vector of \R library trees, or \code{NULL}
@@ -34,8 +37,12 @@ dependsOnPkgs(pkgs,
   A character vector of package names, which does not include any from
   \code{pkgs}.
 }
-% do not test as result depends if recommended packages are installed.
+\seealso{
+  \code{\link{package_dependencies}()} to get the regular
+  (\dQuote{forward}) dependencies of a package.
+}
 \examples{\donttest{
+% do not test as result depends if recommended packages are installed.
 ## there are few dependencies in a vanilla R installation:
 ## lattice may not be installed
 dependsOnPkgs("lattice")

@@ -1,7 +1,7 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *  Copyright (C) 1997--2020  The R Core Team
+ *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -281,10 +281,10 @@ void InitTypeTables(void) {
 
 SEXP type2str_nowarn(SEXPTYPE t) /* returns a CHARSXP */
 {
-    if (t < MAX_NUM_SEXPTYPE) { /* FIXME: branch not really needed */
+    // if (t >= 0 && t < MAX_NUM_SEXPTYPE) { /* branch not really needed */
 	SEXP res = Type2Table[t].rcharName;
 	if (res != NULL) return res;
-    }
+    // }
     return R_NilValue;
 }
 
@@ -302,10 +302,10 @@ SEXP type2str(SEXPTYPE t) /* returns a CHARSXP */
 
 SEXP type2rstr(SEXPTYPE t) /* returns a STRSXP */
 {
-    if (t < MAX_NUM_SEXPTYPE) { /* FIXME: branch not really needed */
+    // if (t < MAX_NUM_SEXPTYPE) {
 	SEXP res = Type2Table[t].rstrName;
 	if (res != NULL) return res;
-    }
+    // }
     error(_("type %d is unimplemented in '%s'"), t,
 	  "type2ImmutableScalarString");
     return R_NilValue; /* for -Wall */
@@ -313,10 +313,10 @@ SEXP type2rstr(SEXPTYPE t) /* returns a STRSXP */
 
 const char *type2char(SEXPTYPE t) /* returns a char* */
 {
-    if (t < MAX_NUM_SEXPTYPE) { /* FIXME: branch not really needed */
+    // if (t >=0 && t < MAX_NUM_SEXPTYPE) { /* branch not really needed */
 	const char * res = Type2Table[t].cstrName;
 	if (res != NULL) return res;
-    }
+    // }
     warning(_("type %d is unimplemented in '%s'"), t, "type2char");
     static char buf[50];
     snprintf(buf, 50, "unknown type #%d", t);
@@ -326,12 +326,10 @@ const char *type2char(SEXPTYPE t) /* returns a char* */
 #ifdef UNUSED
 SEXP NORET type2symbol(SEXPTYPE t)
 {
-    if (t >= 0 && t < MAX_NUM_SEXPTYPE) { /* FIXME: branch not really needed */
+    // if (t >= 0 && t < MAX_NUM_SEXPTYPE) { /* branch not really needed */
 	SEXP res = Type2Table[t].rsymName;
-	if (res != NULL) {
-	    return res;
-	}
-    }
+	if (res != NULL) return res;
+    // }
     error(_("type %d is unimplemented in '%s'"), t, "type2symbol");
 }
 #endif
@@ -418,6 +416,7 @@ Rboolean isBlankString(const char *s)
     if(mbcslocale) {
 	wchar_t wc; size_t used; mbstate_t mb_st;
 	mbs_init(&mb_st);
+	// This does not allow for surrogate pairs, but all blanks are in BMP
 	while( (used = Mbrtowc(&wc, s, MB_CUR_MAX, &mb_st)) ) {
 	    if(!iswspace((wint_t) wc)) return FALSE;
 	    s += used;
@@ -475,10 +474,11 @@ SEXP attribute_hidden EnsureString(SEXP s)
     return s;
 }
 
-/* FIXME: ngettext reguires unsigned long, but %u would seem appropriate */
+// NB: have  checkArity(a,b) :=  Rf_checkArityCall(a,b,call)
 void Rf_checkArityCall(SEXP op, SEXP args, SEXP call)
 {
     if (PRIMARITY(op) >= 0 && PRIMARITY(op) != length(args)) {
+	/* FIXME: ngettext reguires unsigned long, but %u would seem appropriate */
 	if (PRIMINTERNAL(op))
 	    error(ngettext("%d argument passed to .Internal(%s) which requires %d",
 		     "%d arguments passed to .Internal(%s) which requires %d",
@@ -496,10 +496,9 @@ void Rf_checkArityCall(SEXP op, SEXP args, SEXP call)
 void attribute_hidden Rf_check1arg(SEXP arg, SEXP call, const char *formal)
 {
     SEXP tag = TAG(arg);
-    const char *supplied;
-    size_t ns;
     if (tag == R_NilValue) return;
-    supplied = CHAR(PRINTNAME(tag)); ns = strlen(supplied);
+    const char *supplied = CHAR(PRINTNAME(tag));
+    size_t ns = strlen(supplied);
     if (ns > strlen(formal) || strncmp(supplied, formal, ns))
 	errorcall(call, _("supplied argument name '%s' does not match '%s'"),
 		  supplied, formal);
@@ -518,6 +517,25 @@ SEXP nthcdr(SEXP s, int n)
     }
     else error(_("'nthcdr' needs a list to CDR down"));
     return R_NilValue;/* for -Wall */
+}
+
+/* Destructively removes R_NilValue ('NULL') elements from a pairlist. */
+SEXP R_listCompact(SEXP s, Rboolean keep_initial) {
+    if(!keep_initial)
+    // skip initial NULL values
+	while (s != R_NilValue && CAR(s) == R_NilValue)
+	    s = CDR(s);
+    
+    SEXP val = s;
+    SEXP prev = s;
+    while (s != R_NilValue) {
+	s = CDR(s);
+	if (CAR(s) == R_NilValue) // skip it
+	    SETCDR(prev, CDR(s));
+	else
+	    prev = s;
+    }
+    return val;
 }
 
 
@@ -893,8 +911,9 @@ SEXP attribute_hidden do_dirname(SEXP call, SEXP op, SEXP args, SEXP rho)
 		wcscpy (buf, pp);
 		R_wfixslash(buf);
 		/* remove trailing file separator(s) */
-		while ( *(p = buf + wcslen(buf) - 1) == L'/'  && p > buf
-			&& (p > buf+2 || *(p-1) != L':')) *p = L'\0';
+		p = buf + wcslen(buf) - 1;
+		while (p > buf && *p == L'/'
+		       && (p > buf+2 || *(p-1) != L':')) *p-- = L'\0';
 		p = wcsrchr(buf, L'/');
 		if(p == NULL) wcscpy(buf, L".");
 		else {
@@ -1181,6 +1200,9 @@ SEXP attribute_hidden do_encoding(SEXP call, SEXP op, SEXP args, SEXP rho)
     return ans;
 }
 
+#define IS_NATIVE(tmp) \
+    (! IS_LATIN1(tmp) && ! IS_UTF8(tmp) && ! IS_BYTES(tmp))
+
 SEXP attribute_hidden do_setencoding(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     SEXP x, enc, tmp;
@@ -1208,9 +1230,9 @@ SEXP attribute_hidden do_setencoding(SEXP call, SEXP op, SEXP args, SEXP rho)
 	tmp = STRING_ELT(x, i);
 	if(tmp == NA_STRING) continue;
 	if (! ((ienc == CE_LATIN1 && IS_LATIN1(tmp)) ||
-	       (ienc == CE_UTF8 && IS_UTF8(tmp)) ||
-	       (ienc == CE_BYTES && IS_BYTES(tmp)) ||
-	       (ienc == CE_NATIVE && ! IS_LATIN1(tmp) && ! IS_UTF8(tmp))))
+	       (ienc == CE_UTF8   && IS_UTF8(tmp))   ||
+	       (ienc == CE_BYTES  && IS_BYTES(tmp))  ||
+	       (ienc == CE_NATIVE && IS_NATIVE(tmp))))
 	    SET_STRING_ELT(x, i, mkCharLenCE(CHAR(tmp), LENGTH(tmp), ienc));
     }
     UNPROTECT(1);
@@ -1249,6 +1271,7 @@ int attribute_hidden utf8clen(char c)
     return 1 + utf8_table4[c & 0x3f];
 }
 
+/* These are misnamed: they convert a single char */
 static R_wchar_t
 utf16toucs(wchar_t high, wchar_t low)
 {
@@ -1339,6 +1362,8 @@ utf8toucs(wchar_t *wc, const char *s)
     }
 }
 
+/* despite its name this translates to UTF-16 if there are (invalid)
+ * UTF-8 codings for surrogates in the input */
 size_t
 utf8towcs(wchar_t *wc, const char *s, size_t n)
 {
@@ -1367,7 +1392,35 @@ utf8towcs(wchar_t *wc, const char *s, size_t n)
 	    if (m == 0) break;
 	    res ++;
 	    if (IS_HIGH_SURROGATE(local))
-		res++;
+		res ++;
+	}
+    return (size_t) res;
+}
+
+size_t
+utf8towcs4(R_wchar_t *wc, const char *s, size_t n)
+{
+    ssize_t m, res = 0;
+    const char *t;
+    R_wchar_t *p;
+
+    if(wc)
+	for(p = wc, t = s; ; p++, t += m) {
+	    // FIXME this gives a warning on Windows.
+	    m  = (ssize_t) utf8toucs(p, t);
+	    if (m < 0) error(_("invalid input '%s' in 'utf8towcs32'"), s);
+	    if (m == 0) break;
+	    if (IS_HIGH_SURROGATE(*p)) *p = utf8toucs32(*p, s);
+	    res ++;
+	    if (res >= n) break;
+	}
+    else
+	for(t = s; ; t += m) {
+	    wchar_t local;
+	    m  = (ssize_t) utf8toucs(&local, t);
+	    if (m < 0) error(_("invalid input '%s' in 'utf8towcs32'"), s);
+	    if (m == 0) break;
+	    res ++;
 	}
     return (size_t) res;
 }
@@ -1377,7 +1430,11 @@ static const unsigned int utf8_table1[] =
   { 0x7f, 0x7ff, 0xffff, 0x1fffff, 0x3ffffff, 0x7fffffff};
 static const unsigned int utf8_table2[] = { 0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc};
 
-/* s is NULL, or it contains at least n bytes.  Just write a a terminator if it's not big enough. */
+/* s is NULL, or it contains at least n bytes.  Just write a
+   terminator if it's not big enough.
+
+   Strangely named: converts from UCS-4 to UTF-8.
+*/
 
 static size_t Rwcrtomb32(char *s, R_wchar_t cvalue, size_t n)
 {
@@ -1399,14 +1456,19 @@ static size_t Rwcrtomb32(char *s, R_wchar_t cvalue, size_t n)
     return i + 1;
 }
 
-/* on input, wc is a string encoded in UTF-16 or UCS-2 or UCS-4.
-   s can be a buffer of size n>=0 chars, or NULL.  If n=0 or s=NULL, nothing is written.
-   The return value is the number of chars including the terminating null.  If the
-   buffer is not big enough, the result is truncated but still null-terminated */
+/* On input, wc is a wide string encoded in UTF-16 or UCS-2 or UCS-4.
+
+   s can be a buffer of size n >= 0 chars, or NULL.  If n = 0 or s =
+   NULL, nothing is written.
+
+   The return value is the number of chars including the terminating
+   null.  If the buffer is not big enough, the result is truncated but
+   still null-terminated 
+*/
 attribute_hidden // but used in windlgs
 size_t wcstoutf8(char *s, const wchar_t *wc, size_t n)
 {
-    size_t m, res=0;
+    size_t m, res = 0;
     char *t;
     const wchar_t *p;
     if (!n) return 0;
@@ -1415,8 +1477,29 @@ size_t wcstoutf8(char *s, const wchar_t *wc, size_t n)
 	    R_wchar_t cvalue =  ((*p & 0x3FF) << 10) + (*(p+1) & 0x3FF) + 0x010000;
 	    m = Rwcrtomb32(t, cvalue, n - res);
 	    p++;
-	} else
+	} else {
+	    if (IS_HIGH_SURROGATE(*p) || IS_LOW_SURROGATE(*p))
+		warning("unpaired surrogate Unicode point %x", *p);
 	    m = Rwcrtomb32(t, (R_wchar_t)(*p), n - res);
+	}
+	if (!m) break;
+	res += m;
+	if (t)
+	    t += m;
+    }
+    return res + 1;
+}
+
+/* convert from R_wchar_t * (UCS-4) */
+attribute_hidden
+size_t wcs4toutf8(char *s, const R_wchar_t *wc, size_t n)
+{
+    size_t m, res=0;
+    char *t;
+    const R_wchar_t *p;
+    if (!n) return 0;
+    for(p = wc, t = s; ; p++) {
+	m = Rwcrtomb32(t, (*p), n - res);
 	if (!m) break;
 	res += m;
 	if (t)
@@ -1461,18 +1544,34 @@ size_t Mbrtowc(wchar_t *wc, const char *s, size_t n, mbstate_t *ps)
 }
 
 /* Truncate a string in place (in native encoding) so that it only contains
-   valid multi-byte characters. Has no effect in non-mbcs locales. */
+   valid multi-byte characters. Has no effect in non-mbcs locales. 
+
+   This function may be invoked by the error handler via
+   REvprintf->Rvsnprintf_mbcs.  Do not change it unless you are SURE that
+   your changes are compatible with the error handling mechanism.
+
+   REvprintf is also used in R_Suicide on Unix.
+   */
 attribute_hidden
 char* mbcsTruncateToValid(char *s)
 {
-    if (!mbcslocale)
+    if (!mbcslocale || *s == '\0')
 	return s;
 
     mbstate_t mb_st;
-    size_t slen = strlen(s);
+    size_t slen = strlen(s); /* at least 1 */
     size_t goodlen = 0;
 
     mbs_init(&mb_st);
+
+    if (utf8locale) {
+	/* UTF-8 is self-synchronizing so we can look back from the end
+	   for the first non-continuation byte */
+	goodlen = slen - 1; /* at least 0 */
+	/* for char == signed char we assume 2's complement representation */
+	while (goodlen && ((s[goodlen] & '\xC0') == '\x80'))
+	    --goodlen;
+    }
     while(goodlen < slen) {
 	size_t res;
 	res = mbrtowc(NULL, s + goodlen, slen - goodlen, &mb_st);
@@ -1633,6 +1732,7 @@ void NORET F77_SYMBOL(rexitc)(char *msg, int *nchar)
     }
     strncpy(buf, msg, (size_t) nc);
     buf[nc] = '\0';
+    mbcsTruncateToValid(buf);
     error("%s", buf);
 }
 
@@ -1650,6 +1750,7 @@ void F77_SYMBOL(rwarnc)(char *msg, int *nchar)
     }
     strncpy(buf, msg, (size_t) nc);
     buf[nc] = '\0';
+    mbcsTruncateToValid(buf);
     warning("%s", buf);
 }
 
@@ -1882,8 +1983,8 @@ int attribute_hidden Rf_AdobeSymbol2ucs2(int n)
 double R_strtod5(const char *str, char **endptr, char dec,
 		 Rboolean NA, int exact)
 {
-    LDOUBLE ans = 0.0, p10 = 10.0, fac = 1.0;
-    int n, expn = 0, sign = 1, ndigits = 0, exph = -1;
+    LDOUBLE ans = 0.0;
+    int sign = 1;
     const char *p = str;
 
     /* optional whitespace */
@@ -1917,7 +2018,10 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	goto done;
     }
 
-    if(strlen(p) > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) {
+    int n, expn = 0;
+    if(strlen(p) > 2 && p[0] == '0' && (p[1] == 'x' || p[1] == 'X')) { // Hexadecimal "0x....."
+	int exph = -1;
+
 	/* This will overflow to Inf if appropriate */
 	for(p += 2; p; p++) {
 	    if('0' <= *p && *p <= '9') ans = 16*ans + (*p -'0');
@@ -1953,6 +2057,7 @@ double R_strtod5(const char *str, char **endptr, char dec,
 #define MAX_EXPONENT_PREFIX 9999
 	    for (n = 0; *p >= '0' && *p <= '9'; p++) n = (n < MAX_EXPONENT_PREFIX) ? n * 10 + (*p - '0') : n;
 	    if (ans != 0.0) { /* PR#15976:  allow big exponents on 0 */
+		LDOUBLE fac = 1.0;
 		expn += expsign * n;
 		if(exph > 0) {
 		    if (expn - exph < -122) {	/* PR#17199:  fac may overflow below if expn - exph is too small.
@@ -1976,8 +2081,9 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	    }
 	}
 	goto done;
-    }
+    } // end {hexadecimal case}
 
+    int ndigits = 0;
     for ( ; *p >= '0' && *p <= '9'; p++, ndigits++) ans = 10*ans + (*p - '0');
     if (*p == dec)
 	for (p++; *p >= '0' && *p <= '9'; p++, ndigits++, expn--)
@@ -2005,6 +2111,7 @@ double R_strtod5(const char *str, char **endptr, char dec,
 	for (n = 0; n < ndigits; n++) ans /= 10.0;
 	expn += ndigits;
     }
+    LDOUBLE p10 = 10., fac = 1.0;
     if (expn < -307) { /* use underflow, not overflow */
 	for (n = -expn, fac = 1.0; n; n >>= 1, p10 *= p10)
 	    if (n & 1) fac /= p10;
@@ -2872,4 +2979,17 @@ void str_signif_sexp(SEXP x, const char *type, int width, int digits,
     } else {
 	error("unsupported type ");
     }
+}
+
+/* added in R 4.1.0.
+   This checks if it succeeds.
+   FIXME: is this worth inlining?
+ */
+char *Rstrdup(const char *s)
+{
+    size_t nb = strlen(s) + 1;
+    void *cpy = malloc(nb);
+    if (cpy == NULL) error("allocation error in Rstrdup");
+    memcpy (cpy, s, nb);
+    return (char *) cpy;
 }

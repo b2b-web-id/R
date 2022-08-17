@@ -1976,7 +1976,8 @@ if test "${use_libtiff}" = yes; then
       fi
     fi
     if test "x${have_tiff}" != xyes; then
-      # tiff 4.1.x may need webp too:
+      # tiff >= 4.1.0 may need webp too:
+      # (actually, it could also need jbig zstd libdeflate ....)
       unset ac_cv_lib_tiff_TIFFOpen
       AC_MSG_NOTICE([checking for libtiff with -lwebp])
       AC_CHECK_LIB(tiff, TIFFOpen, [have_tiff=yes], [have_tiff=no], [-lwebp -llzma ${BITMAP_LIBS}])
@@ -3233,6 +3234,8 @@ fi
 AC_DEFUN([R_PCRE2],
 [have_pcre2=no
 if test "x${use_pcre2}" = xyes; then
+## FIXME: Maybe these should be the other way around?
+## Maybe there should be a way to use pkg-config --static
 if "${PKG_CONFIG}" --exists libpcre2-8; then
   PCRE2_CPPFLAGS=`"${PKG_CONFIG}" --cflags libpcre2-8`
   PCRE2_LIBS=`"${PKG_CONFIG}" --libs libpcre2-8`
@@ -3669,11 +3672,10 @@ for ac_header in wchar wctype; do
   fi
 done
 if test "$want_mbcs_support" = yes ; then
-dnl Solaris 8 is missing iswblank, but we can make it from iswctype.
 dnl These are all C99, but Cygwin lacks wcsftime & wcstod
   R_CHECK_FUNCS([mbrtowc wcrtomb wcscoll wcsftime wcstod], [#include <wchar.h>])
   R_CHECK_FUNCS([mbstowcs wcstombs], [#include <stdlib.h>])
-  R_CHECK_FUNCS([wctrans iswblank wctype iswctype], 
+  R_CHECK_FUNCS([wctrans wctype iswctype], 
 [#include <wchar.h>
 #include <wctype.h>])
   for ac_func in mbrtowc mbstowcs wcrtomb wcscoll wcstombs \
@@ -3685,6 +3687,10 @@ dnl These are all C99, but Cygwin lacks wcsftime & wcstod
       want_mbcs_support=no
     fi
   done
+fi
+dnl These are POSIX. not used by default.
+if test "$want_mbcs_support" = yes ; then
+  R_CHECK_FUNCS([wcwidth wcswidth], [#include <wchar.h>])
 fi
 dnl it seems IRIX once had wctrans but not wctrans_t: we check this when we
 dnl know we have the headers and wctrans().
@@ -4185,7 +4191,7 @@ fi
 
 ## R_STDCXX
 ## --------
-## Support for C++ standards (C++98, C++11, C++14, C++17), for use in packages.
+## Support for C++ standards (C++11, C++14, C++17, C++20), for use in packages.
 ## R_STDCXX(VERSION, PREFIX, DEFAULT)
 AC_DEFUN([R_STDCXX],
 [r_save_CXX="${CXX}"
@@ -4488,63 +4494,45 @@ fi
 
 ## R_CSTACK_DIRECTION
 ## -----------------
-## Moved to configure as LTO may defeat runtime strategy.
 AC_DEFUN([R_CSTACK_DIRECTION],
 [AC_MSG_CHECKING([for C stack direction])
 AC_CACHE_VAL([r_cv_cstack_direction],
-[cat > conftest1.c <<EOF
-#include <stdint.h>
-uintptr_t dummy_ii(void)
-{
-    int ii;
-
-    /* This is intended to return a local address. We could just return
-       (uintptr_t) &ii, but doing it indirectly through ii_addr avoids
-       a compiler warning (-Wno-return-local-addr would do as well).
-    */
-    volatile uintptr_t ii_addr = (uintptr_t) &ii;
-    return ii_addr;
+[cat > conftest.c <<EOF
+/* based on gnulib, alloca.c */
+int find_stack_direction(int *addr, int depth) {
+  int dir, dummy = 0;
+  if (! addr)
+    addr = &dummy;
+  *addr = addr < &dummy ? 1 : addr == &dummy ? 0 : -1;
+  dir = depth ? find_stack_direction (addr, depth - 1) : 0;
+  return dir + dummy;
 }
-EOF
-cat > conftest.c <<EOF
-#include <stdio.h>
-#include <stdint.h>
-extern uintptr_t dummy_ii(void);
 
-typedef uintptr_t (*dptr_type)(void);
-volatile dptr_type dummy_ii_ptr;
-
-int main(int ac, char **av)
-{
-    int i;
-    dummy_ii_ptr = dummy_ii;
-        
-    /* call dummy_ii via a volatile function pointer to prevent inlinining in
-       case the tests are accidentally built with LTO */
-    uintptr_t ii = dummy_ii_ptr();
-    /* 1 is downwards */
-    return ((uintptr_t)&i > ii) ? 1 : -1;
+int main(int ac, char **av) {
+  /* find_stack_direction: -1 is downwards, 1 is upwards, 0 is unknown */
+  /* test: 1 is downwards, -1 is upwards, 0 is unknown */
+  return -find_stack_direction (0, 20);
 }
 EOF
 dnl Allow this to be overruled in config.site
 if test "x${R_C_STACK_DIRECTION}" != "x"; then
- r_cv_cstack_direction=${R_C_STACK_DIRECTION}
+  r_cv_cstack_direction=${R_C_STACK_DIRECTION}
 else
 if ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} -o conftest${ac_exeext} \
-      conftest.c conftest1.c \
-      1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD;
+      conftest.c 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD;
   then
     ## redirect error messages to config.log
     output=`./conftest${ac_exeext} 2>&AS_MESSAGE_LOG_FD`
-    if test ${?} = 1; then
+    _cstack_direction_result=${?}
+    if test "${_cstack_direction_result}" = 1; then
       r_cv_cstack_direction=down
-    elif test ${?} = 1; then
+    elif test "${_cstack_direction_result}" = 255; then
       r_cv_cstack_direction=up
     fi
 fi
 fi
 ])
-rm -Rf conftest conftest?.* core
+rm -Rf conftest conftest.* core
 if test -n "${r_cv_cstack_direction}"; then
   AC_MSG_RESULT(${r_cv_cstack_direction})
 else

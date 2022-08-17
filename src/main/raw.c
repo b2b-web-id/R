@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001--2020 The R Core Team
+ *  Copyright (C) 2001--2021 The R Core Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Pulic License as published by
@@ -89,7 +89,7 @@ SEXP attribute_hidden do_rawShift(SEXP call, SEXP op, SEXP args, SEXP env)
     if (!isRaw(x))
 	error(_("argument 'x' must be a raw vector"));
     if (shift == NA_INTEGER || shift < -8 || shift > 8)
-	error(_("argument 'shift' must be a small integer"));
+	error(_("argument 'n' must be a small integer"));
     PROTECT(ans = duplicate(x));
     if (shift > 0)
 	for (R_xlen_t i = 0; i < XLENGTH(x); i++)
@@ -123,17 +123,14 @@ SEXP attribute_hidden do_rawToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 
 SEXP attribute_hidden do_intToBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
-    SEXP ans, x;
-    R_xlen_t i, j = 0;
-    unsigned int tmp;
-
     checkArity(op, args);
-    PROTECT(x = coerceVector(CAR(args), INTSXP));
+    SEXP x = PROTECT(coerceVector(CAR(args), INTSXP));
     if (!isInteger(x))
 	error(_("argument 'x' must be an integer vector"));
-    PROTECT(ans = allocVector(RAWSXP, 32*XLENGTH(x)));
+    SEXP ans = PROTECT(allocVector(RAWSXP, 32*XLENGTH(x)));
+    R_xlen_t i, j = 0;
     for (i = 0; i < XLENGTH(x); i++) {
-	tmp = (unsigned int) INTEGER(x)[i];
+	unsigned int tmp = (unsigned int) INTEGER(x)[i];
 	for (int k = 0; k < 32; k++, tmp >>= 1)
 	    RAW(ans)[j++] = tmp & 0x1;
     }
@@ -141,24 +138,83 @@ SEXP attribute_hidden do_intToBits(SEXP call, SEXP op, SEXP args, SEXP env)
     return ans;
 }
 
+#ifdef WORDS_BIGENDIAN
+#define WORDORDER_HIGH 0
+#define WORDORDER_LOW  1
+#else  /* !WORDS_BIGENDIAN */
+#define WORDORDER_HIGH 1
+#define WORDORDER_LOW  0
+#endif /* WORDS_BIGENDIAN */
+
+// split "real" (double = 64-bit) into two 32-bit parts (which the user can split to bits):
+SEXP attribute_hidden do_numToInts(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
+    if (!isReal(x))
+	error(_("argument 'x' must be a numeric vector"));
+    SEXP ans = PROTECT(allocVector(INTSXP, 2*XLENGTH(x)));
+    R_xlen_t i, j = 0;
+    double *x_ = REAL(x);
+    for (i = 0; i < XLENGTH(x); i++) {
+	// Assume sizeof(double) == 2 * sizeof(int) and int has no trap rep.
+	union {
+	    double d;
+	    int i[2];
+	} tmp;
+	tmp.d = x_[i];
+	INTEGER(ans)[j++] = tmp.i[WORDORDER_LOW];
+	INTEGER(ans)[j++] = tmp.i[WORDORDER_HIGH];
+    }
+    UNPROTECT(2);
+    return ans;
+}
+// split "real", i.e. = double = 64-bitd, to bits (<==> do_intToBits( do_numToInts(..) .. ))
+SEXP attribute_hidden do_numToBits(SEXP call, SEXP op, SEXP args, SEXP env)
+{
+    checkArity(op, args);
+    SEXP x = PROTECT(coerceVector(CAR(args), REALSXP));
+    if (!isReal(x))
+	error(_("argument 'x' must be a numeric vector"));
+    SEXP ans = PROTECT(allocVector(RAWSXP, 64*XLENGTH(x)));
+    R_xlen_t i, j = 0;
+    double *x_ = REAL(x);
+    for (i = 0; i < XLENGTH(x); i++) {
+	// Assume double and uint64_t are both 64 bits.
+	union {
+	    double d;
+	    uint64_t ui64;
+	} u;
+	u.d = x_[i];
+	uint64_t tmp = u.ui64;
+	for (int k = 0; k < 64; k++, tmp >>= 1)
+	    RAW(ans)[j++] = tmp & 0x1;
+    }
+    UNPROTECT(2);
+    return ans;
+}
+
+
 SEXP attribute_hidden do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     SEXP ans, x = CAR(args), stype = CADR(args);
-    Rboolean useRaw;
     R_xlen_t i, len = XLENGTH(x), slen;
-    int fac;
 
     if (TYPEOF(x) != RAWSXP && TYPEOF(x) != LGLSXP && TYPEOF(x) != INTSXP)
 	error(_("argument 'x' must be raw, integer or logical"));
     if (!isString(stype)  || LENGTH(stype) != 1)
 	error(_("argument '%s' must be a character string"), "type");
-    useRaw = strcmp(CHAR(STRING_ELT(stype, 0)), "integer");
-    fac = useRaw ? 8 : 32;
-    if (len% fac)
+    Rboolean
+	notI = strcmp(CHAR(STRING_ELT(stype, 0)), "integer"),
+	notR = strcmp(CHAR(STRING_ELT(stype, 0)), "raw"),
+	useRaw =  notI && !notR,
+	useInt = !notI &&  notR;
+    int fac = useRaw ? 8 : (useInt ? 32 : 64);
+    if (len % fac)
 	error(_("argument 'x' must be a multiple of %d long"), fac);
     slen = len/fac;
-    PROTECT(ans = allocVector(useRaw ? RAWSXP : INTSXP, slen));
+    PROTECT(ans = allocVector(useRaw ? RAWSXP : (useInt ? INTSXP : REALSXP), slen));
     for (i = 0; i < slen; i++)
 	if (useRaw) {
 	    Rbyte btmp = 0;
@@ -174,7 +230,7 @@ SEXP attribute_hidden do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 	    }
 	    RAW(ans)[i] = btmp;
-	} else {
+	} else if(useInt) {
 	    unsigned int itmp = 0;
 	    for (int k = 31; k >= 0; k--) {
 		itmp <<= 1;
@@ -188,6 +244,31 @@ SEXP attribute_hidden do_packBits(SEXP call, SEXP op, SEXP args, SEXP env)
 		}
 	    }
 	    INTEGER(ans)[i] = (int) itmp;
+	} else { // 'useDouble'
+	    // Assume sizeof(double) == 2 * sizeof(unsigned int) and
+	    // unsigned int has no trap rep.
+	    union
+	    {
+		double d;
+		unsigned int ui[2];
+	    } u;
+	    for(int k = 0 ; k < 2 ; k++) {
+		unsigned int w = 0;
+		for(int b = 0 ; b < 32 ; b++) {
+		    unsigned int bit /* -Wall */ = 0;
+		    if (isRaw(x))
+			bit = RAW(x)[64*i + 32*k + b] & 0x1;
+		    else if (isLogical(x) || isInteger(x)) {
+			int j = INTEGER(x)[64*i + 32*k + b];
+			if (j == NA_INTEGER)
+			    error(_("argument 'x' must not contain NAs"));
+			bit = (unsigned int) (j & 0x1);
+		    }
+		    w = w | (bit << b);
+		}
+		u.ui[k ? WORDORDER_HIGH : WORDORDER_LOW] = w;
+	    }
+	    REAL(ans)[i] = u.d;
 	}
     UNPROTECT(1);
     return ans;
@@ -315,8 +396,8 @@ SEXP attribute_hidden do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 	PROTECT(ans = allocVector(STRSXP, nc));
 	for (i = 0; i < nc; i++) {
 	    int this = INTEGER(x)[i];
-	    if (this == NA_INTEGER 
-		|| (this >= 0xD800 && this <= 0xDFFF) 
+	    if (this == NA_INTEGER
+		|| (this >= 0xD800 && this <= 0xDFFF)
 		|| this > 0x10FFFF)
 		SET_STRING_ELT(ans, i, NA_STRING);
 	    else {
@@ -332,7 +413,7 @@ SEXP attribute_hidden do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 	/* Note that this gives zero length for input '0', so it is omitted */
 	for (i = 0, len = 0; i < nc; i++) {
 	    int this = INTEGER(x)[i];
-	    if (this == NA_INTEGER 
+	    if (this == NA_INTEGER
 		|| (this >= 0xDC00 && this <= 0xDFFF)
 		|| this > 0x10FFFF) {
 		haveNA = TRUE;
@@ -344,7 +425,7 @@ SEXP attribute_hidden do_intToUtf8(SEXP call, SEXP op, SEXP args, SEXP env)
 		if(next >= 0xDC00 && next <= 0xDFFF) i++;
 		else {haveNA = TRUE; break;}
 		len += 4; // all points not in the basic plane have length 4
-	    } 
+	    }
 	    else
 		len += inttomb(NULL, this);
 	}

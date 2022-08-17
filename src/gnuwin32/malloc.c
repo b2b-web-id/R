@@ -17,7 +17,7 @@
 * Version 2.8.3 Thu Sep 22 11:16:15 2005  Doug Lea  (dl at gee)
 
    Note: There may be an updated version of this malloc obtainable at
-           ftp://gee.cs.oswego.edu/pub/misc/malloc.c
+           http://gee.cs.oswego.edu/pub/misc/malloc.c
          Check before installing!
 
 * Quickstart
@@ -29,7 +29,7 @@
   compile-time and dynamic tuning options.
 
   For convenience, an include file for code using this malloc is at:
-     ftp://gee.cs.oswego.edu/pub/misc/malloc-2.8.3.h
+     http://gee.cs.oswego.edu/pub/misc/malloc-2.8.3.h
   You don't really need this .h file unless you call functions not
   defined in your system include files.  The .h file contains only the
   excerpts from this file needed for using this malloc on ANSI C/C++
@@ -481,7 +481,8 @@ DEFAULT_MMAP_THRESHOLD       default: 256K
 #include <sys/types.h>  /* For size_t */
 #endif  /* LACKS_SYS_TYPES_H */
 
-/* The maximum possible size_t value has all bits set */
+/* The maximum possible size_t value has all bits set.
+   C99 has SIZE_MAX for this. */
 #define MAX_SIZE_T           (~(size_t)0)
 
 #ifndef ONLY_MSPACES
@@ -1505,6 +1506,7 @@ static MLOCK_T magic_init_mutex;
   each chunk and at the end.  This makes consolidating fragmented
   chunks into bigger chunks fast.  The head fields also hold bits
   representing whether chunks are free or in use.
+  [Available via http at https://www.cs.tufts.edu/~nr/cs257/archive/paul-wilson/allocsrv.ps.gz]
 
   Here are some pictures to make it clearer.  They are "exploded" to
   show that the state of a chunk can be thought of as extending from
@@ -4301,6 +4303,14 @@ void* dlcalloc(size_t n_elements, size_t elem_size) {
       req = MAX_SIZE_T; /* force downstream failure on overflow */
   }
   mem = dlmalloc(req);
+/* gcc 9.2 objects to this on x64, as it claims req is twice the
+   maximum object size.  
+
+   warning: 'memset' specified bound 18446744073709551615 exceeds
+   maximum object size 9223372036854775807 [-Wstringop-overflow=]
+
+   Looks like a bug in mingw64 (max(size_t) is 2^64-1).
+*/
   if (mem != 0 && calloc_must_clear(mem2chunk(mem)))
     memset(mem, 0, req);
   return mem;

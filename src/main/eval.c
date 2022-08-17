@@ -1657,14 +1657,19 @@ static int countCycleRefs(SEXP rho, SEXP val)
     return crefs;
 }
 
+static R_INLINE void clearPromise(SEXP p)
+{
+    SET_PRVALUE(p, R_UnboundValue);
+    SET_PRENV(p, R_NilValue);
+    SET_PRCODE(p, R_NilValue); /* for calls with literal values */
+}
+
 static R_INLINE void cleanupEnvDots(SEXP d)
 {
     for (; d != R_NilValue && REFCNT(d) == 1; d = CDR(d)) {
 	SEXP v = CAR(d);
-	if (REFCNT(v) == 1 && TYPEOF(v) == PROMSXP) {
-	    SET_PRVALUE(v, R_UnboundValue);
-	    SET_PRENV(v, R_NilValue);
-	}
+	if (REFCNT(v) == 1 && TYPEOF(v) == PROMSXP)
+	    clearPromise(v);
 	SETCAR(d, R_NilValue);
     }
 }
@@ -1683,9 +1688,12 @@ static R_INLINE void cleanupEnvVector(SEXP v)
        to wake things up, so hold off for now. */
     return;
 
+    // avoid ODS compiler warning.
+ #ifdef FALSE
     R_xlen_t len = XLENGTH(v);
     for (R_xlen_t i = 0; i < len; i++)
 	SET_VECTOR_ELT(v, i, R_NilValue);
+#endif
 }
 
 static R_INLINE void R_CleanupEnvir(SEXP rho, SEXP val)
@@ -1705,8 +1713,7 @@ static R_INLINE void R_CleanupEnvir(SEXP rho, SEXP val)
 		if (REFCNT(v) == 1 && v != val) {
 		    switch(TYPEOF(v)) {
 		    case PROMSXP:
-			SET_PRVALUE(v, R_UnboundValue);
-			SET_PRENV(v, R_NilValue);
+			clearPromise(v);
 			break;
 		    case DOTSXP:
 			cleanupEnvDots(v);
@@ -1729,10 +1736,8 @@ void attribute_hidden unpromiseArgs(SEXP pargs)
        double check the refcounts on pargs as a sanity check. */
     for (; pargs != R_NilValue; pargs = CDR(pargs)) {
 	SEXP v = CAR(pargs);
-	if (TYPEOF(v) == PROMSXP && REFCNT(v) == 1) {
-	    SET_PRVALUE(v, R_UnboundValue);
-	    SET_PRENV(v, R_NilValue);
-	}
+	if (TYPEOF(v) == PROMSXP && REFCNT(v) == 1)
+	    clearPromise(v);
 	SETCAR(pargs, R_NilValue);
     }
 }
@@ -2162,16 +2167,15 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho)
 
     int len = length(s);
     if (len > 1) {
-	/* needed as per PR#15990.  call gets protected by warningcall() */
-	/* FIXME: should be protected by caller, not here */
-	PROTECT(s);
+	/* PROTECT(s) needed as per PR#15990.  call gets protected by
+	   warningcall(). Now "s" is protected by caller and also
+	   R_BadValueInRCode disables GC. */
 	R_BadValueInRCode(s, call, rho,
 	    "the condition has length > 1",
 	    _("the condition has length > 1"),
 	    _("the condition has length > 1 and only the first element will be used"),
 	    "_R_CHECK_LENGTH_1_CONDITION_",
 	    TRUE /* by default issue warning */);
-	UNPROTECT(1);
     }
     if (len > 0) {
 	/* inline common cases for efficiency */
@@ -2192,9 +2196,7 @@ static R_INLINE Rboolean asLogicalNoNA(SEXP s, SEXP call, SEXP rho)
 			   _("missing value where TRUE/FALSE needed") :
 			   _("argument is not interpretable as logical")) :
 	    _("argument is of length zero");
-	PROTECT(s);	/* Maybe needed in some weird circumstance. */
 	errorcall(call, msg);
-	UNPROTECT(1);
     }
     return cond;
 }
@@ -2430,7 +2432,11 @@ SEXP attribute_hidden do_while(SEXP call, SEXP op, SEXP args, SEXP rho)
     begincontext(&cntxt, CTXT_LOOP, R_NilValue, rho, R_BaseEnv, R_NilValue,
 		 R_NilValue);
     if (SETJMP(cntxt.cjmpbuf) != CTXT_BREAK) {
-	while (asLogicalNoNA(eval(CAR(args), rho), call, rho)) {
+	for(;;) {
+	    SEXP cond = PROTECT(eval(CAR(args), rho));
+	    int condl = asLogicalNoNA(cond, call, rho);
+	    UNPROTECT(1);
+	    if (!condl) break;
 	    if (RDEBUG(rho) && !bgn && !R_GlobalContext->browserfinish) {
 		SrcrefPrompt("debug", R_Srcref);
 		PrintValue(body);
@@ -2913,8 +2919,11 @@ static SEXP applydefine(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (PRIMVAL(op) == 2)                       /* <<- */
 	setVar(lhsSym, value, ENCLOS(rho));
     else {                                      /* <-, = */
-	if (ALTREP(value))
+	if (ALTREP(value)) {
+	    PROTECT(value);
 	    value = try_assign_unwrap(value, lhsSym, rho, NULL);
+	    UNPROTECT(1);
+	}
 	defineVar(lhsSym, value, rho);
     }
     INCREMENT_NAMED(value);
@@ -3705,12 +3714,6 @@ attribute_hidden
 int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 		  SEXP *ans)
 {
-    int i, nargs, lwhich, rwhich;
-    SEXP lclass, s, t, m, lmeth, lsxp, lgr, newvars;
-    SEXP rclass, rmeth, rgr, rsxp, value;
-    char *generic;
-    Rboolean useS4 = TRUE, isOps = FALSE;
-
     /* pre-test to avoid string computations when there is nothing to
        dispatch on because either there is only one argument and it
        isn't an object or there are two or more arguments but neither
@@ -3721,16 +3724,19 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	(CDR(args) == R_NilValue || ! isObject(CADR(args))))
 	return 0;
 
-    isOps = strcmp(group, "Ops") == 0;
+    SEXP s;
+    Rboolean isOps = strcmp(group, "Ops") == 0;
 
     /* try for formal method */
-    if(length(args) == 1 && !IS_S4_OBJECT(CAR(args))) useS4 = FALSE;
-    if(length(args) == 2 &&
-       !IS_S4_OBJECT(CAR(args)) && !IS_S4_OBJECT(CADR(args))) useS4 = FALSE;
-    if(useS4) {
+    if(length(args) == 1 && !IS_S4_OBJECT(CAR(args))) {
+	// no S4
+    } else if(length(args) == 2 && !IS_S4_OBJECT(CAR(args)) && !IS_S4_OBJECT(CADR(args))) {
+	// no S4
+    } else { // try to use S4 :
 	/* Remove argument names to ensure positional matching */
 	if(isOps)
 	    for(s = args; s != R_NilValue; s = CDR(s)) SET_TAG(s, R_NilValue);
+	SEXP value;
 	if(R_has_methods(op) &&
 	   (value = R_possible_dispatch(call, op, args, rho, FALSE))) {
 	       *ans = value;
@@ -3746,29 +3752,24 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	    return 0;
     }
 
-    if(isOps)
-	nargs = length(args);
-    else
-	nargs = 1;
+    int nargs = isOps ? length(args) : 1;
 
     if( nargs == 1 && !isObject(CAR(args)) )
 	return 0;
 
-    generic = PRIMNAME(op);
-
-    PROTECT(lclass = classForGroupDispatch(CAR(args)));
-
+    char *generic = PRIMNAME(op);
+    SEXP lclass = PROTECT(classForGroupDispatch(CAR(args))), rclass;
     if( nargs == 2 )
 	rclass = classForGroupDispatch(CADR(args));
     else
 	rclass = R_NilValue;
-
     PROTECT(rclass);
-    lsxp = R_NilValue; lgr = R_NilValue; lmeth = R_NilValue;
-    rsxp = R_NilValue; rgr = R_NilValue; rmeth = R_NilValue;
 
-    findmethod(lclass, group, generic, &lsxp, &lgr, &lmeth, &lwhich,
-	       args, rho);
+    SEXP lmeth = R_NilValue, lsxp = R_NilValue, lgr = R_NilValue,
+	 rmeth = R_NilValue, rsxp = R_NilValue, rgr = R_NilValue;
+    int lwhich, rwhich;
+    findmethod(lclass, group, generic,
+	       &lsxp, &lgr, &lmeth, &lwhich, args, rho);
     PROTECT(lgr);
 
     if( nargs == 2 )
@@ -3776,7 +3777,6 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 		   &rwhich, CDR(args), rho);
     else
 	rwhich = 0;
-
     PROTECT(rgr);
 
     if( !isFunction(lsxp) && !isFunction(rsxp) ) {
@@ -3796,7 +3796,15 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 	    else if (streql(lname, "Ops.difftime") &&
 		     (streql(rname, "+.POSIXt") || streql(rname, "+.Date")) )
 		lsxp = R_NilValue;
-	    else {
+
+	    /* Strict comparison, the docs requires methods to be "the same":
+	      16 to take environments into account
+	     1+2 for bitwise comparison of numbers
+	       4 for the same order of attributes
+	         bytecode ignored (can change at runtime)
+	         srcref ignored (as per default)
+	    */
+	    else if (!R_compute_identical(lsxp, rsxp, 16 + 1 + 2 + 4)) {
 		warning(_("Incompatible methods (\"%s\", \"%s\") for \"%s\""),
 			lname, rname, generic);
 		UNPROTECT(4);
@@ -3815,11 +3823,12 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
 
     /* we either have a group method or a class method */
 
-    PROTECT(m = allocVector(STRSXP,nargs));
     const void *vmax = vmaxget();
     s = args;
     const char *dispatchClassName = translateChar(STRING_ELT(lclass, lwhich));
-    for (i = 0 ; i < nargs ; i++) {
+
+    SEXP t, m = PROTECT(allocVector(STRSXP,nargs));
+    for (int i = 0 ; i < nargs ; i++) {
 	t = classForGroupDispatch(CAR(s));
 	if (isString(t) && (stringPositionTr(t, dispatchClassName) >= 0))
 	    SET_STRING_ELT(m, i, PRINTNAME(lmeth));
@@ -3829,7 +3838,7 @@ int DispatchGroup(const char* group, SEXP call, SEXP op, SEXP args, SEXP rho,
     }
     vmaxset(vmax);
 
-    newvars = PROTECT(createS3Vars(
+    SEXP newvars = PROTECT(createS3Vars(
 	PROTECT(mkString(generic)),
 	lgr,
 	PROTECT(stringSuffix(lclass, lwhich)),
@@ -5137,7 +5146,7 @@ static R_INLINE SEXP FIND_VAR_NO_CACHE(SEXP symbol, SEXP rho, SEXP cell)
     if (loc.cell && IS_ACTIVE_BINDING(loc.cell)) {
 	SEXP value = R_GetVarLocValue(loc);
 	return value;
-    }	
+    }
     else return R_GetVarLocValue(loc);
 }
 
@@ -6221,7 +6230,10 @@ static R_INLINE Rboolean GETSTACK_LOGICAL_NO_NA_PTR(R_bcstack_t *s, int callidx,
 	    return lval;
     }
     SEXP call = VECTOR_ELT(constants, callidx);
-    return asLogicalNoNA(value, call, rho);
+    PROTECT(value);
+    Rboolean ans = asLogicalNoNA(value, call, rho);
+    UNPROTECT(1);
+    return ans;
 }
 
 #define GETSTACK_LOGICAL(n) GETSTACK_LOGICAL_PTR(R_BCNodeStackTop + (n))
@@ -6939,7 +6951,7 @@ static SEXP bcEval(SEXP body, SEXP rho, Rboolean useCache)
 //#define REPORT_OVERRIDEN_BUILTINS
 #ifdef REPORT_OVERRIDEN_BUILTINS
 	if (value != findFun(symbol, rho)) {
-	    Rprintf("Possibly overriden builtin: %s\n", PRIMNAME(value));
+	    Rprintf("Possibly overridden builtin: %s\n", PRIMNAME(value));
 	}
 #endif
 	if (RTRACE(value)) {
@@ -7687,7 +7699,7 @@ static SEXP bcEval(SEXP body, SEXP rho, Rboolean useCache)
 	  R_BCNodeStackTop[-2] = R_BCNodeStackTop[-1];
 	  R_BCNodeStackTop--;
 	  NEXT();
-      }	  
+      }
     LASTOP;
   }
 

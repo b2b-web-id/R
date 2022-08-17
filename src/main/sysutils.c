@@ -51,7 +51,7 @@
 # include <sys/stat.h>
 #endif
 
-static int isDir(char *path);
+int attribute_hidden R_isWriteableDir(char *path);
 
 #ifdef HAVE_AQUA
 int (*ptr_CocoaSystem)(const char*);
@@ -147,6 +147,7 @@ FILE *R_fopen(const char *filename, const char *mode)
 
    On NT-based versions of Windows, file names are stored in 'Unicode'
    (UCS-2), and _wfopen is provided to access them by UCS-2 names.
+   <FIXME> since Windows 2000 they could be UTF-16LE
 */
 
 #if defined(Win32)
@@ -172,7 +173,7 @@ wchar_t *filenameToWchar(const SEXP fn, const Rboolean expand)
 #endif
     if(IS_UTF8(fn)) from = "UTF-8";
     if(IS_BYTES(fn)) error(_("encoding of a filename cannot be 'bytes'"));
-    obj = Riconv_open("UCS-2LE", from);
+    obj = Riconv_open("UCS-2LE", from); // "UTF-16LE" ?
     if(obj == (void *)(-1))
 	error(_("unsupported conversion from '%s' in codepage %d"),
 	      from, localeCP);
@@ -238,7 +239,7 @@ SEXP attribute_hidden do_tempdir(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
     Rboolean check = asLogical(CAR(args));
-    if(check && !isDir(R_TempDir)) {
+    if(check && !R_isWriteableDir(R_TempDir)) {
 	R_TempDir = NULL;
 	R_reInitTempDir(/* die_on_fail = */ FALSE);
     }
@@ -1233,7 +1234,6 @@ static void *latin1_wobj = NULL, *utf8_wobj=NULL;
 
 /* This may return a R_alloc-ed result, so the caller has to manage the
    R_alloc stack */
-attribute_hidden /* but not hidden on Windows, where it was used in tcltk.c */
 const wchar_t *wtransChar(SEXP x)
 {
     void * obj;
@@ -1640,7 +1640,7 @@ size_t ucstomb(char *s, const unsigned int wc)
     return strlen(buf);
 }
 
-/* used in plot.c for non-UTF-8 MBCS */
+/* used in engine.c for non-UTF-8 MBCS */
 size_t attribute_hidden
 mbtoucs(unsigned int *wc, const char *s, size_t n)
 {
@@ -1739,7 +1739,7 @@ size_t ucstoutf8(char *s, const unsigned int wc)
 # define S_IFDIR __S_IFDIR
 #endif
 
-static int isDir(char *path)
+int attribute_hidden R_isWriteableDir(char *path)
 {
 #ifdef Win32
     struct _stati64 sb;
@@ -1763,7 +1763,7 @@ static int isDir(char *path)
     return isdir;
 }
 #else
-static int isDir(char *path)
+int attribute_hidden R_isWriteableDir(char *path)
 {
     return 1;
 }
@@ -1795,11 +1795,11 @@ void R_reInitTempDir(int die_on_fail)
     tmp = NULL; /* getenv("R_SESSION_TMPDIR");   no longer set in R.sh */
     if (!tmp) {
 	tm = getenv("TMPDIR");
-	if (!isDir(tm)) {
+	if (!R_isWriteableDir(tm)) {
 	    tm = getenv("TMP");
-	    if (!isDir(tm)) {
+	    if (!R_isWriteableDir(tm)) {
 		tm = getenv("TEMP");
-		if (!isDir(tm))
+		if (!R_isWriteableDir(tm))
 #ifdef Win32
 		    tm = getenv("R_USER"); /* this one will succeed */
 #else
