@@ -1,7 +1,7 @@
 #  File src/library/tools/R/sotools.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 2011-2021 The R Core Team
+#  Copyright (C) 2011-2022 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ read_symbols_from_object_file <- function(f)
     if(!nzchar(nm)) {
         ## reasonable to assume nm is on the path
         nm <- Sys.which("nm")
-        if(!nzchar(nm)) nm <- shQuote(nm)
+        if(nzchar(nm)) nm <- shQuote(nm)
     }
     if(!nzchar(nm)) {
         warning("this requires 'nm' to be on the PATH")
@@ -420,13 +420,13 @@ nonAPI <- c("chol_", "chol2inv_", "cg_", "ch_", "rg_",
             "max_contour_segments", "mbcsToUcs2", "memtrace_report",
             "parseError", "pythag_", "rs_", "rwarnc_",
             "tql2_", "tqlrat_", "tred1_", "tred2_", "utf8locale", "yylloc",
-            ## "signrank_free", "wilcox_free" are API only from 4.2.0
-            ## but WRE advised using them long before.
+            # "signrank_free", "wilcox_free" are API only from 4.2.0
 
 ## Rinterface.h, Rembedded.h, R_ext/{RStartup,eventloop}.h
             "AllDevicesKilled", "R_CStackLimit", "R_CStackStart",
             "R_ClearerrConsole", "R_CleanTempDir", "R_Consolefile",
-            "R_DefParams", "R_DirtyImage", "R_GUIType", "R_GlobalContext",
+            "R_DefCallbacks", "R_DefParams", "R_DefParamsEx",
+            "R_DirtyImage", "R_GUIType", "R_GlobalContext",
             "R_HistoryFile", "R_HistorySize", "R_Home", "R_HomeDir",
             "R_InputHandlers", "R_Interactive", "R_Outputfile",
             "R_PolledEvents", "R_ReplDLLdo1", "R_ReplDLLinit",

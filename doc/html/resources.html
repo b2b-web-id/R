@@ -28,7 +28,30 @@ span.nolinebreak {white-space: nowrap}
 span.roman {font-family: initial; font-weight: normal}
 span.sansserif {font-family: sans-serif; font-weight: normal}
 ul.no-bullet {list-style: none}
+@media screen {
+    .container {
+	padding-right: 10px;
+	padding-left: 10px;
+	margin-right: auto;
+	margin-left: auto;
+	max-width: 900px;
+    }
+}
+
+.rimage img { /* from knitr - for examples and demos */
+    width: 96%;
+    margin-left: 2%;
+} 	
+
+.katex { font-size: 1.1em; }
+
+code {
+    color: inherit;
+    background: inherit;
+}
+
 body {
+    line-height: 1.4;
     background: white;
     color: black;
 }
@@ -47,7 +70,7 @@ h1 {
     background: white;
     color: rgb(55%, 55%, 55%);
     font-family: monospace;
-    font-size: x-large;
+    font-size: 1.4em; /* x-large; */
     text-align: center;
 }
 
@@ -55,7 +78,7 @@ h2 {
     background: white;
     color: rgb(40%, 40%, 40%);
     font-family: monospace;
-    font-size: large;
+    font-size: 1.2em; /* large; */
     text-align: center;
 }
 
@@ -63,7 +86,7 @@ h3 {
     background: white;
     color: rgb(40%, 40%, 40%);
     font-family: monospace;
-    font-size: large;
+    font-size: 1.2em; /* large; */
 }
 
 h4 {
@@ -71,7 +94,7 @@ h4 {
     color: rgb(40%, 40%, 40%);
     font-family: monospace;
     font-style: italic;
-    font-size: large;
+    font-size: 1.2em; /* large; */
 }
 
 h5 {
@@ -86,7 +109,7 @@ h6 {
     font-family: monospace;
     font-style: italic;
 }
-		
+
 img.toplogo {
     width: 4em;
     vertical-align: middle;

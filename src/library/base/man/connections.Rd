@@ -1,6 +1,6 @@
 % File src/library/base/man/connections.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2021 R Core Team
+% Copyright 1995-2022 R Core Team
 % Distributed under GPL 2 or later
 
 \name{connections}
@@ -158,22 +158,17 @@ socketTimeout(socket, timeout = -1)
   For \code{url} the description is a complete URL including scheme
   (such as \samp{http://}, \samp{https://}, \samp{ftp://} or
   \samp{file://}).  Method \code{"internal"} is that available since
-  connections were introduced..  Method \code{"wininet"} is only
-  available on Windows (it uses the WinINet functions of that OS) and
-  method \code{"libcurl"} (using the library of that name:
-  \url{https://curl.se/libcurl/}) is required on a Unix-alike but
-  optional on Windows.  Method \code{"default"} uses method
-  \code{"internal"} for \samp{file://} URLs and uses \code{"libcurl"}
-  (if available) for \samp{ftp://} and \samp{ftps://} URLs.  On a
-  Unix-alike it uses \code{"libcurl"} for \samp{http://} and
-  \samp{https://} URLs; on Windows \code{"wininet"} for \samp{http://}
-  and \samp{https://} URLs (and for \samp{ftp://} if \code{"libcurl"} is
-  unavailable).  Which methods support which schemes has varied by \R
-  version -- currently \code{"internal"} supports \samp{file://},
-  \samp{http://} (deprecated) and \samp{ftp://} (deprecated);
-  \code{"wininet"} supports \samp{file://}, \samp{http://},
-  \samp{https://} and \samp{ftp://} (deprecated).  Proxies can be
-  specified: see \code{\link{download.file}}.
+  connections were introduced but now mainly defunct.  Method
+  \code{"wininet"} is only available on Windows (it uses the WinINet
+  functions of that OS) and method \code{"libcurl"} (using the library
+  of that name: \url{https://curl.se/libcurl/}) is required on a
+  Unix-alike but was optional on Windows before \R 4.2.0.  Method
+  \code{"default"} currently uses method \code{"internal"} for
+  \samp{file://} URLs and \code{"libcurl"} for all others.  Which
+  methods support which schemes has varied by \R version -- currently
+  \code{"internal"} supports only \samp{file://}; \code{"wininet"}
+  supports \samp{file://}, \samp{http://} and \samp{https://}.  Proxies
+  can be specified: see \code{\link{download.file}}.
 
   For \code{gzfile} the description is the path to a file compressed by
   \command{gzip}: it can also open for reading uncompressed files and
@@ -257,15 +252,17 @@ socketTimeout(socket, timeout = -1)
   will support \samp{ftps://}.
 
   Support for the \samp{ftp://} scheme by the \code{"internal"} method was
-  deprecated for \R 4.1.1.
+  deprecated in \R 4.1.1 and removed in \R 4.2.0.
 
   Most methods do not percent-encode special characters such as spaces
   in \samp{http://} URLs (see \code{\link{URLencode}}), but it seems the
   \code{"wininet"} method does.
 
-  A note on \samp{file://} URLs.  The most general form (from RFC1738) is
-  \samp{file://host/path/to/file}, but \R only accepts the form with an
-  empty \code{host} field referring to the local machine.
+  A note on \samp{file://} URLs (which are handled by the same internal
+  code irrespective of argument \code{method}).  The most general form
+  (from RFC1738) is \samp{file://host/path/to/file}, but \R only accepts
+  the form with an empty \code{host} field referring to the local
+  machine.
 
   On a Unix-alike, this is then \samp{file:///path/to/file}, where
   \samp{path/to/file} is relative to \file{/}.  So although the third
@@ -427,26 +424,30 @@ socketTimeout(socket, timeout = -1)
 
   When writing to a text connection, the connections code always assumes its
   input is in native encoding, so e.g.  \code{\link{writeLines}} has to
-  convert text to native encoding.  \code{\link{writeLines}} does not do the
-  conversion when \code{useBytes=TRUE} (for expert use only), but the
-  connections code still behaves as if the text was in native encoding, so
-  any attempt to convert encoding (\code{encoding} argument other than
-  \code{""} and \code{"native.enc"}) in connections will produce incorrect
-  results.
+  convert text to native encoding.  The native encoding is UTF-8 on most
+  systems (since R 4.2 also on recent Windows) and can represent all
+  characters.  \code{\link{writeLines}} does not do the conversion when
+  \code{useBytes=TRUE} (for expert use only, only useful on systems with native
+  encoding other than UTF-8), but the connections code still behaves as if
+  the text was in native encoding, so any attempt to convert encoding
+  (\code{encoding} argument other than \code{""} and \code{"native.enc"}) in
+  connections will produce incorrect results.
 
-  When reading from a text connection, the connections code, after
-  re-encoding based on the \code{encoding} argument, returns text that is
-  assumed to be in native encoding; an encoding mark is only added by
-  functions that read from the connection, so e.g.  \code{\link{readLines}}
-  can be instructed to mark the text as \code{"UTF-8"} or \code{"latin1"},
-  but \code{\link{readLines}} does no further conversion.  To allow reading
-  text in \code{"UTF-8"} on a system that cannot represent all such
-  characters in native encoding (currently only Windows), a connection can
-  be internally configured to return the read text in UTF-8 even though it
-  is not the native encoding; currently \code{\link{readLines}} and
-  \code{\link{scan}} use this feature when given a connection that is not
-  yet open and, when using the feature, they unconditionally mark the text
-  as \code{"UTF-8"}.
+  When reading from a text connection, the connections code re-encodes the
+  input to native encoding (from the encoding given by the \code{encoding}
+  argument).  On systems where UTF-8 is not the native encoding, one can
+  read text not representable in the native encoding using
+  \code{\link{readLines}} and \code{\link{scan}} by providing them with an
+  unopened connection that has been created with the \code{encoding}
+  argument specifying the input encoding.  \code{\link{readLines}} and
+  \code{\link{scan}} would then instruct the connections code to convert the
+  text to UTF-8 (instead of native encoding) and they will return it marked
+  (aka declared, see \code{\link{Encoding}})
+  as \code{"UTF-8"}.  Finally and for expert use only, one may disable
+  re-encoding of input by specifying \code{""} or \code{"native.enc"} as
+  \code{encoding} for the connection, but then mark the text as being
+  \code{"UTF-8"} or \code{"latin1"} via the \code{encoding} argument
+  of \code{\link{readLines}} and \code{\link{scan}}.
 
   Re-encoding only works for connections in text mode: reading from a
   connection with re-encoding specified in binary mode will read the
@@ -548,12 +549,12 @@ socketTimeout(socket, timeout = -1)
 
 #ifdef windows
   When writing to the clipboard, the output is copied to the clipboard
-  only when the connection is closed or flushed.  There is a 32Kb limit
+  only when the connection is closed or flushed.  There is a 64Kb limit
   on the text to be written to the clipboard.  This can be raised by
   using e.g.\sspace{}\code{file("clipboard-128")} to give 128Kb.
 
-  The clipboard works in Unicode wide characters, so encodings might
-  not work as one might expect.
+  The Windows clipboard is always accessed in Unicode wide characters
+  and the \code{encoding} argument is ignored (with a warning).
 #endif
 #ifdef unix
   Unix users wishing to \emph{write} to one of the X11 selections may be

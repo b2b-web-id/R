@@ -37,14 +37,20 @@
  */
 #ifndef STRICT_R_HEADERS
 #define PI             M_PI
-#include <float.h>  /* Defines the rest, at least in C99 */
+#ifdef __cplusplus
+#include <cfloat>   /* Defines the RHSs, C++11 and later */
+#else
+#include <float.h>  /* Defines the RHSs, C99 and later */
+#endif
 /*
-  The SINGLE_* defines were deprecated in R 4.1.3.
- */
+  The SINGLE_* defines were deprecated in R 4.1.3 and defunct in R 4.2.0.
 #define SINGLE_EPS     FLT_EPSILON
 #define SINGLE_BASE    FLT_RADIX
 #define SINGLE_XMIN    FLT_MIN
 #define SINGLE_XMAX    FLT_MAX
+*/
+
+// The DOUBLE_* defines were deprecated in R 4.2.0
 #define DOUBLE_DIGITS  DBL_MANT_DIG
 #define DOUBLE_EPS     DBL_EPSILON
 #define DOUBLE_XMAX    DBL_MAX

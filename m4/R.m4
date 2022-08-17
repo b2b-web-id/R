@@ -1,6 +1,6 @@
 ### R.m4 -- extra macros for configuring R		-*- Autoconf -*-
 ###
-### Copyright (C) 1998-2020 R Core Team
+### Copyright (C) 1998-2022 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -1327,11 +1327,10 @@ dnl we don't use AC_LANG_xx because ObjC++ is not defined as a language (yet)
 dnl (the test program is from the gcc test suite)
 dnl but it needed an #undef (PR#15107)
 cat << \EOF > conftest.mm
-#undef __OBJC2__
-#include <objc/Object.h>
+#include <Foundation/Foundation.h>
 #include <iostream>
 
-@interface Greeter : Object
+@interface Greeter : NSObject
 - (void) greet: (const char *)msg;
 @end
 
@@ -2744,9 +2743,9 @@ if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_
   ## Also, to be defensive there should be a similar test with SHLIB_LD
   ## and SHLIB_LDFLAGS (and note that on HP-UX with native cc we have to
   ## use ld for SHLIB_LD) ...
-  if ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} -o conftest${ac_exeext} \
-       conftest.${ac_objext} conftestf.${ac_objext} ${FLIBS} \
-       ${LIBM} ${BLAS_LIBS} 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD;
+  if ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+      -o conftest${ac_exeext} conftest.${ac_objext} conftestf.${ac_objext} \
+      ${BLAS_LIBS} ${FLIBS} ${LIBM} 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD;
   ## </NOTE>
   then
     ## redirect error messages to config.log
@@ -2961,9 +2960,9 @@ if ${CC} ${CPPFLAGS} ${CFLAGS} -c conftest.c 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_
   ## Also, to be defensive there should be a similar test with SHLIB_LD
   ## and SHLIB_LDFLAGS (and note that on HP-UX with native cc we have to
   ## use ld for SHLIB_LD) ...
-  if ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} -o conftest${ac_exeext} \
-       conftest.${ac_objext} ${FLIBS} \
-       ${LIBM} ${BLAS_LIBS} 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD;
+  if ${CC} ${CPPFLAGS} ${CFLAGS} ${LDFLAGS} ${MAIN_LDFLAGS} \
+       -o conftest${ac_exeext} conftest.${ac_objext} \
+       ${BLAS_LIBS} ${FLIBS} ${LIBM} 1>&AS_MESSAGE_LOG_FD 2>&AS_MESSAGE_LOG_FD;
   ## </NOTE>
   then
     r_cv_complete_blas=yes
@@ -3207,10 +3206,10 @@ int main() {
 #endif
 }
 ]])], [r_cv_have_pcre832=yes], [r_cv_have_pcre832=no], [r_cv_have_pcre832=no])])
-fi
 if test "x${r_cv_have_pcre832}" != xyes; then
   have_pcre=no
   LIBS="${r_save_LIBS}"
+fi
 fi
 else
   have_pcre=no
@@ -4255,7 +4254,7 @@ if test -n "${CURL_CONFIG}"; then
   ## This should be correct for a static-only build, user will
   ## need to override to specify static linking (see config.site)
   ## SU: No, it's not, unfortunately, we have to use --static-libs
-  ## for static-only builds on macOS as those provide incomplete flags with --libs
+  ## for static-only builds as those provide incomplete flags with --libs
   if test -z "${CURL_LIBS}"; then
     if test x`${CURL_CONFIG} --built-shared` = xno; then
       CURL_LIBS=`${CURL_CONFIG} --static-libs`

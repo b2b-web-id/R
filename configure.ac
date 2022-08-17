@@ -2,7 +2,7 @@
 ###
 ### Process this file with autoconf to produce a configure script.
 ###
-### Copyright (C) 1998-2021 R Core Team
+### Copyright (C) 1998-2022 R Core Team
 ###
 ### This file is part of R.
 ###
@@ -412,14 +412,12 @@ AC_ARG_WITH([blas],
 [AS_HELP_STRING([--with-blas],[use system BLAS library (if available), or specify it @<:@no@:>@])],
 [R_ARG_USE(blas)],
 [use_blas=unset])
-# default is "no" except on macOS
 
 ## LAPACK.
 AC_ARG_WITH([lapack],
 [AS_HELP_STRING([--with-lapack],[use system LAPACK library (if available), or specify it @<:@no@:>@])],
 [R_ARG_USE(lapack)],
 [use_lapack=unset])
-# default is "no" except on macOS
 
 ## Readline.
 AC_ARG_WITH([readline],
@@ -885,8 +883,9 @@ if test "${use_readline}" = yes; then
     ## only need ncurses if libreadline is not statically linked against it
     unset ac_cv_lib_readline_rl_callback_read_char
     AC_CHECK_LIB(ncurses, main, [],
-                 AC_CHECK_LIB(termcap, main, [],
-                              AC_CHECK_LIB(termlib, main)))
+                 AC_CHECK_LIB(tinfo, main, [],
+                              AC_CHECK_LIB(termcap, main, [],
+                                           AC_CHECK_LIB(termlib, main))))
     AC_CHECK_LIB(readline, rl_callback_read_char)
     use_readline="${ac_cv_lib_readline_rl_callback_read_char}"
     if test "${use_readline}" = yes; then
@@ -1316,7 +1315,8 @@ if test "${GCC}" = yes; then
 ## has 32k and so can use -fpic.
 ## However, although the gcc docs do not mention it, it seems s390/s390x
 ## also supports and needs -fPIC
-    sparc*|ppc64*|powerpc64*|s390*)
+## See <https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1004747> for alpha.
+    alpha*|sparc*|ppc64*|powerpc64*|s390*)
       cpicflags="-fPIC"
       ;;
     *)
@@ -1327,7 +1327,7 @@ if test "${GCC}" = yes; then
 fi
 if test "${ac_cv_fc_compiler_gnu}" = yes; then
   case "${host_cpu}" in
-    sparc*|ppc64*|powerpc64*|s390*)
+    alpha*|sparc*|ppc64*|powerpc64*|s390*)
       fpicflags="-fPIC"
       ;;
     *)
@@ -1343,7 +1343,7 @@ case "${FC}" in
 esac
 if test "${GXX}" = yes; then
   case "${host_cpu}" in
-    sparc*|ppc64*|powerpc64*|s390*)
+    alpha*|sparc*|ppc64*|powerpc64*|s390*)
       cxxpicflags="-fPIC"
       ;;
     *)
@@ -2935,6 +2935,8 @@ if test "${acx_blas_ok}" = "yes"; then
     *sunperf*) r_blas=SunPerf ;;
     *-lessl*)  r_blas=ESSL ;;
     *Accelerate*)  r_blas=Accelerate ;;
+    *-lfexiblas*)  r_blas=FlexiBlas ;;
+    *-lblis*)  r_blas=BLIS ;;
     "")        r_blas=none ;;
     *)         r_blas=generic ;;
   esac

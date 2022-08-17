@@ -170,7 +170,7 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 		## avoid conversion to guillemets
 		x <- fsub("<<", "<{}<", x)
 		x <- fsub(">>", ">{}>", x)
-		x <- fsub(",,", ",{},", x) # ,, is a ligature in the ae font.
+		x <- fsub(",,", ",{},", x) # ,, is a ligature in the ec and lmodern fonts.
 		## cat(sprintf("\ntexify out: '%s'\n", x))
 	    }
 	}
@@ -316,6 +316,10 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 
     writeAlias <- function(block, tag) {
         alias <- as.character(block)
+        if(length(alias) > 1L)
+            stop("alias:\n",
+                 sQuote(paste(alias, collapse = "\n")),
+                 "\nis not one line")
         aa <- "\\aliasA{"
         ## Some versions of hyperref (from 6.79d) have trouble indexing these
         ## |, || in base, |.bit, %||% in ggplot2 ...
@@ -403,9 +407,9 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
 	       	          },
 
                "\\verb"= {
-                   of0("\\AsIs{")
+                   of0("\\AsIs{\\texttt{")
                    writeContent(block, tag)
-                   of1("}")
+                   of1("}}")
                },
                "\\special"= writeContent(block, tag), ## FIXME, verbatim?
                "\\linkS4class" =,
@@ -438,9 +442,11 @@ Rd2latex <- function(Rd, out = "", defines = .Platform$OS.type,
                	   of0('}{')
                	   if (length(block) > 1L) {
 		       includeoptions <- .Rd_get_latex(block[[2]])
-		       if (length(includeoptions)
-			   && startsWith(includeoptions, "options: "))
-			   of0(sub("^options: ", "", includeoptions))
+                       ## this was wrong if length(includeopptions) > 1
+		       if (length(includeoptions))
+                           for (z in includeoptions)
+                               if(startsWith(z, "options: "))
+                                   of0(sub("^options: ", "", z))
                    }
                	   of0('}')
                	   hasFigures <<- TRUE

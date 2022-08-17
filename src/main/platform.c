@@ -345,6 +345,37 @@ const char attribute_hidden *R_nativeEncoding(void)
     return native_enc;
 }
 
+#ifdef Win32
+static int defaultLocaleACP(const char *ctype)
+{
+    wchar_t wdefaultCP[6];
+    size_t n, r;
+    char defaultCP[6];
+
+    n = strlen(ctype) + 1;
+    wchar_t wctype[n];
+    r = mbstowcs(wctype, ctype, n);
+    if (r == (size_t)-1 || r >= n)
+	return 0;
+
+    /* It is not clear from the Microsoft documentation that GetLocaleInfoEx
+       accepts all locale names returned by setlocale(). Hopefully this will
+       get clarified. */
+    if (!GetLocaleInfoEx(wctype, LOCALE_IDEFAULTANSICODEPAGE, wdefaultCP,
+                         sizeof(wdefaultCP)))
+	return 0;
+
+    n = wcslen(wctype) + 1;
+    r = wcstombs(defaultCP, wdefaultCP, n);
+    if (r == (size_t)-1 || r >= n)
+	return 0;
+	     
+    if (!isdigit(defaultCP[0]))
+	return 0;
+    return atoi(defaultCP);
+}
+#endif
+
 /* retrieves information about the current locale and
    sets the corresponding variables (known_to_be_utf8,
    known_to_be_latin1, utf8locale, latin1locale and mbcslocale) */
@@ -402,14 +433,17 @@ void attribute_hidden R_check_locale(void)
     {
 	char *ctype = setlocale(LC_CTYPE, NULL), *p;
 	p = strrchr(ctype, '.');
+	localeCP = 0;
 	if (p) {
 	    if (isdigit(p[1]))
 		localeCP = atoi(p+1);
 	    else if (!strcasecmp(p+1, "UTF-8") || !strcasecmp(p+1, "UTF8"))
 		localeCP = 65001;
-	    else
-		localeCP = 0;
-	}
+	} else if (strcmp(ctype, "C"))
+	    /* setlocale() will fill in the codepage automatically for
+	       "English", but not "en-US" */
+	    localeCP = defaultLocaleACP(ctype);
+
 	/* Not 100% correct, but CP1252 is a superset */
 	known_to_be_latin1 = latin1locale = (localeCP == 1252);
 	known_to_be_utf8 = utf8locale = (localeCP == 65001);
@@ -422,10 +456,6 @@ void attribute_hidden R_check_locale(void)
 	}
 	systemCP = GetACP();
     }
-#endif
-#if defined(SUPPORT_UTF8_WIN32) /* never at present */
-    utf8locale = mbcslocale = TRUE;
-    strcpy(native_enc, "UTF-8");
 #endif
 }
 
@@ -520,19 +550,18 @@ SEXP attribute_hidden do_fileshow(SEXP call, SEXP op, SEXP args, SEXP rho)
  *  the second set of files to be appended to the first.
  */
 
-#if defined(BUFSIZ) && (BUFSIZ > 512)
-/* OS's buffer size in stdio.h, probably.
-   Windows has 512, Solaris 1024, glibc 8192
- */
-# define APPENDBUFSIZE BUFSIZ
+/* Coreutils use 128K (with some adjustments based on st_blksize
+   and file size). Python uses 1M for Windows and 64K for other platforms.
+   R 4.1 and earlier used min(BUFSIZ, 512), increased in R 4.2 (PR#18245). */
+#ifdef Win32
+# define APPENDBUFSIZE (1024*1024)
 #else
-# define APPENDBUFSIZE 512
+# define APPENDBUFSIZE (128*1024)
 #endif
 
 static int R_AppendFile(SEXP file1, SEXP file2)
 {
     FILE *fp1, *fp2;
-    char buf[APPENDBUFSIZE];
     size_t nchar;
     int status = 0;
     if ((fp1 = RC_fopen(file1, "ab", TRUE)) == NULL) return 0;
@@ -540,11 +569,18 @@ static int R_AppendFile(SEXP file1, SEXP file2)
 	fclose(fp1);
 	return 0;
     }
+    char *buf = (char *)malloc(APPENDBUFSIZE);
+    if (!buf) {
+	fclose(fp1);
+	fclose(fp2);
+	error("could not allocate copy buffer");
+    }
     while ((nchar = fread(buf, 1, APPENDBUFSIZE, fp2)) == APPENDBUFSIZE)
 	if (fwrite(buf, 1, APPENDBUFSIZE, fp1) != APPENDBUFSIZE) goto append_error;
     if (fwrite(buf, 1, nchar, fp1) != nchar) goto append_error;
     status = 1;
  append_error:
+    free(buf);
     if (status == 0) warning(_("write error during file append"));
     fclose(fp1);
     fclose(fp2);
@@ -573,7 +609,6 @@ SEXP attribute_hidden do_fileappend(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (int i = 0; i < n; i++) LOGICAL(ans)[i] = 0;  /* all FALSE */
     if (n1 == 1) { /* common case */
 	FILE *fp1, *fp2;
-	char buf[APPENDBUFSIZE];
 	int status = 0;
 	size_t nchar;
 	if (STRING_ELT(f1, 0) == NA_STRING ||
@@ -583,10 +618,22 @@ SEXP attribute_hidden do_fileappend(SEXP call, SEXP op, SEXP args, SEXP rho)
 	    status = 0;
 	    if (STRING_ELT(f2, i) == NA_STRING ||
 	       !(fp2 = RC_fopen(STRING_ELT(f2, i), "rb", TRUE))) continue;
+	    char *buf = (char *)malloc(APPENDBUFSIZE);
+	    if (!buf) {
+		fclose(fp1);
+		fclose(fp2);
+		error("could not allocate copy buffer");
+	    }
 	    while ((nchar = fread(buf, 1, APPENDBUFSIZE, fp2)) == APPENDBUFSIZE)
-		if (fwrite(buf, 1, APPENDBUFSIZE, fp1) != APPENDBUFSIZE)
+		if (fwrite(buf, 1, APPENDBUFSIZE, fp1) != APPENDBUFSIZE) {
+		    free(buf);
 		    goto append_error;
-	    if (fwrite(buf, 1, nchar, fp1) != nchar) goto append_error;
+		}
+	    if (fwrite(buf, 1, nchar, fp1) != nchar) {
+		free(buf);
+		goto append_error;
+	    }
+	    free(buf);
 	    status = 1;
 	append_error:
 	    if (status == 0)
@@ -1221,6 +1268,7 @@ SEXP attribute_hidden do_direxists(SEXP call, SEXP op, SEXP args, SEXP rho)
 # include <ndir.h>
 #endif
 
+// A filenamw cannot be that long, but avoid GCC warnings
 #define CBUFSIZE 2*PATH_MAX+1
 static SEXP filename(const char *dir, const char *file)
 {
@@ -1255,7 +1303,6 @@ list_files(const char *dnp, const char *stem, int *count, SEXP *pans,
     DIR *dir;
     struct dirent *de;
     char p[PATH_MAX], stem2[PATH_MAX];
-    int res;
 #ifdef Windows
     /* > 2GB files might be skipped otherwise */
     struct _stati64 sb;
@@ -1268,12 +1315,15 @@ list_files(const char *dnp, const char *stem, int *count, SEXP *pans,
 	    if (allfiles || !R_HiddenFile(de->d_name)) {
 		Rboolean not_dot = strcmp(de->d_name, ".") && strcmp(de->d_name, "..");
 		if (recursive) {
+		    int res;
 #ifdef Win32
 		    if (strlen(dnp) == 2 && dnp[1] == ':') // e.g. "C:"
-			snprintf(p, PATH_MAX, "%s%s", dnp, de->d_name);
+			res = snprintf(p, PATH_MAX, "%s%s", dnp, de->d_name);
 		    else
 #endif
-			snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
+			res = snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
+		    if (res >= PATH_MAX) 
+			warning(_("over-long path"));
 
 #ifdef Windows
 		    res = _stati64(p, &sb);
@@ -1297,12 +1347,14 @@ list_files(const char *dnp, const char *stem, int *count, SEXP *pans,
 			    if (stem) {
 #ifdef Win32
 				if(strlen(stem) == 2 && stem[1] == ':')
-				    snprintf(stem2, PATH_MAX, "%s%s", stem,
+				    res = snprintf(stem2, PATH_MAX, "%s%s", stem,
 					     de->d_name);
 				else
 #endif
-				    snprintf(stem2, PATH_MAX, "%s%s%s", stem,
+				    res = snprintf(stem2, PATH_MAX, "%s%s%s", stem,
 					     R_FileSep, de->d_name);
+				if (res >= PATH_MAX)
+				    warning(_("over-long path"));
 			    } else
 				strcpy(stem2, de->d_name);
 
@@ -1389,7 +1441,6 @@ static void list_dirs(const char *dnp, const char *nm,
     DIR *dir;
     struct dirent *de;
     char p[PATH_MAX];
-    int res;
 #ifdef Windows
     /* > 2GB files might be skipped otherwise */
     struct _stati64 sb;
@@ -1407,14 +1458,17 @@ static void list_dirs(const char *dnp, const char *nm,
 	    SET_STRING_ELT(*pans, (*count)++, mkChar(full ? dnp : nm));
 	}
 	while ((de = readdir(dir))) {
+	    int res;
 #ifdef Win32
 	    if (strlen(dnp) == 2 && dnp[1] == ':')
-		snprintf(p, PATH_MAX, "%s%s", dnp, de->d_name);
+		res = snprintf(p, PATH_MAX, "%s%s", dnp, de->d_name);
 	    else
-		snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
+		res = snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
 #else
-	    snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
+	    res = snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
 #endif
+	    if (res >= PATH_MAX)
+		warning(_("over-long path"));
 #ifdef Windows
 	    res = _stati64(p, &sb);
 #else
@@ -1424,8 +1478,10 @@ static void list_dirs(const char *dnp, const char *nm,
 		if (strcmp(de->d_name, ".") && strcmp(de->d_name, "..")) {
 		    if(recursive) {
 			char nm2[PATH_MAX];
-			snprintf(nm2, PATH_MAX, "%s%s%s", nm, R_FileSep,
+			res = snprintf(nm2, PATH_MAX, "%s%s%s", nm, R_FileSep,
 				 de->d_name);
+			if (res >= PATH_MAX)
+			    warning(_("over-long path"));
 			list_dirs(p, nm[0] ? nm2 : de->d_name, full, count,
 				  pans, countmax, idx, recursive);
 
@@ -1515,7 +1571,11 @@ SEXP attribute_hidden do_fileexists(SEXP call, SEXP op, SEXP args, SEXP rho)
 #else
 	    // returns NULL if not translatable
 	    const char *p = translateCharFP2(STRING_ELT(file, i));
-	    LOGICAL(ans)[i] = p && R_FileExists(p);
+	    /* Package XML sends arbitrarily long strings to file.exists! */
+	    if (!p || strlen(p) > PATH_MAX)
+		LOGICAL(ans)[i] = FALSE;
+	    else
+		LOGICAL(ans)[i] = R_FileExists(p);
 #endif
 	} else LOGICAL(ans)[i] = FALSE;
     }
@@ -1586,9 +1646,17 @@ SEXP attribute_hidden do_fileaccess(SEXP call, SEXP op, SEXP args, SEXP rho)
 static int R_rmdir(const wchar_t *dir)
 {
     wchar_t tmp[MAX_PATH];
-    GetShortPathNameW(dir, tmp, MAX_PATH);
-    //printf("removing directory %ls\n", tmp);
-    return _wrmdir(tmp);
+    DWORD res = 0;
+    /* FIXME: GetShortPathName is probably not needed here anymore. */
+    res = GetShortPathNameW(dir, tmp, MAX_PATH);
+    if (res == 0) 
+	/* GetShortPathName mail fail if there are insufficient permissions
+	   on a component of the path. */
+        return _wrmdir(dir);
+    else
+	/* Even when GetShortPathName succeeds, "tmp" may be the long name,
+	   because short names may not be enabled/available. */
+        return _wrmdir(tmp);
 }
 
 /* Junctions and symbolic links are fundamentally reparse points, so
@@ -1596,11 +1664,10 @@ static int R_rmdir(const wchar_t *dir)
 static int isReparsePoint(const wchar_t *name)
 {
     DWORD res = GetFileAttributesW(name);
-    if(res == INVALID_FILE_ATTRIBUTES) {
-	warning("cannot get info on '%ls', reason '%s'",
-		name, formatError(GetLastError()));
+    if(res == INVALID_FILE_ATTRIBUTES)
+	/* Do not warn, because this function is also used for files that don't
+	   exist. R_WFileExists may return false for broken symbolic links. */
 	return 0;
-    }
     // printf("%ls: %x\n", name, res);
     return res & FILE_ATTRIBUTE_REPARSE_POINT;
 }
@@ -1636,10 +1703,16 @@ static int R_unlink(const wchar_t *name, int recursive, int force)
     R_CheckStack(); // called recursively
     if (wcscmp(name, L".") == 0 || wcscmp(name, L"..") == 0) return 0;
     //printf("R_unlink(%ls)\n", name);
-    if (!R_WFileExists(name)) return 0;
-    if (force) _wchmod(name, _S_IWRITE);
+    /* We cannot use R_WFileExists here since it is false for broken
+       symbolic links
+       if (!R_WFileExists(name)) return 0; */
+    int name_exists = (GetFileAttributesW(name) != INVALID_FILE_ATTRIBUTES);
+    if (name_exists && force)
+	_wchmod(name, _S_IWRITE);
+    if (name_exists && isReparsePoint(name))
+	return delReparsePoint(name);
 
-    if (recursive) {
+    if (name_exists && recursive) {
 	_WDIR *dir;
 	struct _wdirent *de;
 	wchar_t p[PATH_MAX];
@@ -1649,8 +1722,7 @@ static int R_unlink(const wchar_t *name, int recursive, int force)
 	_wstati64(name, &sb);
 	/* We need to test for a junction first, as junctions
 	   are detected as directories. */
-	if (isReparsePoint(name)) ans += delReparsePoint(name);
-	else if ((sb.st_mode & S_IFDIR) > 0) { /* a directory */
+	if ((sb.st_mode & S_IFDIR) > 0) { /* a directory */
 	    if ((dir = _wopendir(name)) != NULL) {
 		while ((de = _wreaddir(dir))) {
 		    if (!wcscmp(de->d_name, L".") || !wcscmp(de->d_name, L".."))
@@ -1682,9 +1754,11 @@ static int R_unlink(const wchar_t *name, int recursive, int force)
 	    return ans;
 	}
 	/* drop through */
-    } else if (isReparsePoint(name)) return delReparsePoint(name);
+    }
 
-    return _wunlink(name) == 0 ? 0 : 1;
+    int unlink_succeeded = (_wunlink(name) == 0);
+    /* We want to return 0 if either unlink succeeded or 'name' did not exist */
+    return (unlink_succeeded || !name_exists) ? 0 : 1;
 }
 
 void R_CleanTempDir(void)
@@ -1724,11 +1798,14 @@ static int R_unlink(const char *name, int recursive, int force)
 		    if (streql(de->d_name, ".") || streql(de->d_name, ".."))
 			continue;
 		    size_t n = strlen(name);
+		    int pres;
 		    if (name[n] == R_FileSep[0])
-			snprintf(p, PATH_MAX, "%s%s", name, de->d_name);
+			pres = snprintf(p, PATH_MAX, "%s%s", name, de->d_name);
 		    else
-			snprintf(p, PATH_MAX, "%s%s%s", name, R_FileSep,
+			pres = snprintf(p, PATH_MAX, "%s%s%s", name, R_FileSep,
 				 de->d_name);
+		    if (pres >= PATH_MAX)
+			error(_("path too long"));
 		    lstat(p, &sb);
 		    if ((sb.st_mode & S_IFDIR) > 0) { /* a directory */
 			if (force) chmod(p, sb.st_mode | S_IWUSR | S_IXUSR);
@@ -2000,9 +2077,20 @@ SEXP attribute_hidden do_setlocale(SEXP call, SEXP op, SEXP args, SEXP rho)
 	warning(_("OS reports request to set locale to \"%s\" cannot be honored"),
 		CHAR(STRING_ELT(locale, 0)));
     }
-    UNPROTECT(1);
+#ifdef Win32
+    int oldCP = localeCP;
+#endif
     R_check_locale();
+#ifdef Win32
+    if (localeCP && systemCP != localeCP && oldCP != localeCP) {
+	/* For now, don't warn for localeCP == 0, but it can cause problems
+	   as well. Keep in step with main.c. */
+	warning(_("using locale code page other than %d%s may cause problems"),
+	    systemCP, systemCP == 65001 ? " (\"UTF-8\")" : "");
+    }
+#endif
     invalidate_cached_recodings();
+    UNPROTECT(1);
     return ans;
 }
 
@@ -2224,7 +2312,7 @@ SEXP attribute_hidden do_capabilities(SEXP call, SEXP op, SEXP args, SEXP rho)
     LOGICAL(ans)[i++] = TRUE;
 
     SET_STRING_ELT(ansnames, i, mkChar("libxml"));
-    LOGICAL(ans)[i++] = TRUE;
+    LOGICAL(ans)[i++] = FALSE;
 
     SET_STRING_ELT(ansnames, i, mkChar("fifo"));
 #if (defined(HAVE_MKFIFO) && defined(HAVE_FCNTL_H)) || defined(_WIN32)
@@ -2285,7 +2373,7 @@ SEXP attribute_hidden do_capabilities(SEXP call, SEXP op, SEXP args, SEXP rho)
 {
     /* This is true iff winCairo.dll is available */
     struct stat sb;
-    char path[1000];
+    char path[1000]; // R_HomeDir() should be at most 260 chars
     snprintf(path, 1000, "%s/library/grDevices/libs/%s/winCairo.dll",
 	     R_HomeDir(), R_ARCH);
     LOGICAL(ans)[i++] = stat(path, &sb) == 0;
@@ -2548,7 +2636,6 @@ static int do_copy(const wchar_t* from, const wchar_t* name, const wchar_t* to,
 	if(dates) copyFileTime(this, dest);
     } else { /* a file */
 	FILE *fp1 = NULL, *fp2 = NULL;
-	wchar_t buf[APPENDBUFSIZE];
 
 	nfail = 0;
 	int nc = wcslen(to);
@@ -2566,15 +2653,24 @@ static int do_copy(const wchar_t* from, const wchar_t* name, const wchar_t* to,
 		nfail++;
 		goto copy_error;
 	    }
+	    wchar_t *buf = (wchar_t *)malloc(APPENDBUFSIZE * sizeof(wchar_t));
+	    if (!buf) {
+		fclose(fp1);
+		fclose(fp2);
+		error("could not allocate copy buffer");
+	    }
 	    while ((nc = fread(buf, 1, APPENDBUFSIZE, fp1)) == APPENDBUFSIZE)
 		if (    fwrite(buf, 1, APPENDBUFSIZE, fp2)  != APPENDBUFSIZE) {
 		    nfail++;
+		    free(buf);
 		    goto copy_error;
 		}
 	    if (fwrite(buf, 1, nc, fp2) != nc) {
 		nfail++;
+		free(buf);
 		goto copy_error;
 	    }
+	    free(buf);
 	} else if (!over) {
 	    nfail++;
 	    goto copy_error;
@@ -2729,7 +2825,9 @@ static int do_copy(const char* from, const char* name, const char* to,
 	return 1;
     }
     struct stat sb;
-    int nfail = 0, res;
+    int nfail = 0, res; // we only use nfail == 0
+    size_t len;
+    // After POSIX clarification, PATH_MAX would do
     char dest[PATH_MAX + 1], this[PATH_MAX + 1];
 
     int mask;
@@ -2740,11 +2838,13 @@ static int do_copy(const char* from, const char* name, const char* to,
     mask = 0777;
 #endif
     /* REprintf("from: %s, name: %s, to: %s\n", from, name, to); */
-    if (strlen(from) + strlen(name) >= PATH_MAX) {
+    // We use snprintf to compute lengths to pacify GCC 12
+    len = snprintf(NULL, 0, "%s%s", from, name);
+    if (len >= PATH_MAX) {
 	warning(_("over-long path"));
 	return 1;
     }
-    snprintf(this, PATH_MAX+1, "%s%s", from, name);
+    snprintf(this, len+1, "%s%s", from, name);
     /* Here we want the target not the link */
     stat(this, &sb);
     if ((sb.st_mode & S_IFDIR) > 0) { /* a directory */
@@ -2753,11 +2853,12 @@ static int do_copy(const char* from, const char* name, const char* to,
 	char p[PATH_MAX + 1];
 
 	if (!recursive) return 1;
-	if (strlen(to) + strlen(name) >= PATH_MAX) {
+	len = snprintf(NULL, 0, "%s%s", to, name);
+	if (len >= PATH_MAX) {
 	    warning(_("over-long path"));
 	    return 1;
 	}
-	snprintf(dest, PATH_MAX+1, "%s%s", to, name);
+	snprintf(dest, len+1, "%s%s", to, name);
 	/* If a directory does not have write permission for the user,
 	   we will fail to create files in that directory, so defer
 	   setting mode */
@@ -2784,12 +2885,13 @@ static int do_copy(const char* from, const char* name, const char* to,
 	    while ((de = readdir(dir))) {
 		if (streql(de->d_name, ".") || streql(de->d_name, ".."))
 		    continue;
-		if (strlen(name) + strlen(de->d_name) + 1 >= PATH_MAX) {
+		len = snprintf(NULL, 0, "%s/%s", name, de->d_name);
+		if (len >= PATH_MAX) {
 		    warning(_("over-long path"));
 		    closedir(dir);
 		    return 1;
 		}
-		snprintf(p, PATH_MAX+1, "%s/%s", name, de->d_name);
+		snprintf(p, len+1, "%s/%s", name, de->d_name);
 		nfail += do_copy(from, p, to, over, recursive,
 				 perms, dates, depth);
 	    }
@@ -2802,16 +2904,15 @@ static int do_copy(const char* from, const char* name, const char* to,
 	if(dates) copyFileTime(this, dest);
     } else { /* a file */
 	FILE *fp1 = NULL, *fp2 = NULL;
-	char buf[APPENDBUFSIZE];
 
 	nfail = 0;
-	size_t nc = strlen(to);
-	if (nc + strlen(name) >= PATH_MAX) {
+	len = snprintf(NULL, 0, "%s%s", to, name);
+	if (len >= PATH_MAX) {
 	    warning(_("over-long path"));
 	    nfail++;
 	    goto copy_error;
 	}
-	snprintf(dest, PATH_MAX+1, "%s%s", to, name);
+	snprintf(dest, len+1, "%s%s", to, name);
 	if (over || !R_FileExists(dest)) {
 	    /* REprintf("copying %s to %s\n", this, dest); */
 	    if ((fp1 = R_fopen(this, "rb")) == NULL ||
@@ -2821,15 +2922,25 @@ static int do_copy(const char* from, const char* name, const char* to,
 		nfail++;
 		goto copy_error;
 	    }
+	    char *buf = (char *)malloc(APPENDBUFSIZE);
+	    if (!buf) {
+		fclose(fp1);
+		fclose(fp2);
+		error("could not allocate copy buffer");
+	    }
+	    size_t nc;
 	    while ((nc = fread(buf, 1, APPENDBUFSIZE, fp1)) == APPENDBUFSIZE)
 		if (    fwrite(buf, 1, APPENDBUFSIZE, fp2)  != APPENDBUFSIZE) {
 		    nfail++;
+		    free(buf);
 		    goto copy_error;
 		}
 	    if (fwrite(buf, 1, nc, fp2) != nc) {
 		nfail++;
+		free(buf);
 		goto copy_error;
 	    }
+	    free(buf);
 	} else if (!over) {
 	    nfail++;
 	    goto copy_error;
