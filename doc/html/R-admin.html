@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
-<!-- This manual is for R, version 4.2.0 (2022-04-22).
+<!-- This manual is for R, version 4.2.1 (2022-06-23).
 
 Copyright (C) 2001-2022 R Core Team
 
@@ -253,7 +253,7 @@ p {
       <li><a id="toc-BLAS-1" href="#BLAS">A.3.1 BLAS</a>
       <ul class="no-bullet">
         <li><a id="toc-ATLAS-1" href="#ATLAS">A.3.1.1 ATLAS</a></li>
-        <li><a id="toc-OpenBLAS-and-BLIS" href="#OpenBLAS">A.3.1.2 OpenBLAS and BLIS</a></li>
+        <li><a id="toc-OpenBLAS-and-BLIS-1" href="#OpenBLAS-and-BLIS">A.3.1.2 OpenBLAS and BLIS</a></li>
         <li><a id="toc-Intel-MKL" href="#MKL">A.3.1.3 Intel MKL</a></li>
         <li><a id="toc-Shared-BLAS-1" href="#Shared-BLAS">A.3.1.4 Shared BLAS</a></li>
       </ul></li>
@@ -290,20 +290,19 @@ p {
     <ul class="no-bullet">
       <li><a id="toc-Prerequisites-1" href="#Prerequisites">C.3.1 Prerequisites</a>
       <ul class="no-bullet">
-        <li><a id="toc-Note-for-Catalina-and-later-users-1" href="#Note-for-Catalina-and-later-users">C.3.1.1 Note for Catalina and later users</a></li>
+        <li><a id="toc-Note-for-Catalina-and-later-1" href="#Note-for-Catalina-and-later">C.3.1.1 Note for Catalina and later</a></li>
       </ul></li>
-      <li><a id="toc-Cairo-graphics-1" href="#Cairo-graphics">C.3.2 Cairo graphics</a></li>
-      <li><a id="toc-Other-C_002fC_002b_002b-compilers-1" href="#Other-C_002fC_002b_002b-compilers">C.3.3 Other C/C++ compilers</a></li>
-      <li><a id="toc-Other-libraries-1" href="#Other-libraries">C.3.4 Other libraries</a></li>
-      <li><a id="toc-Tcl_002fTk-headers-and-libraries-1" href="#Tcl_002fTk-headers-and-libraries">C.3.5 Tcl/Tk headers and libraries</a></li>
-      <li><a id="toc-Java" href="#Java-_0028macOS_0029">C.3.6 Java</a></li>
-      <li><a id="toc-Frameworks-1" href="#Frameworks">C.3.7 Frameworks</a></li>
-      <li><a id="toc-Building-R_002eapp-1" href="#Building-R_002eapp">C.3.8 Building R.app</a></li>
-      <li><a id="toc-Building-binary-packages-1" href="#Building-binary-packages">C.3.9 Building binary packages</a></li>
-      <li><a id="toc-arm64-aka-_0060Apple-Silicon_0027" href="#g_t_0060Apple-Silicon_0027">C.3.10 &lsquo;<samp>arm64</samp>&rsquo; aka &lsquo;Apple Silicon&rsquo;</a>
-      <ul class="no-bullet">
-        <li><a id="toc-Native-builds-1" href="#Native-builds">C.3.10.1 Native builds</a></li>
-      </ul></li>
+      <li><a id="toc-Fortran-compilers-1" href="#Fortran-compilers">C.3.2 Fortran compilers</a></li>
+      <li><a id="toc-Cairo-graphics-1" href="#Cairo-graphics">C.3.3 Cairo graphics</a></li>
+      <li><a id="toc-Other-C_002fC_002b_002b-compilers-1" href="#Other-C_002fC_002b_002b-compilers">C.3.4 Other C/C++ compilers</a></li>
+      <li><a id="toc-Other-libraries-1" href="#Other-libraries">C.3.5 Other libraries</a></li>
+      <li><a id="toc-Tcl_002fTk-headers-and-libraries-1" href="#Tcl_002fTk-headers-and-libraries">C.3.6 Tcl/Tk headers and libraries</a></li>
+      <li><a id="toc-Java" href="#Java-_0028macOS_0029">C.3.7 Java</a></li>
+      <li><a id="toc-Frameworks-1" href="#Frameworks">C.3.8 Frameworks</a></li>
+      <li><a id="toc-Building-R_002eapp-1" href="#Building-R_002eapp">C.3.9 Building R.app</a></li>
+      <li><a id="toc-Building-binary-packages-1" href="#Building-binary-packages">C.3.10 Building binary packages</a></li>
+      <li><a id="toc-Building-for-Intel-on-arm64-1" href="#Building-for-Intel-on-arm64">C.3.11 Building for Intel on &lsquo;<samp>arm64</samp>&rsquo;</a></li>
+      <li><a id="toc-Installer-1" href="#Installer">C.3.12 Installer</a></li>
     </ul></li>
     <li><a id="toc-FreeBSD-1" href="#FreeBSD">C.4 FreeBSD</a></li>
     <li><a id="toc-OpenBSD-1" href="#OpenBSD">C.5 OpenBSD</a></li>
@@ -321,7 +320,7 @@ p {
 
 <p>This is a guide to installation and administration for R.
 </p>
-<p>This manual is for R, version 4.2.0 (2022-04-22).
+<p>This manual is for R, version 4.2.1 (2022-06-23).
 </p>
 <p>Copyright &copy; 2001&ndash;2022 R Core Team
 </p>
@@ -569,7 +568,10 @@ non-UTF-8 non-Western-European locales.)  A failure in
 
 <p>see file <samp>tests/README</samp> and <a href="#Testing-a-Unix_002dalike-Installation">Testing a Unix-alike Installation</a>
 for the possibilities of doing this in parallel.  Note that these checks
-are only run completely if the recommended packages are installed.
+are only run completely if the recommended packages are installed.  If
+you have a local CRAN mirror, these checks can be speeded up by either
+setting environment variable <code>R_CRAN_WEB</code> to its URL, or having a
+file <samp>.R/repositories</samp> specifying it (see <code>?setRepositories</code>).
 </p>
 <p>If the <code>configure</code> and <code>make</code> commands execute
 successfully, a shell-script front-end called <samp>R</samp> will be created
@@ -891,13 +893,13 @@ specified on the <code>make install</code> command line (at least for
 <code>libdir</code>.  The C header files can be installed to the value of
 <code>rincludedir</code>: note that as the headers are not installed into a
 subdirectory you probably want something like
-<code>rincludedir=/usr/local/include/R-4.2.0</code>.
+<code>rincludedir=/usr/local/include/R-4.2.1</code>.
 </p>
 <p>If you want the R home to be something other than
 <samp><var>libdir</var>/R</samp>, use <samp>rhome</samp>: for example
 </p>
 <div class="example">
-<pre class="example">make install rhome=/usr/local/lib64/R-4.2.0
+<pre class="example">make install rhome=/usr/local/lib64/R-4.2.1
 </pre></div>
 
 <p>will use a version-specific R home on a non-Debian Linux 64-bit
@@ -1055,7 +1057,7 @@ architecture which is run.
 </p>
 <p>Sub-architectures are also used on Windows, but by selecting executables
 within the appropriate <samp>bin</samp> directory,
-<samp><var>R_HOME</var>/bin/i386</samp> or <samp><var>R_HOME</var>/bin/x64</samp>.  For
+<samp><var>R_HOME</var>/bin/x64</samp>.  For
 backwards compatibility there are executables
 <samp><var>R_HOME</var>/bin/R.exe</samp> and <samp><var>R_HOME</var>/bin/Rscript.exe</samp>:
 these will run an executable from one of the subdirectories, which one
@@ -1536,7 +1538,7 @@ conversion to short name equivalents (a.k.a. DOS 8.3 names), then R
 <em>must</em> be installed in a path that does not contain spaces.
 </p>
 <p>Installation is <em>via</em> the installer
-<samp>R-4.2.0-win.exe</samp>.  Just double-click on the icon and
+<samp>R-4.2.1-win.exe</samp>.  Just double-click on the icon and
 follow the instructions. You can uninstall R from the Control Panel.
 </p>
 <p>You will be asked to choose a language for installation: that choice
@@ -1696,33 +1698,19 @@ and run
 <p>[The rest of this paragraph is only relevant after release.]
 The front page of a <acronym>CRAN</acronym> site has a link &lsquo;Download R for (Mac)
 OS X&rsquo; which takes you to a new page. Two files are offered for download,
-<samp>R-4.2.0.pkg</samp> and <samp>R-4.2.0-arm64.pkg</samp>.
+<samp>R-4.2.1.pkg</samp> and <samp>R-4.2.1-arm64.pkg</samp>.
 The first runs on macOS 10.13 and later on &lsquo;<samp>x86_64</samp>&rsquo; (Intel) CPU
-(High Sierra, Mojave, Catalina, Big Sur, Monterey, &hellip;).  It can
-also be installed on &lsquo;<samp>arm64</samp>&rsquo; (aka &lsquo;Apple Silicon&rsquo; aka &lsquo;M1&rsquo;) CPUs
-running Big Sur or later using &lsquo;Rosetta&rsquo; emulation<a id="DOCF22" href="#FOOT22"><sup>22</sup></a>, as can <acronym>CRAN</acronym> binary packages.
-Package <samp>R-4.2.0-arm64.pkg</samp> is a &lsquo;native&rsquo; build for
-&lsquo;Apple Silicon&rsquo; Macs and runs <em>only</em> on those (under macOS 11 or
-later, Big Sur, Monterey, &hellip;).
+(High Sierra, Mojave, Catalina, Big Sur, Monterey, Ventura, &hellip;).  Package
+<samp>R-4.2.1-arm64.pkg</samp> is a &lsquo;native&rsquo; build for &lsquo;Apple
+Silicon&rsquo; (aka &lsquo;M1&rsquo;) Macs and runs on macOS 11 or later (Big Sur,
+Monterey, Ventura, &hellip;).
 </p>
-<p>Installers for R-patched and R-devel are usually available from
-<a href="https://mac.R-project.org">https://mac.R-project.org</a>.  (Some of these packages are
-unsigned/not notarized: to install those Control/right/two-finger click,
-select &lsquo;<samp>Open With</samp>&rsquo; and &lsquo;<samp>Installer</samp>&rsquo;.)
-</p>
-<p>For some older versions of the OS you can in principle (it is little
-tested) install R from the sources (see <a href="#macOS">macOS</a>).
-</p>
-<p>Those with a &lsquo;<samp>arm64</samp>&rsquo; Mac have a choice of build.  The
-&lsquo;<samp>x86_64</samp>&rsquo; build is a little better supported (for example, more
-binary packages are available from <acronym>CRAN</acronym> and only
-&lsquo;<samp>x86_64</samp>&rsquo; from some other repositories).  Rosetta emulation works
-really well, with a very few reports of problems with binary packages
-solved by re-compilation.  The &lsquo;native&rsquo; build is a little faster (and
-for some tasks, considerably so) but may give different numerical
-results from the far more common &lsquo;<samp>x86_64</samp>&rsquo; platforms (on macOS
-and other OSes) as ARM hardware lacks extended-precision floating-point
-operations.
+<p><samp>R-4.2.1.pkg</samp> also be installed on &lsquo;Apple Silicon&rsquo; CPUs
+using &lsquo;Rosetta&rsquo; emulation<a id="DOCF22" href="#FOOT22"><sup>22</sup></a>, but the native build is preferred.
+It is a little faster (and for some tasks, considerably so) but may give
+different numerical results from the more common &lsquo;<samp>x86_64</samp>&rsquo;
+platforms (on Windows, Linux, &hellip; as well as macOS) as ARM hardware
+lacks extended-precision floating-point operations.
 </p>
 <p>It is important that if you use a binary installer package that your OS
 is fully updated: look at &lsquo;Software Update&rsquo; in &rsquo;System Preferences&rsquo;
@@ -1758,8 +1746,15 @@ third-party packages (e.g. <a href="https://CRAN.R-project.org/package=rgl"><str
 perhaps XQuartz): the installer may tailor the installation to the
 current version of the OS.
 </p>
-<p>For building R from source, see <a href="#macOS">macOS</a>.
+<p>Installers for R-patched and R-devel are usually available from
+<a href="https://mac.R-project.org">https://mac.R-project.org</a>.  (Some of these packages may be
+unsigned/not notarized: to install those Control/right/two-finger click,
+select &lsquo;<samp>Open With</samp>&rsquo; and &lsquo;<samp>Installer</samp>&rsquo;.)
 </p>
+<p>For building R from source, see <a href="#macOS">macOS</a>.  This can in principle
+be done for some older versions of the OS (it is little tested).
+</p>
+
 
 
 <hr>
@@ -1871,7 +1866,8 @@ they installed in a Terminal by e.g.
 pkgutil --files org.r-project.x86_64.texinfo
 </pre></div>
 
-<p>These are paths relative to <samp>/</samp>, the root of the file system.
+<p>(For the &lsquo;Apple Silicon&rsquo; build, replace <code>x86_64</code> by <code>arm64</code>.)
+These are paths relative to <samp>/</samp>, the root of the file system.
 </p>
 
 
@@ -2261,9 +2257,9 @@ Entries which may need to be changed include &lsquo;<samp>CC</samp>&rsquo;, &lsq
 &lsquo;<samp>SHLIB_LD</samp>&rsquo;, as well as the &lsquo;<samp>CXX11</samp>&rsquo;, &lsquo;<samp>CXX14</samp>&rsquo;,
 &lsquo;<samp>CXX17</samp>&rsquo; and &lsquo;<samp>CXX20</samp>&rsquo; variants
 </p>
-<p>So for example on Mojave or later you could select a specific
-non-Apple build of <code>clang</code> for both C and C++ with extensive
-checking by having in <samp>~/.R/Makevars</samp>
+<p>So for example on Mojave or later you could select a specific LLVM
+<code>clang</code> for both C and C++ with extensive checking by having in
+<samp>~/.R/Makevars</samp>
 </p><div class="example">
 <pre class="example">CC = /usr/local/clang/bin/clang -isysroot
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
@@ -2674,24 +2670,9 @@ package from a tarball which has been tested on another platform one
 might use
 </p>
 <div class="example">
-<pre class="example">.../bin/i386/Rcmd INSTALL -l <var>libdir</var> <var>tarball</var> --build &gt; <var>pkg</var>.log 2&gt;&amp;1
-.../bin/i386/Rcmd check -l <var>libdir</var> --extra-arch --install=check:<var>pkg</var>.log <var>pkg</var>
-.../bin/x64/Rcmd check -l <var>libdir</var> --extra-arch --install=check:<var>pkg</var>.log <var>pkg</var>
+<pre class="example">.../bin/x64/Rcmd INSTALL -l <var>libdir</var> <var>tarball</var> --build &gt; <var>pkg</var>.log 2&gt;&amp;1
 </pre></div>
 
-<p>where one might want to run the second and third lines in a different
-shell with different settings for environment variables and the path (to
-find external software, notably for Gtk+).
-</p>
-<p><code>R CMD INSTALL</code> can do a <code>i386</code> install and then add the
-<code>x64</code> DLL from a single command by
-</p>
-<div class="example">
-<pre class="example">R CMD INSTALL --merge-multiarch -l <var>libdir</var> <var>tarball</var>
-</pre></div>
-
-<p>and <samp>--build</samp> can be added to zip up the installation.
-</p>
 <hr>
 <span id="Internationalization"></span><span id="Internationalization-and-Localization"></span><h2 class="chapter">7 Internationalization and Localization</h2>
 <span id="index-Internationalization"></span>
@@ -3375,7 +3356,8 @@ tell you what other libraries are required for linking, for example by
 <p>Option <samp>--with-system-tre</samp> is also available: it needs a recent
 version of TRE. (The latest sources are in the <code>git</code> repository
 at <a href="https://github.com/laurikari/tre/">https://github.com/laurikari/tre/</a>, but at the time of writing
-(2016) the resulting build did not pass its checks.).
+the resulting build did not complete its checks, nor did R built
+against the version supplied by Fedora.)
 </p>
 <p>An implementation of <acronym>XDR</acronym> is required, and the R sources
 contain one which is likely to suffice (although a system version may
@@ -3449,7 +3431,7 @@ the Tcl and Tk libraries and for finding the <samp>tcl.h</samp> and
 versions of Tcl/Tk installed, specifying the paths to the correct config
 files may be necessary to avoid confusion between them.
 </p>
-<p>Versions of Tcl/Tk up to 8.5.19 and 8.6.11 have been tested (including
+<p>Versions of Tcl/Tk up to 8.5.19 and 8.6.12 have been tested (including
 most versions of 8.4.x, but not recently).
 </p>
 <p>Note that the <samp>tk.h</samp> header includes<a id="DOCF66" href="#FOOT66"><sup>66</sup></a> X11 headers, so you will need X11 and its
@@ -3561,27 +3543,70 @@ these variables.
 <span id="index-BLAS-library"></span>
 
 
+<p>The linear algebra routines in R make use of <acronym>BLAS</acronym> (Basic
+Linear Algebra Subprograms, <a href="https://www.netlib.org/blas/faq.html">https://www.netlib.org/blas/faq.html</a>)
+routines, and most make use of routines from <acronym>LAPACK</acronym> (Linear
+Algebra PACKage, <a href="https://www.netlib.org/lapack">https://www.netlib.org/lapack</a>).  The R
+sources contain reference (Fortran) implementations of these, but they
+can be replaced by external libraries, usually those tuned for speed on
+specific CPUs.  These libraries normally contain all of the BLAS
+routines and some tuned LAPACK routines and perhaps the rest of LAPACK
+from the reference implementation.  Because of the way linking works,
+using an external BLAS library may necessitate using the version of
+LAPACK it contains.
+</p>
+<p>Note that the alternative implementations will not give identical
+numeric results.  Some differences may be benign (such the signs of SVDs
+and eigenvectors), but the optimized routines can be less accurate and
+(particularly for LAPACK) can be from older versions with fewer
+corrections.  However, R relies on
+<acronym>ISO</acronym>/<acronym>IEC</acronym>&nbsp;60559 compliance.  This can be broken
+if for example the code assumes that terms with a zero factor are always
+zero and do not need to be computed&mdash;whereas <code>x*0</code> can be
+<code>NaN</code>.  The internal BLAS has been extensively patched to avoid
+this whereas MKL&rsquo;s documentation has warned
+</p><blockquote>
+<p>LAPACK routines assume that input matrices do not contain IEEE 754
+special values such as INF or NaN values. Using these special values may
+cause LAPACK to return unexpected results or become unstable.
+</p></blockquote>
+
+<p>Some of the external libraries are multi-threaded.  One issue is
+that R profiling (which uses the <code>SIGPROF</code> signal) may cause
+problems, and you may want to disable profiling if you use a
+multi-threaded <acronym>BLAS</acronym>.  Note that using a multi-threaded
+<acronym>BLAS</acronym> can result in taking more <acronym>CPU</acronym> time and even
+more elapsed time (occasionally dramatically so) than using a similar
+single-threaded <acronym>BLAS</acronym>.  On a machine running other tasks, there
+can be contention for CPU caches that reduces the effectiveness of the
+optimization of cache use by a <acronym>BLAS</acronym> implementation: some
+people warn that this is especially problematic for hyperthreaded CPUs.
+</p>
+<p>BLAS and LAPACK routines may be used inside threaded code, for example
+in OpenMP sections in packages such as <a href="https://CRAN.R-project.org/package=mgcv"><strong>mgcv</strong></a>.  The reference
+implementations are thread-safe but external ones may not be (even
+single-threaded ones): this can lead to hard-to-track-down incorrect
+results or segfaults.
+</p>
+<p>There is a tendency for re-distributors of R to use &lsquo;enhanced&rsquo; linear
+algebra libraries without explaining their downsides.
+</p>
+
 <hr>
 <span id="BLAS"></span><span id="BLAS-1"></span><h4 class="subsection">A.3.1 BLAS</h4>
 
-<p>The linear algebra routines in R can make use of enhanced
-<acronym>BLAS</acronym> (Basic Linear Algebra Subprograms,
-<a href="https://www.netlib.org/blas/faq.html">https://www.netlib.org/blas/faq.html</a>) routines.  However,
-these have to be explicitly requested at configure time: R provides
-an internal <acronym>BLAS</acronym> which is well-tested and will be adequate for
-most uses of R.
+<p>An external BLAS library has to be explicitly requested at configure
+time.
 </p>
 <p>You can specify a particular <acronym>BLAS</acronym> library <em>via</em> a value
-for the configuration option <samp>--with-blas</samp> and not to use an
-external <acronym>BLAS</acronym> library by <samp>--without-blas</samp> (the
-default).  If <samp>--with-blas</samp> is given with no <code>=</code>, its value
-is taken from the
+for the configuration option <samp>--with-blas</samp>.  If this is given
+with no <code>=</code>, its value is taken from the
 <span id="index-BLAS_005fLIBS"></span>
 environment variable <code>BLAS_LIBS</code>, set for example in
 <samp>config.site</samp>.  If neither the option nor the environment variable
-supply a value, a search is made for a suitable<a id="DOCF67" href="#FOOT67"><sup>67</sup></a> <acronym>BLAS</acronym>.  If the value is
-not obviously a linker command (starting with a dash or giving the path
-to a library), it is prefixed by &lsquo;<samp>-l</samp>&rsquo;, so
+supply a value, a search is made for a suitable<a id="DOCF67" href="#FOOT67"><sup>67</sup></a> <acronym>BLAS</acronym>.  If the
+value is not obviously a linker command (starting with a dash or giving
+the path to a library), it is prefixed by &lsquo;<samp>-l</samp>&rsquo;, so
 </p>
 <div class="example">
 <pre class="example">--with-blas=&quot;foo&quot;
@@ -3597,72 +3622,34 @@ well as <code>LSAME</code>), and appears to be usable.  However, an external
 position-independent code), and that is not checked.
 </p>
 <p>Some enhanced <acronym>BLAS</acronym>es are compiler-system-specific
-(<code>sunperf</code> on Solaris<a id="DOCF68" href="#FOOT68"><sup>68</sup></a>, <code>libessl</code> on IBM,
-<code>Accelerate</code> on macOS).  The correct incantation for these is often
+(<code>Accelerate</code> on macOS, <code>sunperf</code> on Solaris<a id="DOCF68" href="#FOOT68"><sup>68</sup></a>,
+<code>libessl</code> on IBM).  The correct incantation for these is often
 found <em>via</em> <samp>--with-blas</samp> with no value on the appropriate
 platforms.
-</p>
-<p>Some of the external <acronym>BLAS</acronym>es are multi-threaded.  One issue is
-that R profiling (which uses the <code>SIGPROF</code> signal) may cause
-problems, and you may want to disable profiling if you use a
-multi-threaded <acronym>BLAS</acronym>.  Note that using a multi-threaded
-<acronym>BLAS</acronym> can result in taking more <acronym>CPU</acronym> time and even
-more elapsed time (occasionally dramatically so) than using a similar
-single-threaded <acronym>BLAS</acronym>.  On a machine running other tasks, there
-can be contention for CPU caches that reduces the effectiveness of the
-optimization of cache use by a <acronym>BLAS</acronym> implementation: some
-people warn that this is especially problematic for hyperthreaded CPUs.
 </p>
 <p>Note that under Unix (but not under Windows) if R is compiled against
 a non-default <acronym>BLAS</acronym> and <samp>--enable-BLAS-shlib</samp> is
 <strong>not</strong> used (it is the default on all platforms except AIX), then
 all <acronym>BLAS</acronym>-using packages must also be.  So if R is re-built
 to use an enhanced <acronym>BLAS</acronym> then packages such as
-<a href="https://CRAN.R-project.org/package=quantreg"><strong>quantreg</strong></a> will need to be re-installed; they may be under other
-circumstances.
-</p>
-<p>R relies on <acronym>ISO</acronym>/<acronym>IEC</acronym>&nbsp;60559 compliance of an
-external <acronym>BLAS</acronym>.  This can be broken if for example the code
-assumes that terms with a zero factor are always zero and do not need to
-be computed&mdash;whereas <code>x*0</code> can be <code>NaN</code>.  This is checked in
-the test suite.
-</p>
-<p>External <acronym>BLAS</acronym> implementations often make less use of
-extended-precision floating-point registers (where available) and will
-almost certainly re-order computations.  This can result in less
-accuracy than using a reference <acronym>BLAS</acronym>, and may result in
-different solutions, e.g. different signs in SVD and
-eigendecompositions.
+<a href="https://CRAN.R-project.org/package=quantreg"><strong>quantreg</strong></a> will need to be re-installed.
 </p>
 <p>Debian/Ubuntu systems provide a system-specific way to switch the BLAS
-in use.  Build R with <samp>-with-blas</samp> to select the OS version
-of the reference BLAS, and then use <code>update-alternatives</code> to
-switch between the available BLAS libraries.  See
+in use: Build R with <samp>-with-blas</samp> to select the OS version of
+the reference BLAS, and then use <code>update-alternatives</code> to switch
+between the available BLAS libraries.  See
 <a href="https://wiki.debian.org/DebianScience/LinearAlgebraLibraries">https://wiki.debian.org/DebianScience/LinearAlgebraLibraries</a>.
 </p>
 <p>Fedora 33 and later offer &lsquo;FlexiBLAS&rsquo;, a similar mechanism for switching
-the BLAS (and LAPACK) in use
+the BLAS in use
 (<a href="https://www.mpi-magdeburg.mpg.de/projects/flexiblas">https://www.mpi-magdeburg.mpg.de/projects/flexiblas</a>).  However,
-rather than overriding <code>libblas</code>, this requires option
-<samp>--with-blas=flexiblas</samp>.  If installed, there are &lsquo;backends&rsquo; for
-the reference BLAS, ATLAS and serial, threaded and OpenMP builds of
-OpenBLAS and BLIS.
-</p>
-<p>The URIs for several of these BLAS have been subject to frequent
-gratuitous changes, so you will need to search for their current
-locations.
-</p>
-<p>BLAS (and LAPACK) routines may be used inside threaded code, for example
-in OpenMP sections in packages such as <strong>mgcv</strong>.  The reference
-implementations are thread-safe but external ones may not be (even
-single-threaded ones): this can lead to hard-to-track-down incorrect
-results or segfaults.
-</p>
-<p><strong>NOTE:</strong> BLAS libraries built with <code>gfortran</code>&nbsp;9 (and
-later and versions 8.4, 7.5 and later in those series) require calls
-from C/C++ to handle &lsquo;hidden&rsquo; character lengths &mdash; R itself does so
-but many packages do not and some segfault. (This applies also to
-external LAPACK libraries.)
+rather than overriding <code>libblas</code>, this requires configuring R
+with option <samp>--with-blas=flexiblas</samp>.  &lsquo;Backend&rsquo; wrappers are
+available for the reference BLAS, ATLAS and serial, threaded and OpenMP
+builds of OpenBLAS and BLIS.  This can be controlled from a running R
+session by package <a href="https://CRAN.R-project.org/package=flexiblas"><strong>flexiblas</strong></a>.  Apparently undocumented:
+FlexiBLAS on Fedora provides a complete LAPACK, but not the enhanced
+routines from ATLAS or OpenBLAS.
 </p>
 
 <hr>
@@ -3677,8 +3664,8 @@ ATLAS static libraries (they seem to work on &lsquo;<samp>ix86</samp>&rsquo; pla
 but not always on &lsquo;<samp>x86_64</samp>&rsquo; ones).
 </p>
 <p>ATLAS contains replacements for a small number of LAPACK routines, but
-can be built to merge these with LAPACK sources to include a full LAPACK
-library.
+can be built to merge these with the reference LAPACK sources to include
+a full LAPACK library.
 </p>
 <p>Recent versions of ATLAS can be built as a single shared library, either
 <code>libsatlas</code> or <code>libtatlas</code> (serial or threaded respectively):
@@ -3723,10 +3710,10 @@ compile-time flag specifies 4 threads.)
 </p>
 
 <hr>
-<span id="OpenBLAS"></span><span id="OpenBLAS-and-BLIS"></span><h4 class="subsubsection">A.3.1.2 OpenBLAS and BLIS</h4>
+<span id="OpenBLAS-and-BLIS"></span><span id="OpenBLAS-and-BLIS-1"></span><h4 class="subsubsection">A.3.1.2 OpenBLAS and BLIS</h4>
 
 <p>Dr Kazushige Goto wrote a tuned <acronym>BLAS</acronym> for several processors
-and OSes, which was frozen in mid-2010.  OpenBLAS
+and OSes, which was frozen in 2010.  OpenBLAS
 (<a href="https://www.openblas.net/">https://www.openblas.net/</a>) is a descendant project with support
 for some later CPUs.
 </p>
@@ -3757,10 +3744,13 @@ second and third the number of threads is controlled by
 <code>OPENBLAS_NUM_THREADS</code> and <code>OMP_NUM_THREADS</code> (as usual for
 OpenMP) respectively.
 </p>
+<p>These and their Debian equivalents contain a complete LAPACK
+implementation.
+</p>
 <p>Note that building R on Linux against distributed libraries may need
 &lsquo;<samp>-devel</samp>&rsquo; or &lsquo;<samp>-dev</samp>&rsquo; packages installed.
 </p>
-<p>For &lsquo;<samp>ix86</samp>&rsquo; and &lsquo;<samp>x86_64</samp>&rsquo; most distributed libraries
+<p>For &lsquo;<samp>ix86</samp>&rsquo; and &lsquo;<samp>x86_64</samp>&rsquo; CPUs most distributed libraries
 contain several alternatives for different CPU microarchitectures with
 the choice being made at run time.
 </p>
@@ -3781,7 +3771,7 @@ in the BLIS libraries.
 <p>For Intel processors (and perhaps others) and some distributions of
 Linux, there is Intel&rsquo;s Math Kernel Library<a id="DOCF73" href="#FOOT73"><sup>73</sup></a>.  You are
 encouraged to read the documentation which is installed with the
-library, before attempting to link to MKL.  This includes a &lsquo;link line
+library before attempting to link to MKL.  This includes a &lsquo;link line
 advisor&rsquo; which will suggest appropriate incantations: its use is
 recommended.  Or see
 <a href="https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html#gs.vpt6qp">https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl-link-line-advisor.html#gs.vpt6qp</a>.
@@ -3792,7 +3782,7 @@ for R on those platforms.
 </p>
 <p>The MKL interface has changed several times but has been stable in
 recent years: the following examples have been used with versions 10.3
-to 2022.0.2, for GCC compilers on &lsquo;<samp>x86_64</samp>&rsquo;.
+to 2022.0.2, for GCC compilers on &lsquo;<samp>x86_64</samp>&rsquo; CPUs.
 </p>
 <p>To use a sequential version of MKL we used
 </p>
@@ -3904,7 +3894,7 @@ ln -s /usr/lib64/libopenblasp.so.0 <var>R_HOME</var>/lib/libRblas.so
 multithreaded OpenBLAS.  A similar link works for most versions of the
 OpenBLAS (provided the appropriate <samp>lib</samp> directory is in the
 run-time library path or <code>ld.so</code> cache).  It can also be used
-for a single-library ATLAS, so on &lsquo;<samp>x86_64</samp>&rsquo; Fedora
+for a single-library ATLAS, so on &lsquo;<samp>x86_64</samp>&rsquo; Fedora either of
 </p>
 <div class="example">
 <pre class="example">ln -s /usr/lib64/atlas/libsatlas.so.3 <var>R_HOME</var>/lib/libRblas.so
@@ -3926,55 +3916,50 @@ which is used.
 
 <span id="index-LAPACK-library"></span>
 
-<p>Provision is made for specifying an external LAPACK library, principally
-to cope with <acronym>BLAS</acronym> libraries which contain a copy of LAPACK
-(such as <code>Accelerate</code> on macOS and some builds of ATLAS, MKL and
-OpenBLAS on &lsquo;<samp>ix86</samp>&rsquo;/&lsquo;<samp>x86_64</samp>&rsquo; Linux).  At least LAPACK
-version 3.2 is required.  This can only be done if <samp>--with-blas</samp>
-has been used.
+<p>The default is to compile the LAPACK source included with R.
+However, the compiled routines may or may not be used if the selected
+BLAS contains some or all LAPACK routines &ndash; this depends on how dynamic
+linking works on the platform.
+</p>
+<p>Provision is made for specifying an external LAPACK library with option
+<samp>--with-lapack</samp>, principally to cope with <acronym>BLAS</acronym>
+libraries which contain a copy of LAPACK (such as <code>Accelerate</code> on
+macOS and some builds of ATLAS, FlexiBLAS, MKL and OpenBLAS on
+&lsquo;<samp>ix86</samp>&rsquo;/&lsquo;<samp>x86_64</samp>&rsquo; Linux).  At least LAPACK version 3.2 is
+required.  This can only be done if <samp>--with-blas</samp> has been used.
 </p>
 <p>However, the likely performance gains are thought to be small (and may
 be negative).  The default is not to search for a suitable LAPACK
 library, and this is definitely <strong>not</strong> recommended.  You can
 specify a specific LAPACK library or a search for a generic library by
-the configuration option <samp>--with-lapack</samp>.  The default for
-<samp>--with-lapack</samp> is to check the <acronym>BLAS</acronym> library and then
-look for an external library &lsquo;<samp>-llapack</samp>&rsquo;.  Sites searching for the
-fastest possible linear algebra may want to build a LAPACK library using
-the ATLAS-optimized subset of LAPACK.  Similarly, OpenBLAS can be built
-to contain an optimized subset of LAPACK or a full LAPACK (the latter
+the configuration option <samp>--with-lapack</samp> without a value.  The
+default for <samp>--with-lapack</samp> is to check the <acronym>BLAS</acronym>
+library (for function <code>DPSTRF</code>) and then look for an external
+library &lsquo;<samp>-llapack</samp>&rsquo;.  Sites searching for the fastest possible
+linear algebra may want to build a LAPACK library using the
+ATLAS-optimized subset of LAPACK.  Similarly, OpenBLAS can be built to
+contain an optimized subset of LAPACK or a full LAPACK (the latter
 seeming to be the default).
 </p>
 <p>A value for <samp>--with-lapack</samp> can be set <em>via</em> the environment
 variable
 <span id="index-LAPACK_005fLIBS"></span>
 <code>LAPACK_LIBS</code>, but this will only be used if <samp>--with-lapack</samp>
-is specified (as the default value is <code>no</code>) and the <acronym>BLAS</acronym> library
-does not contain LAPACK.
+is specified and the <acronym>BLAS</acronym> library does not contain LAPACK.
 </p>
-<p>If you do use <samp>--with-lapack</samp>, be aware of potential problems
-with bugs in the LAPACK sources (or in the posted corrections to those
-sources), seen several times in Linux distributions over the years.
+<p>Please bear in mind that using <samp>--with-lapack</samp> is provided
+<strong>only</strong> because it is necessary on some platforms and because some
+users want to experiment with claimed performance improvements.  In
+practice its main uses are without a value,
 </p>
-<p>Please <strong>do</strong> bear in mind that using <samp>--with-lapack</samp> is
-&lsquo;definitely <strong>not</strong> recommended&rsquo;: it is provided <strong>only</strong>
-because it is necessary on some platforms and because some users want to
-experiment with claimed performance improvements.
-</p>
-<p>Note too the comments about <acronym>ISO</acronym>/<acronym>IEC</acronym>&nbsp;60559
-compliance in the section of external <acronym>BLAS</acronym>: these apply
-equally to an external LAPACK, and for example the Intel MKL
-documentation has said
-</p><blockquote>
-<p>LAPACK routines assume that input matrices do not contain IEEE 754
-special values such as INF or NaN values. Using these special values may
-cause LAPACK to return unexpected results or become unstable.
-</p></blockquote>
+<ul>
+<li> with an &lsquo;enhanced&rsquo; BLAS such as ATLAS, FlexiBLAS, MKL or OpenBLAS which
+contains a full LAPACK (to avoid possible conflicts), or
 
-<p>We rely on limited support in LAPACK for matrices with <em>2^{31}</em> or
-more elements: it is possible that an external LAPACK will not have that
-support.
-</p>
+</li><li> on Debian/Ubuntu systems to select the system <code>liblapack</code> which can
+be switched by the &lsquo;alternatives&rsquo; mechanism.
+</li></ul>
+
 
 <hr>
 <span id="Caveats"></span><span id="Caveats-1"></span><h4 class="subsection">A.3.3 Caveats</h4>
@@ -3988,10 +3973,19 @@ meant that on Sun Sparc using the Oracle compilers the flag
 <acronym>BLAS</acronym>/LAPACK was built with the same Fortran compiler used to
 build R.
 </p>
+<p>BLAS and LAPACK libraries built with <code>gfortran</code>&nbsp;9 and later
+(and versions 8.4, 7.5 and later in those series) require calls from
+C/C++ to handle &lsquo;hidden&rsquo; character lengths &mdash; R itself does so but
+many packages used not to and some have segfaulted.  This has been
+largely circumvented by using the Fortran flag
+<samp>-fno-optimize-sibling-calls</samp> (currently set by
+<code>configure</code> if it detects <code>gfortran</code>&nbsp;7 or later).
+</p>
 <p>LAPACK 3.9.0 (and probably earlier) had a bug in which the DCOMBSSQ
 subroutine may cause NA to be interpreted as zero. This is fixed in the
 R 3.6.3 and later sources, but if you use an external LAPACK, you may
-need to fix it there. (The bug was corrected in 3.9.1.)
+need to fix it there. (The bug was corrected in 3.9.1 and the routine
+removed in 3.10.1.)
 </p>
 <p>The code (in <code>dlapack.f</code>) should read
 </p><div class="example">
@@ -4012,6 +4006,17 @@ need to fix it there. (The bug was corrected in 3.9.1.)
 </pre></div>
 <p>(The inner ELSE clause was missing in LAPACK 3.9.0.)
 </p>
+<p>If you do use an external LAPACK, be aware of potential problems with
+other bugs in the LAPACK sources (or in the posted corrections to those
+sources), seen several times in Linux distributions over the years.  We
+have even seen distributions with missing LAPACK routines from their
+<code>liblapack</code>.
+</p>
+<p>We rely on limited support in LAPACK for matrices with <em>2^{31}</em> or
+more elements: it is possible that an external LAPACK will not have that
+support.
+</p>
+
 <hr>
 <span id="Configuration-on-a-Unix_002dalike"></span><span id="Configuration-on-a-Unix_002dalike-1"></span><h2 class="appendix">Appendix B Configuration on a Unix-alike</h2>
 
@@ -4473,6 +4478,19 @@ OpenBSD: __OpenBSD__
 Windows: _WIN32, _WIN64
 </pre></div>
 
+<p>Identifying compilers can be very tricky.  GCC defines <code>__GNUC__</code>,
+but so do other compilers claiming conformance with it, notably (LLVM
+and Apple) <code>clang</code> and recent Intel compilers.  Further, they
+use the value of <code>__GNUC__</code> for their version, not the version of
+GCC they claim to be compatible with.  Both LLVM and Apple
+<code>clang</code> define <code>__clang__</code> as their major version, but for
+example Apple&rsquo;s 13.x.y is very different from LLVM&rsquo;s 13.x.y.  And
+compilers based on LLVM <code>clang</code>, for example from IBM, will
+define this.  Some of the included software uses <code>__APPLE_CC__</code> to
+identify an Apple compiler (which used to include Apple builds of GCC),
+but Apple <code>clang</code> is better identified by the
+<code>__apple_build_version__</code> macro.
+</p>
 
 <hr>
 <span id="X11-issues"></span><span id="X11-issues-1"></span><h3 class="section">C.1 X11 issues</h3>
@@ -4739,6 +4757,9 @@ tested.
 <hr>
 <span id="Intel-compilers"></span><span id="Intel-compilers-1"></span><h4 class="subsection">C.2.2 Intel compilers</h4>
 
+<p>There have been no recent reports on the use of Intel compilers: this
+section is left in case it provides helpful hints.
+</p>
 <p>Intel compilers have been used under &lsquo;<samp>ix86</samp>&rsquo; and &lsquo;<samp>x86_64</samp>&rsquo;
 Linux.  Brian Ripley used version 9.0 of the compilers for
 &lsquo;<samp>x86_64</samp>&rsquo; on Fedora Core 5 with
@@ -4792,14 +4813,33 @@ in <code>SAFE_FFLAGS</code>, e.g. by
 <span id="macOS"></span><span id="macOS-2"></span><h3 class="section">C.3 macOS</h3>
 <span id="index-macOS-2"></span>
 
-<p>The main instructions here are for Intel 64-bit (&lsquo;<samp>x86_64</samp>&rsquo;)
-builds on 10.13&ndash;10.15 (High Sierra, Mojave and Catalina), 11 (Big
-Sur) and 12 (Monterey).
+<p>The instructions here are for Intel 64-bit (&lsquo;<samp>x86_64</samp>&rsquo;) builds on
+macOS 10.13&ndash;10.15 (High Sierra, Mojave and Catalina), 11 (Big Sur), 12
+(Monterey) and 13 (Ventura), or &lsquo;Apple Silicon&rsquo; (&lsquo;<samp>arm64</samp>&rsquo;) builds
+on macOS 11 (Big Sur), 12 (Monterey) and 13 (Ventura).
 </p>
 
 <hr>
 <span id="Prerequisites"></span><span id="Prerequisites-1"></span><h4 class="subsection">C.3.1 Prerequisites</h4>
 
+<p>The Intel components install into <samp>/usr/local/lib</samp>, the
+&lsquo;<samp>arm64</samp>&rsquo; ones into <samp>/opt/R/arm64</samp> which may not exist so it
+it is simplest to first create that directory and adjust its ownership
+if desired:
+</p>
+<div class="example">
+<pre class="example">sudo mkdir -p /opt/R/arm64
+sudo chown -R myaccount /opt/R
+</pre></div>
+<p>and add <samp>/opt/R/arm64/bin</samp> to your path.
+</p>
+<p>Define an appropriate variable in your Terminal:
+</p><div class="example">
+<pre class="example">set LOCAL=/usr/local # Intel
+set LOCAL=/opt/R/arm64 # Apple Silicon
+</pre></div>
+<p>to use the code snippets here.
+</p>
 <p>The following are essential to build R:
 </p>
 <ul>
@@ -4816,31 +4856,37 @@ partially or completely remove them.
 <code>clang</code> but nowadays known as &lsquo;Apple clang&rsquo; with different
 versioning (so Apple clang 13 is unrelated to LLVM clang 13).
 </p>
-</li><li> A Fortran compiler. An installer for <code>gfortran</code> is available at
-<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/8.2/gfortran-8.2-Mojave.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/8.2/gfortran-8.2-Mojave.dmg</a>.<a id="DOCF83" href="#FOOT83"><sup>83</sup></a>  This installs into <samp>/usr/local/gfortran</samp>.
+</li><li> A Fortran compiler. See <a href="#Fortran-compilers">Fortran compilers</a>.
 
-</li><li> Binary components <code>pcre2</code> and <code>xz</code> (for <code>liblzma</code>) from
-<a href="https://mac.r-project.org/bin/darwin17/x86_64/">https://mac.r-project.org/bin/darwin17/x86_64/</a>.  For example
-<div class="example">
+</li><li> Binary components <code>pcre2</code><a id="DOCF83" href="#FOOT83"><sup>83</sup></a> and
+<code>xz</code> (for <code>liblzma</code>) from
+<a href="https://mac.r-project.org/bin/">https://mac.r-project.org/bin/</a>.  There is an R script there to
+help with installing all the needed components.  (At the time of writing
+<code>install.libs(&quot;r-base-dev&quot;)</code> installed neither <code>readline5</code> nor
+those needed to support Pango.)
+
+<p>Or this can be done manually, by for example
+</p><div class="example">
 <pre class="example">curl -OL https://mac.r-project.org/bin/darwin17/x86_64/pcre2-10.39-darwin.17-x86_64.tar.xz
 sudo tar -xvzf pcre2-10.39-darwin.17-x86_64.tar.gz -C /
 curl -OL https://mac.r-project.org/bin/darwin17/x86_64/xz-5.2.5-darwin.17-x86_64.tar.xz
 sudo tar -xvzf xz-5.2.5-darwin.17-x86_64.tar.xz -C /
 </pre></div>
-<p>(Messages like &lsquo;<samp>usr/local/: Can't restore time</samp>&rsquo; should be ignored.)
+<p>(<code>sudo</code> is not needed if your account owns <samp>/usr/local</samp> or
+<samp>/opt/R/arm64</samp> as appropriate.)
+</p>
+<p>Messages like &lsquo;<samp>usr/local/: Can't restore time</samp>&rsquo; should be ignored.
 </p></li></ul>
-<p>(there is an R script at <a href="https://mac.r-project.org/bin/">https://mac.r-project.org/bin/</a> to
-help with this) and desirable
+<p>and desirable
 </p><ul>
-<li> GNU <code>readline5</code> from
-<a href="https://mac.r-project.org/bin/darwin17/x86_64/">https://mac.r-project.org/bin/darwin17/x86_64/</a>,<a id="DOCF84" href="#FOOT84"><sup>84</sup></a>.  If <code>readline</code> is not present, the emulation in Apple&rsquo;s
-version of <code>libedit</code> (aka <code>editline</code>) will be used: if you
-wish to avoid that, configure with <samp>--without-readline</samp>.
+<li> Component <code>readline5</code>.<a id="DOCF84" href="#FOOT84"><sup>84</sup></a>  If <code>readline</code> is
+not present, the emulation in Apple&rsquo;s version of <code>libedit</code> (aka
+<code>editline</code>) will be used: if you wish to avoid that, configure with
+<samp>--without-readline</samp>.
 
-</li><li> Components <code>jpeg</code>, <code>libpng</code>, <code>pkgconfig</code>, <code>tiff</code>
-from <a href="https://mac.r-project.org/bin/darwin17/x86_64/">https://mac.r-project.org/bin/darwin17/x86_64/</a> and
-<code>zlib-system-stub</code> from <a href="https://mac.R-project.org/libs-4/">https://mac.R-project.org/libs-4/</a>,
-for the full range of bitmapped graphics devices.  (Some builds of
+</li><li> Components <code>jpeg</code>, <code>libpng</code>, <code>pkgconfig</code>, <code>tiff</code> and
+<code>zlib-system-stub</code> from <a href="https://mac.r-project.org/bin//">https://mac.r-project.org/bin//</a> for
+the full range of bitmapped graphics devices.  (Some builds of
 <code>tiff</code> may require <code>libwebp</code> and/or <code>openjpeg</code>.)
 
 </li><li> An X sub-system unless configuring using <samp>--without-x</samp>: see
@@ -4850,11 +4896,9 @@ location of <samp>/opt/X11</samp>, e.g. by
 <div class="example">
 <pre class="example">--x-includes=/opt/X11/include --x-libraries=/opt/X11/lib
 </pre></div>
-<p>although without this linked versions under <samp>/usr/X11</samp> will be
-found.  (It seems that for some versions of macOS/XQuartz
-<samp>/usr/X11</samp> may exist but be a link to a non-existent directory:
-reinstalling XQuartz might help.)  Be wary of pre-release versions of
-XQuartz, which may be offered as an update.
+
+<p>Be wary of pre-release versions of XQuartz, which may be offered as an
+update.
 </p>
 </li><li> An Objective-C compiler, as provided by <code>clang</code> in the Command
 Line Tools: this is needed for the <code>quartz()</code> graphics device.
@@ -4864,26 +4908,28 @@ apart from disabling <code>quartz()</code> and the ability to use the build
 with <small>R.APP</small>, it also changes the default location of the personal
 library (see <code>?.libPaths</code>).
 </p>
+</li><li> A Tcl/Tk installation,  See <a href="#Tcl_002fTk-headers-and-libraries">Tcl/Tk headers and libraries</a>.
+
 </li><li> Support for Cairo-based graphics devices. See <a href="#Cairo-graphics">Cairo graphics</a>.
 
 </li><li> A TeX installation. See <a href="#Other-libraries">Other libraries</a>.
 
 </li><li> <code>texi2any</code> from a &lsquo;<samp>texinfo</samp>&rsquo; distribution, which requires
-<code>perl</code> (currently version 5.18 (High Sierra) &ndash; 5.28 is a
+<code>perl</code> (currently version 5.18 (High Sierra) &ndash; 5.30 is a
 default part of macOS but it has been announced that it may not be in
 future).
 A version of <code>texi2any</code> has been included in the binary
 distribution of R and there is a <code>texinfo</code> component at
-<a href="https://mac.r-project.org/bin/darwin17/x86_64/">https://mac.r-project.org/bin/darwin17/x86_64/</a>.
+<a href="https://mac.r-project.org/bin//">https://mac.r-project.org/bin//</a>.
 </li></ul>
 
-<p>To build R itself from the sources with the compilers in the Command
-Line Tools (or Xcode) and <code>gfortran</code> from the installer
-mentioned above, use a file <samp>config.site</samp> containing
+<p>To build R itself from the sources with the C/C++ compilers in the
+Command Line Tools (or Xcode) and <code>gfortran</code> from one of the
+installers mentioned below, use a file <samp>config.site</samp> containing
 </p><div class="example">
 <pre class="example">CC=clang
 OBJC=$CC
-FC=/usr/local/gfortran/bin/gfortran
+FC=&quot;$LOCAL/gfortran/bin/gfortran -mtune=native&quot;
 CXX=clang++
 </pre></div>
 <p>and configure by something like
@@ -4891,16 +4937,25 @@ CXX=clang++
 <pre class="example">./configure -C \
 --enable-R-shlib --enable-memory-profiling \
 --x-includes=/opt/X11/include --x-libraries=/opt/X11/lib \
---with-tcl-config=/usr/local/lib/tclConfig.sh \
---with-tk-config=/usr/local/lib/tkConfig.sh \
-PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/pkgconfig
+--with-tcl-config=$LOCAL/lib/tclConfig.sh \
+--with-tk-config=$LOCAL/lib/tkConfig.sh \
+PKG_CONFIG_PATH=$LOCAL/lib/pkgconfig:/usr/lib/pkgconfig
 </pre></div>
-<p>(See below for Tcl/Tk, including other options.)
+<p>(See below for other options for Tcl/Tk.)  For an &lsquo;<samp>arm64</samp>&rsquo; build
+further flags are desirable in <samp>config.site</samp>:
+</p><div class="example">
+<pre class="example">CFLAGS=&quot;-falign-functions=8 -g -O2&quot;
+FFLAGS=&quot;-g -O2 -mmacosx-version-min=11.0&quot;
+</pre></div>
+<p>(the first flag in <code>CFLAGS</code> has been needed to inter-work with the
+<code>gfortran</code> without segfaulting in some packages, and some builds
+of <code>gfortran</code> target the current version of macOS (unlike
+<code>clang</code>, causing linker warnings).
 </p>
 <p>To install packages using compiled code one needs the Command Line Tools
-(or Xcode) and appropriate compilers, e.g. Fortran and the C/C++
-compilers from those tools.  Some packages have further requirements
-such as <code>pkg-config</code>.
+(or Xcode) and appropriate compilers, e.g. the C/C++ compilers from
+those tools and/or <code>gfortran</code>. Some packages have further
+requirements such as component <code>pkgconfig</code>.
 </p>
 <p>A subversion client, <code>svn</code> version 1.10, used to be part of
 macOS<a id="DOCF85" href="#FOOT85"><sup>85</sup></a>.  A more recent client can be obtained from
@@ -4908,36 +4963,29 @@ macOS<a id="DOCF85" href="#FOOT85"><sup>85</sup></a>.  A more recent client can 
 </p><div class="example">
 <pre class="example">curl -OL https://mac.r-project.org/tools/subversion-1.14.0-darwin15.6.tar.gz
 tar xf subversion-1.14.0-darwin15.6.tar.gz
-sudo cp subversion-1.14.0-darwin15.6/svn /usr/local/bin
+sudo cp subversion-1.14.0-darwin15.6/svn $LOCAL/bin
 </pre></div>
 
-<p>If you have a build<a id="DOCF86" href="#FOOT86"><sup>86</sup></a> of <code>cairo</code> with dynamic libraries, you can add
-option <samp>--without-static-cairo</samp> to the <code>configure</code> call
-(it probably would work anyway).
+<p>If building software or installing source packages with <code>cmake</code>
+(or a non-Apple <code>make</code>) for &lsquo;Apple Silicon&rsquo; ensure it contains
+the &lsquo;<samp>arm64</samp>&rsquo; architecture (use <code>file</code> to be sure).
+Running Apple compilers from an &lsquo;<samp>x86_64</samp>&rsquo; executable will
+generate &lsquo;<samp>x86_64</samp>&rsquo; code &hellip;.
 </p>
-<p>As from Command Line Tools version 12,
-<samp>-Wno-implicit-function-declaration</samp> needs to be included in
-<code>CFLAGS</code> to configure R 4.0.2 and earlier as well as some
-external software.
+
+<p>Updating an &lsquo;<samp>arm64</samp>&rsquo; build will often fail because of the bug
+described at <a href="https://openradar.appspot.com/FB8914243">https://openradar.appspot.com/FB8914243</a> but <em>ab
+initio</em> builds work.
 </p>
+
+
 
 <hr>
-<span id="Note-for-Catalina-and-later-users"></span><span id="Note-for-Catalina-and-later-users-1"></span><h4 class="subsubsection">C.3.1.1 Note for Catalina and later users</h4>
+<span id="Note-for-Catalina-and-later"></span><span id="Note-for-Catalina-and-later-1"></span><h4 class="subsubsection">C.3.1.1 Note for Catalina and later</h4>
 
-<p>A more recent Fortran compiler for Catalina and later is available at
-<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg</a>.
-(That does not run on High Sierra.)  This supports the option
-<samp>-fc-prototypes-external</samp> mentioned in the &lsquo;Writing R Extensions&rsquo;
-manual.
-</p>
-<p>For Big Sur and later there is
-<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.2-bigsur-intel/gfortran-Intel-11.2-BigSur.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.2-bigsur-intel/gfortran-Intel-11.2-BigSur.dmg</a>
-and for Monterey there is
-<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.2-monterey-intel/gfortran-Intel-11.2-Monterey.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.2-monterey-intel/gfortran-Intel-11.2-Monterey.dmg</a>.
-</p>
 <p>The default security settings for Catalina and later can make it
 difficult to install recently-built Apple packages which have not been
-&lsquo;notarized&rsquo;<a id="DOCF87" href="#FOOT87"><sup>87</sup></a>
+&lsquo;notarized&rsquo;<a id="DOCF86" href="#FOOT86"><sup>86</sup></a>
 by Apple.  And not just packages, as this has been seen for executables
 contained in tarballs/zipfiles (for example, for <code>pandoc</code>).
 Usually one can use &lsquo;<samp>Open With</samp>&rsquo; (Control/right/two-finger-click in
@@ -4949,20 +4997,46 @@ from <a href="https://mac.R-project.org/">https://mac.R-project.org/</a>.
 browser, consider using <code>curl -OL</code> to download (as illustrated
 above) or <code>xattr -c</code> to remove extended attributes.
 </p>
-<p>Should one want to build R for Intel on an &lsquo;<samp>arm64</samp>&rsquo; Big Sur
-Mac, add the target for the C and C++ compilers:
-</p>
-<div class="example">
-<pre class="example">CC=&quot;clang -arch x86_64
-OBJC=$CC
-CXX=&quot;clang++ -arch x86_64&quot;
-</pre></div>
+<hr>
+<span id="Fortran-compilers"></span><span id="Fortran-compilers-1"></span><h4 class="subsection">C.3.2 Fortran compilers</h4>
 
-<p>and install the Fortran compiler and external software as described
-above.
+<p>An installer for Intel <code>gfortran</code> which runs on High Sierra or
+later is available at
+<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/8.2/gfortran-8.2-Mojave.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/8.2/gfortran-8.2-Mojave.dmg</a>. This
+installs into <samp>/usr/local/gfortran</samp>.
+</p>
+<p>A more recent Fortran compiler for (Intel) Catalina and later is
+available at
+<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/10.2/gfortran-10.2-Catalina.dmg</a>.
+(That does not run on High Sierra.)  This supports the option
+<samp>-fc-prototypes-external</samp> mentioned in the &lsquo;Writing R Extensions&rsquo;
+manual.
+</p>
+<p>For Intel Big Sur and later there is
+<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.2-bigsur-intel/gfortran-Intel-11.2-BigSur.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.2-bigsur-intel/gfortran-Intel-11.2-BigSur.dmg</a>
+and for Intel Monterey there is
+<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.3-monterey-intel/gfortran-Intel-11.3-Monterey.dmg">https://github.com/fxcoudert/gfortran-for-macOS/releases/download/11.3-monterey-intel/gfortran-Intel-11.3-Monterey.dmg</a>.
+</p>
+
+<p>For &lsquo;<samp>arm64</samp>&rsquo;, we use the fork of <code>gfortran</code> from
+<a href="https://github.com/iains/gcc-darwin-arm64">https://github.com/iains/gcc-darwin-arm64</a> of which there are
+binary distributions at <a href="https://mac.r-project.org/tools/">https://mac.r-project.org/tools/</a> and
+<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/">https://github.com/fxcoudert/gfortran-for-macOS/releases/</a>.  It
+seems some of these have been built using the SDK path for Xcode and not
+that for the Command Line Tools which causes some problems<a id="DOCF87" href="#FOOT87"><sup>87</sup></a> when using the Fortran compiler to
+link: to fix that change the symbolic link
+<samp>/opt/R/arm64/gfortran/SDK</samp> to point to your SDK, e.g. to
+<samp>/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk</samp> (the
+appropriate path can be found by running <code>xcrun
+-show-sdk-path</code>).  (The distribution from
+<a href="https://mac.r-project.org/tools/">https://mac.r-project.org/tools/</a> includes a script at
+</p><div class="example">
+<pre class="example">/opt/R/arm64/gfortran/bin/gfortran-update-sdk
+</pre></div>
+<p>to do this.)
 </p>
 <hr>
-<span id="Cairo-graphics"></span><span id="Cairo-graphics-1"></span><h4 class="subsection">C.3.2 Cairo graphics</h4>
+<span id="Cairo-graphics"></span><span id="Cairo-graphics-1"></span><h4 class="subsection">C.3.3 Cairo graphics</h4>
 
 <span id="index-Cairo-3"></span>
 <p>Cairo-based graphics devices such as <code>cairo_ps</code>, <code>cairo_pdf</code>,
@@ -4983,7 +5057,7 @@ components <code>cairo</code>, <code>fontconfig</code>, <code>freetype</code>,
 <samp>/opt/X11/lib/pkgconfig</samp> in <code>PKG_CONFIG_PATH</code>).  Some static
 builds of <code>fontconfig</code> need <code>libxml2</code> (from component
 <code>xml2</code>) and others <code>expat</code>, supplied by macOS but needing a
-file <samp>/usr/local/lib/pkgconfig/expat.pc</samp> along the lines of
+file <samp>$LOCAL/lib/pkgconfig/expat.pc</samp> along the lines of
 </p><div class="example">
 <pre class="example">Name: expat
 Version: 2.2.8
@@ -5000,7 +5074,7 @@ any others are required.
 <code>pkg-config</code> files are found first on its configuration path, Cairo
 will be linked dynamically.  This can be done by setting something like
 </p><div class="example">
-<pre class="example">export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/pkgconfig
+<pre class="example">export PKG_CONFIG_PATH=/opt/X11/lib/pkgconfig:$LOCAL/lib/pkgconfig:/usr/lib/pkgconfig
 </pre></div>
 <p>or by appending that variable to the <code>configure</code> command.  (Note
 that this uses rather old versions of the graphics software.)
@@ -5023,25 +5097,26 @@ what is missing.  At the time of writing using pre-built components
 <code>xml2</code> sufficed.
 </p>
 <hr>
-<span id="Other-C_002fC_002b_002b-compilers"></span><span id="Other-C_002fC_002b_002b-compilers-1"></span><h4 class="subsection">C.3.3 Other C/C++ compilers</h4>
+<span id="Other-C_002fC_002b_002b-compilers"></span><span id="Other-C_002fC_002b_002b-compilers-1"></span><h4 class="subsection">C.3.4 Other C/C++ compilers</h4>
 
 <p>Other distributions of <code>clang</code> may be available from
-<a href="https://github.com/llvm/llvm-project/releases/">https://github.com/llvm/llvm-project/releases/</a>. In particular,
-these include support for OpenMP which Apple builds of <code>clang</code>
-do not.
+<a href="https://github.com/llvm/llvm-project/releases/">https://github.com/llvm/llvm-project/releases/</a> (at the time of
+writing only for Intel). In particular, these include support for OpenMP
+which Apple <code>clang</code> does not.  Some of these have included
+support for the ASAN and UBSAN sanitizers.
 </p>
 <p>Suppose one of these distributions is installed under
-<samp>/usr/local/clang</samp>. Use a file <samp>config.site</samp> containing
+<samp>/usr/local/llvm</samp>. Use a file <samp>config.site</samp> containing
 </p><div class="example">
-<pre class="example">CC=/usr/local/clang/bin/clang
+<pre class="example">CC=/usr/local/llvm/bin/clang
 OBJC=$CC
 FC=/usr/local/gfortran/bin/gfortran
-CXX=/usr/local/clang/bin/clang++
-LDFLAGS=&quot;-L/usr/local/clang/lib -L/usr/local/lib&quot;
-R_LD_LIBRARY_PATH=/usr/local/clang/lib:/usr/local/lib
+CXX=/usr/local/llvm/bin/clang++
+LDFLAGS=&quot;-L/usr/local/llvm/lib -L/uar/local/lib&quot;
+R_LD_LIBRARY_PATH=/usr/local/llvm/lib:/usr/local/lib
 </pre></div>
 <p>The care to specify library paths is to ensure that the OpenMP runtime
-library, here <samp>/usr/local/clang/lib/libomp.dylib</samp>, is found when
+library, here <samp>/usr/local/llvm/lib/libomp.dylib</samp>, is found when
 needed.  If this works, you should see the line
 </p><div class="example">
 <pre class="example">checking whether OpenMP SIMD reduction is supported... yes
@@ -5052,9 +5127,9 @@ rather than the system ones.
 </p>
 <p>For Mojave and later the system paths need to be specified <em>via</em>
 </p><div class="example">
-<pre class="example">CC=&quot;/usr/local/clang/bin/clang -isysroot
+<pre class="example">CC=&quot;/usr/local/llvm/bin/clang -isysroot
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk&quot;
-CXX=&quot;/usr/local/clang/bin/clang++ -isysroot
+CXX=&quot;/usr/local/llvm/bin/clang++ -isysroot
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk&quot;
 </pre></div>
 <p>(Long lines split for the manual, only.)  Should the location of the SDK
@@ -5068,11 +5143,10 @@ use <code>gcc</code> to build the <code>quartz()</code> device, so
 <code>configure --without-aqua</code> may be required.
 </p>
 <hr>
-<span id="Other-libraries"></span><span id="Other-libraries-1"></span><h4 class="subsection">C.3.4 Other libraries</h4>
+<span id="Other-libraries"></span><span id="Other-libraries-1"></span><h4 class="subsection">C.3.5 Other libraries</h4>
 
 <p>Pre-compiled versions of many of the <a href="#Useful-libraries-and-programs">Useful libraries and programs</a>
-are available from <a href="https://mac.r-project.org/bin/darwin17/x86_64/">https://mac.r-project.org/bin/darwin17/x86_64/</a> or
-<a href="https://mac.R-project.org/libs/">https://mac.R-project.org/libs/</a>.
+are available from <a href="https://mac.r-project.org/bin//">https://mac.r-project.org/bin//</a>.
 </p>
 <span id="index-BLAS-library-1"></span>
 <span id="index-LAPACK-library-1"></span>
@@ -5096,6 +5170,9 @@ to use Accelerate&rsquo;s BLAS.
 <p>Threading in Accelerate is controlled by &lsquo;Grand Central Dispatch&rsquo; and is
 said not to need user control.  Test <samp>nls.R</samp> in package <strong>stats</strong>
 has often failed with the Accelerate BLAS on Intel macOS.
+</p>
+<p><code>sessionInfo()</code> does not detect the use of Accelerate for either
+BLAS or LAPACK.
 </p>
 <p>Looking at the top of
 <samp>/Library/Frameworks/R.framework/Resources/etc/Makeconf</samp>
@@ -5121,19 +5198,24 @@ need to add some packages to build R, e.g. for the 2022 version we
 needed to add<a id="DOCF93" href="#FOOT93"><sup>93</sup></a> <strong>helvetic</strong>, <strong>inconsolata</strong> and
 <strong>texinfo</strong> which brought this to about 310MB.<a id="DOCF94" href="#FOOT94"><sup>94</sup></a>
 &lsquo;<samp>TeX Live Utility</samp>&rsquo; (available <em>via</em> the MacTeX front page)
-provides a graphical means to manage TeX packages.  MacTeX 2021
-requires Mojave or later: for earlier macOS versions see the
-instructions<a id="DOCF95" href="#FOOT95"><sup>95</sup></a> on the MacTeX front page.  It contains executables
+provides a graphical means to manage TeX packages.  MacTeX 2021/2
+require Mojave or later: for earlier macOS versions see the
+instructions<a id="DOCF95" href="#FOOT95"><sup>95</sup></a> on the MacTeX front page.  They contains executables
 which run natively on both &lsquo;<samp>x86_64</samp>&rsquo; and &lsquo;<samp>arm64</samp>&rsquo;.
 </p>
 <p>Checking packages thoroughly requires <code>ghostscript</code> (part of the
 full MacTeX distribution or separately from
 <a href="https://www.tug.org/mactex/morepackages.html">https://www.tug.org/mactex/morepackages.html</a>, including for High
 Sierra) and <code>qpdf</code> (from
-<a href="https://mac.r-project.org/bin/darwin17/x86_64/">https://mac.r-project.org/bin/darwin17/x86_64/</a>, a version of
+<a href="https://mac.r-project.org/bin//">https://mac.r-project.org/bin//</a>, a version of
 which is in the <samp>bin</samp> directory of a binary installation of R,
 usually
 <samp>/Library/Frameworks/R.framework/Resources/bin/qpdf</samp>).
+</p>
+<p><code>R CMD check --as-cran</code> makes use of &lsquo;HTML Tidy&rsquo;.  macOS has
+a version in <samp>/usr/bin/tidy</samp> dating from 2006 which is far too
+old and is skipped.  Up-to-date versions can be installed from
+<a href="http://binaries.html-tidy.org/">http://binaries.html-tidy.org/</a>. 
 </p>
 <p>One macOS quirk is that the default path has <samp>/usr/local/bin</samp> after
 <samp>/usr/bin</samp>, contrary to common practice on Unix-alikes.  This means
@@ -5148,21 +5230,21 @@ it executable (<code>chmod 755 timeout</code>) and put it somewhere on your
 path.
 </p>
 <hr>
-<span id="Tcl_002fTk-headers-and-libraries"></span><span id="Tcl_002fTk-headers-and-libraries-1"></span><h4 class="subsection">C.3.5 Tcl/Tk headers and libraries</h4>
+<span id="Tcl_002fTk-headers-and-libraries"></span><span id="Tcl_002fTk-headers-and-libraries-1"></span><h4 class="subsection">C.3.6 Tcl/Tk headers and libraries</h4>
 
-<p>If you plan to use the <code>tcltk</code> package for R, you need to
+<p>If you plan to use the <code>tcltk</code> package for R, you will need to
 install a distribution of Tcl/Tk.  There are two alternatives.  If you
 use <small>R.APP</small> you will want to use X11-based Tcl/Tk (as used on other
-Unix-alikes), which is installed under <samp>/usr/local/lib</samp> as part of
-the <acronym>CRAN</acronym> binary for R.<a id="DOCF96" href="#FOOT96"><sup>96</sup></a>
-This may need <code>configure</code> options
+Unix-alikes), which is installed under <samp>$LOCAL/lib</samp> as part of the <acronym>CRAN</acronym> binary for
+R.<a id="DOCF96" href="#FOOT96"><sup>96</sup></a>  This may need <code>configure</code>
+options
 </p><div class="example">
-<pre class="example">--with-tcltk=/usr/local/lib
+<pre class="example">--with-tcltk=$LOCAL/lib
 </pre></div>
 <p>or
 </p><div class="example">
-<pre class="example">--with-tcl-config=/usr/local/lib/tclConfig.sh
---with-tk-config=/usr/local/lib/tkConfig.sh
+<pre class="example">--with-tcl-config=$LOCAL/lib/tclConfig.sh
+--with-tk-config=$LOCAL/lib/tkConfig.sh
 </pre></div>
 <p>Note that this requires a matching<a id="DOCF97" href="#FOOT97"><sup>97</sup></a>
 XQuartz installation.
@@ -5193,38 +5275,34 @@ includes <code>Tktable</code> and the <acronym>CRAN</acronym> package
 <a href="https://CRAN.R-project.org/package=tkrplot"><strong>tkrplot</strong></a>.
 </p>
 <hr>
-<span id="Java-_0028macOS_0029"></span><span id="Java"></span><h4 class="subsection">C.3.6 Java</h4>
+<span id="Java-_0028macOS_0029"></span><span id="Java"></span><h4 class="subsection">C.3.7 Java</h4>
 
 
 <p>macOS does not comes with an installed Java runtime (JRE) and a macOS
 upgrade may remove one if already installed: it is intended to be
 installed at first use.  Check if a JRE is installed by running
 <code>java -version</code> in a <code>Terminal</code> window: if Java is not
-installed<a id="DOCF99" href="#FOOT99"><sup>99</sup></a> this should prompt you to install it.<a id="DOCF100" href="#FOOT100"><sup>100</sup></a> You can also install directly a recent
-Java from
-<a href="https://www.oracle.com/java/technologies/javase-downloads.html">Oracle</a>.  Builds of OpenJDK with a less restrictive licence may also be
-available, e.g. from <a href="https://adoptium.net">Adoptium</a>,
+installed<a id="DOCF99" href="#FOOT99"><sup>99</sup></a> this should prompt you to install it.<a id="DOCF100" href="#FOOT100"><sup>100</sup></a>  Builds of OpenJDK may also be available,
+e.g. from <a href="https://adoptium.net">Adoptium</a>,
 <a href="https://www.azul.com/downloads/zulu-community/">Azul</a> or
 <a href="https://jdk.java.net/">https://jdk.java.net/</a>.  We recommend you install a version with
-long-term support, e.g. 11 or 17 but not  12&ndash;16 or 18 which
-have/had a 6-month lifetime.  (Note that these sources may use unusual
-designations for Intel macOS builds such as <code>x86 64-bit</code> and
-<code>x64</code>.)
+long-term support, e.g. 11 or 17 but not 12&ndash;16 or 18 which have/had a
+6-month lifetime.  (Note that these sources may use unusual designations
+for Intel macOS builds such as <code>x86 64-bit</code> and <code>x64</code>.)
 </p>
 <p>Binary distributions of R are built against a specific version
 (e.g. 11.0.6 or 17.0.1) of Java so <code>sudo R CMD javareconf</code>
 will likely be needed to be run before using Java-using packages.
 </p>
-<p>To use Java (specifically, package <a href="https://CRAN.R-project.org/package=rJava"><strong>rJava</strong></a>) with a
-<acronym>CRAN</acronym> (&lsquo;<samp>x86_64</samp>&rsquo;) binary distribution of R on
-&lsquo;<samp>arm64</samp>&rsquo; macOS, install an Intel build of a Java JRE from one of
-the sites linked above, then run <code>sudo R CMD javareconf</code>.
-</p>
-<p>To see what compatible versions of Java are currently installed, run
-<code>/usr/libexec/java_home -V -a x86_64</code>.  If needed, set the
-environment variable <code>JAVA_HOME</code> to choose between these, both when
-R is built from the sources and when <code>R CMD javareconf</code> is
-run.
+<p>To see what compatible versions of Java are currently installed, run the
+appropriate one of
+</p><div class="example">
+<pre class="example">/usr/libexec/java_home -V -a x86_64
+/usr/libexec/java_home -V -a arm64
+</pre></div>
+<p>If needed, set the environment variable <code>JAVA_HOME</code> to choose
+between these, both when R is built from the sources and when
+<code>R CMD javareconf</code> is run.
 </p>
 <p>Configuring and building R both looks for a JRE and for support for
 compiling JNI programs (used to install packages <a href="https://CRAN.R-project.org/package=rJava"><strong>rJava</strong></a> and
@@ -5238,8 +5316,8 @@ set e.g.
 </p><div class="example">
 <pre class="example">JAVA_HOME=/Library/Java/JavaVirtualMachines/termurin-17.jdk/Contents/Home
 </pre></div>
-<p>in <samp>config.site</samp>.  For Java 17 from <a href="https://jdk.java.net/">https://jdk.java.net/</a>,
-use
+<p>in <samp>config.site</samp>.  For Java 17 from <a href="https://jdk.java.net/">https://jdk.java.net/</a>
+(which is no longer available), use
 </p><div class="example">
 <pre class="example">JAVA_HOME=/path/to/jdk-17.jdk/Contents/Home
 </pre></div>
@@ -5250,19 +5328,22 @@ is from <a href="https://adoptium.net">Adoptium</a> (who call the architecture
 &lsquo;<samp>aarch64</samp>&rsquo;): this installs into an Apple-standard location and so
 works with <code>/usr/bin/java</code>. Other builds are available from
 <a href="https://www.azul.com/downloads/zulu-community/?os=macos&amp;architecture=arm-64-bit&amp;package=jdk">https://www.azul.com/downloads/zulu-community/?os=macos&amp;architecture=arm-64-bit&amp;package=jdk</a>
-and from OpenJDK at <a href="https://jdk.java.net/17/">https://jdk.java.net/17/</a>, for which
+and from OpenJDK at <a href="https://jdk.java.net/">https://jdk.java.net/</a>, for which
 <code>JAVA_HOME</code> may need to be set both when configuring R and at
 runtime.
 </p>
-
-
+<p>To use Java (specifically, binary package <a href="https://CRAN.R-project.org/package=rJava"><strong>rJava</strong></a>) with a
+<acronym>CRAN</acronym> (&lsquo;<samp>x86_64</samp>&rsquo;) binary distribution of R on
+&lsquo;<samp>arm64</samp>&rsquo; macOS, install an Intel build of a Java JRE from one of
+the sites linked above, then run <code>sudo R CMD javareconf</code>.
+</p>
 
 <p>Note that it is necessary to set the environment variable <code>NOAWT</code> to
 <code>1</code> to install many of the Java-using packages.
 </p>
 
 <hr>
-<span id="Frameworks"></span><span id="Frameworks-1"></span><h4 class="subsection">C.3.7 Frameworks</h4>
+<span id="Frameworks"></span><span id="Frameworks-1"></span><h4 class="subsection">C.3.8 Frameworks</h4>
 
 <p>The <acronym>CRAN</acronym> build of R is installed as a framework, which is
 selected by the option
@@ -5294,11 +5375,11 @@ non-standard location) and Unix utilities may not support it (e.g. the
 to <code>pkg-config</code>).
 </p>
 <hr>
-<span id="Building-R_002eapp"></span><span id="Building-R_002eapp-1"></span><h4 class="subsection">C.3.8 Building R.app</h4>
+<span id="Building-R_002eapp"></span><span id="Building-R_002eapp-1"></span><h4 class="subsection">C.3.9 Building R.app</h4>
 
 <p>Building the <small>R.APP</small> GUI console is a separate project, using Xcode.
 Before compiling <small>R.APP</small> make sure the current version of R is
-installed in <samp>/Library/Frameworks/R.framework</samp> and working at the
+installed in <samp>/Library/Frameworks/R.framework</samp> and is working at the
 command-line (this can be a binary install).
 </p>
 <p>The current sources can be checked out by
@@ -5320,7 +5401,7 @@ application bundle can be run anywhere and it is customary to place it
 in the <samp>/Applications</samp> folder.
 </p>
 <hr>
-<span id="Building-binary-packages"></span><span id="Building-binary-packages-1"></span><h4 class="subsection">C.3.9 Building binary packages</h4>
+<span id="Building-binary-packages"></span><span id="Building-binary-packages-1"></span><h4 class="subsection">C.3.10 Building binary packages</h4>
 
 <p><acronym>CRAN</acronym> macOS binary packages are distributed as tarballs with
 suffix <samp>.tgz</samp> to distinguish them from source tarballs.  One can
@@ -5339,17 +5420,19 @@ CXX=&quot;clang++ -mmacosx-version-min=10.13&quot;
 FC=&quot;/usr/local/gfortran/bin/gfortran -mmacosx-version-min=10.13&quot;
 </pre></div>
 
+<p>For &lsquo;<samp>arm64</samp>&rsquo;, use the flag <samp>-mmacosx-version-min=11.0</samp>.
+</p>
 </li><li> Using the flag <samp>-Werror=partial-availability</samp> can help trigger
 compilation errors on functionality not in High Sierra.
 
 </li><li> Check that any compiled code is not dynamically linked to libraries only
 on your machine, for example by using <code>otool -L</code> or
 <code>objdump -macho -dylibs-used</code>.  This can include C++ and Fortran
-run-time libraries under <samp>/usr/local</samp>: one can use
-<code>install_name_tool</code> to point these at system versions or those
-shipped with R, for example
+run-time libraries under <samp>/usr/local/lib</samp> or
+<samp>/opt/R/arm64/lib</samp>: one can use <code>install_name_tool</code> to
+point these at system versions or those shipped with R, for example
 <div class="example">
-<pre class="example">install_name_tool -change /usr/local/clang/lib/libc++.1.dylib \
+<pre class="example">install_name_tool -change /usr/local/llvm/lib/libc++.1.dylib \
 /usr/lib/libc++.1.dylib \
 <var>pkg</var>.so
 
@@ -5368,157 +5451,83 @@ build OS, but not against earlier ones.  It may be possible to
 circumvent that by static linking to <samp>libc++.a</samp> and
 <samp>libc++abi.a</samp> by something like
 <div class="example">
-<pre class="example">SHLIB_CXXLD = /usr/local/clang/bin/clang
-PKG_LIBS = /usr/local/clang/lib/libc++.a /usr/local/clang/lib/libc++abi.a
+<pre class="example">SHLIB_CXXLD = /usr/local/llvm/bin/clang
+PKG_LIBS = /usr/local/llvm/lib/libc++.a /usr/local/llvm/lib/libc++abi.a
 </pre></div>
 <p>in <samp>src/Makevars</samp>.  It would also be possible to static link the
 Fortran runtime libraries <samp>/usr/local/gfortran/lib/libgfortran.a</samp>
 and <samp>/usr/local/gfortran/lib/libquadmath.a</samp> should the Fortran
-compiler have later versions (but <code>gfortran</code> 8, 9, 10 and 11 all
-have version <code>5.0.0</code>).
+compiler have later versions (but <code>gfortran</code> 8&ndash;12 all
+have version <code>5</code>).
 </p></li></ul>
-<p>The <acronym>CRAN</acronym> binary packages are built with the Apple compiler on High
-Sierra, which avoids the first two and any issues with C++ libraries.
+<p>The <acronym>CRAN</acronym> binary packages are built with the Apple compiler on
+the oldest supported version of macOS, which avoids the first two and
+any issues with C++ libraries.
 </p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <hr>
-<span id="g_t_0060Apple-Silicon_0027"></span><span id="arm64-aka-_0060Apple-Silicon_0027"></span><h4 class="subsection">C.3.10 &lsquo;<samp>arm64</samp>&rsquo; aka &lsquo;Apple Silicon&rsquo;</h4>
+<span id="Building-for-Intel-on-arm64"></span><span id="Building-for-Intel-on-arm64-1"></span><h4 class="subsection">C.3.11 Building for Intel on &lsquo;<samp>arm64</samp>&rsquo;</h4>
 
-
-<p>In November 2020 Apple launched Macs using &lsquo;Apple Silicon&rsquo;: this architecture
-has unfortunately many names, including &lsquo;<samp>aarch64</samp>&rsquo; (in the FOSS world)
-&lsquo;<samp>arm64</samp>&rsquo; and &lsquo;<samp>arm64e</samp>&rsquo; (by Apple): the machines are also
-known as &lsquo;M1&rsquo;, Apple&rsquo;s name for their (first-generation) CPU.
-</p>
-<p>It is possible to build and run R and almost all packages for
-&lsquo;<samp>x86_64</samp>&rsquo; using &lsquo;Rosetta&rsquo; emulation.  To do so, install all the
-prerequisites and other software described above, but include the flag
-<samp>-arch x86_64</samp> for <code>clang</code> and <code>clang++</code>, for
-example with a <samp>config.site</samp> file containing
+<p>Should one want to build R for Intel on an &lsquo;<samp>arm64</samp>&rsquo; Big Sur
+Mac, add the target for the C and C++ compilers:
 </p>
 <div class="example">
-<pre class="example">CC=&quot;clang -arch x86_64&quot;
+<pre class="example">CC=&quot;clang -arch x86_64
 OBJC=$CC
 CXX=&quot;clang++ -arch x86_64&quot;
 FC=&quot;/usr/local/gfortran/bin/gfortran -mtune=native -mmacosx-version-min=10.13&quot;
 </pre></div>
 
-<p>To correctly set the architecture (which will be auto-detected as
+<p>and install the Fortran compiler and external software described above
+for Intel builds (and have <samp>/usr/local/bin</samp> before
+<samp>/opt/R/arm64/bin</samp> in your path).
+</p>
+<p>To set the correct architecture (which will be auto-detected as
 <code>aarch64</code>), use something like
 </p>
 <div class="example">
 <pre class="example">/path/to/configure --build=x86_64-apple-darwin20
 </pre></div>
 
+
 <hr>
-<span id="Native-builds"></span><span id="Native-builds-1"></span><h4 class="subsubsection">C.3.10.1 Native builds</h4>
+<span id="Installer"></span><span id="Installer-1"></span><h4 class="subsection">C.3.12 Installer</h4>
 
-<p>This section follows the <acronym>CRAN</acronym> distribution in using
-<samp>/opt/R/arm64</samp> rather than <samp>/usr/local</samp>: this largely allows
-natively-compiled software to co-exist with compiled-for-Intel software
-(although the C/C++ compilers and linker will still search
-<samp>/usr/local/include</samp> and <samp>/usr/local/lib</samp>).
-</p>
-<p>No Fortran compiler has been released for this architecture although
-there are ports under development.  We used the fork of
-<code>gfortran</code> from <a href="https://github.com/iains/gcc-darwin-arm64">https://github.com/iains/gcc-darwin-arm64</a>
-of which there are binary distributions at
-<a href="https://mac.r-project.org/libs-arm64/">https://mac.r-project.org/libs-arm64/</a> and
-<a href="https://github.com/fxcoudert/gfortran-for-macOS/releases/">https://github.com/fxcoudert/gfortran-for-macOS/releases/</a>.  It
-seems some of these have been built using the SDK path for Xcode and not
-that for the Command Line Tools which causes some problems<a id="DOCF101" href="#FOOT101"><sup>101</sup></a> when using the Fortran compiler to
-link: to fix that change the symbolic link
-<samp>/opt/R/arm64/gfortran/SDK</samp> to point to your SDK, e.g. to
-<samp>/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk</samp> (the
-appropriate path can be found by running <code>xcrun
--show-sdk-path</code>).
-</p>
-<p>A release of XQuartz 2.8.1 is available <em>via</em>
-<a href="https://www.xquartz.org/releases/">https://www.xquartz.org/releases/</a>: this is dual-architecture so
-supports both &lsquo;<samp>arm64</samp>&rsquo; and &lsquo;<samp>x86_64</samp>&rsquo; builds.
-</p>
-<p>Binary builds of the prerequisites are available at
-<a href="https://mac.r-project.org/bin/darwin20/arm64/">https://mac.r-project.org/bin/darwin20/arm64/</a>.  (The simplest way
-to get Tcl/Tk is to install
-<a href="https://mac.r-project.org/libs-arm64/tcltk-8.6.11-xft-darwin20.4-arm64.pkg">https://mac.r-project.org/libs-arm64/tcltk-8.6.11-xft-darwin20.4-arm64.pkg</a>
-which bundles Tcl, Tk and Tktable, but you may already have these
-installed by the R binary package installer.)  These unpack into
-<samp>/opt/R/arm64</samp>: it is simplest to first create that directory and
-adjust its ownership if desired:
-</p>
-<div class="example">
-<pre class="example">sudo mkdir -p /opt/R/arm64
-sudo chown -R myaccount /opt/R
-</pre></div>
-
-<p>Then components can be downloaded and unpacked, for example
-</p>
-<div class="example">
-<pre class="example">curl -OL https://mac.r-project.org/libs-arm64/jpeg-9d-darwin.20-arm64.tar.gz
-tar -C/ -xf jpeg-9d-darwin.20-arm64.tar.gz
-</pre></div>
-
-<p>using <code>sudo</code> if necessary.  (There is an R script at
-<a href="https://mac.r-project.org/bin/">https://mac.r-project.org/bin/</a> to help with this.)
-</p>
-<p>If compiling from source, <code>pcre2</code> (at least up to version 10.39)
-needs to be built without JIT support (the default) as the R build
-segfaults if that is enabled, so do run <code>make check</code> on your build.
-</p>
-<p>Add <samp>/opt/R/arm64/bin</samp> to the <code>PATH</code>, create a file
-<samp>config.site</samp> something like
-</p>
-<div class="example">
-<pre class="example">CC=&quot;clang -target arm64-apple-macos11&quot;
-OBJC=$CC
-FC=&quot;/opt/R/arm64/gfortran/bin/gfortran -mtune=native&quot;
-CXX=&quot;clang++ -target arm64-apple-macos11&quot;
-CFLAGS=&quot;-falign-functions=8 -g -O2 -Wall -pedantic&quot;
-CPPFLAGS=-I/opt/R/arm64/include
-LDFLAGS=-L/opt/R/arm64/lib
-R_LD_LIBRARY_PATH=/opt/R/arm64/lib
-</pre></div>
-
-<p>(the first flag in <code>CFLAGS</code> is needed to inter-work with the
-current <code>gfortran</code> without segfaulting in some packages).  Then
-configure R using something like
-</p>
-<div class="example">
-<pre class="example">/path/to/configure --enable-R-shlib --enable-memory-profiling \
-  --with-tcl-config=/opt/R/arm64/lib/tclConfig.sh \
-  --with-tk-config=/opt/R/arm64/lib/tkConfig.sh \
-  PKG_CONFIG_PATH=/opt/R/arm64/lib/pkgconfig:/usr/lib/pkgconfig \
-  JAVA_HOME=/path/to/jdk-17.jdk/Contents/Home
-</pre></div>
-
-<p>Updating a build may fail because of the bug
-described at <a href="https://openradar.appspot.com/FB8914243">https://openradar.appspot.com/FB8914243</a> but
-<em>ab initio</em> builds work.
-</p>
-<p>As with Intel builds, the <code>Accelerate</code> library could be used
-<em>via</em> the configuration option
-</p>
-<div class="example">
-<pre class="example">--with-blas=&quot;-framework Accelerate&quot;
-</pre></div>
-
-<p>Some <acronym>CRAN</acronym> builds of R can be
-switched<a id="DOCF102" href="#FOOT102"><sup>102</sup></a>
-to use it.
+<p>The scripts for the <acronym>CRAN</acronym> packaging of R can be found under
+<a href="https://svn.r-project.org/R-dev-web/trunk/QA/Simon/R4">https://svn.r-project.org/R-dev-web/trunk/QA/Simon/R4</a>: start
+with the <samp>README</samp> file in that directory.
 </p>
 
 
-
-<p>According to Apple, C/C++ code intended only for this architecture can
-be enclosed in an <code>#ifdef</code> block using macro <code>__arm64__</code> or
-<code>__aarch64__</code> : you may want to also condition on <code>__APPLE__</code>
-as those macros are defined on other OSes, at least for <code>clang</code>
-and <code>gcc</code> (<code>__aarch64__</code>).
-</p>
-<p>If building software or installing source packages with <code>cmake</code>
-(or a non-Apple <code>make</code>) ensure it contains the &lsquo;<samp>arm64</samp>&rsquo;
-architecture (use <code>file</code> to be sure).  Running compilers from an
-&lsquo;<samp>x86_64</samp>&rsquo; executable will generate &lsquo;<samp>x86_64</samp>&rsquo; code &hellip;.
-</p>
 
 
 
@@ -6028,10 +6037,9 @@ also 8.4 and later.</p>
 installs additional packages when making <samp>NEWS.pdf</samp>: re-running
 <code>make</code> seems to solve this.</p>
 <h5><a id="FOOT22" href="#DOCF22">(22)</a></h3>
-<p>You may be
-asked to install Rosetta at first use &ndash;
-<a href="https://support.apple.com/en-us/HT211861">https://support.apple.com/en-us/HT211861</a> &ndash; which may need
-administrator privileges.</p>
+<p>You may be asked to install Rosetta
+at first use &ndash; <a href="https://support.apple.com/en-us/HT211861">https://support.apple.com/en-us/HT211861</a> &ndash; which
+may need administrator privileges.</p>
 <h5><a id="FOOT23" href="#DOCF23">(23)</a></h3>
 <p>At the time of
 writing the Intel distribution was built/tested against 2.7.11 for
@@ -6209,11 +6217,11 @@ the &lsquo;Aqua&rsquo; version of Tk on macOS, but distributions of that include
 copy of the X11 files needed.</p>
 <h5><a id="FOOT67" href="#DOCF67">(67)</a></h3>
 <p>The search
-includes OpenBLAS, ATLAS and a generic <samp>libblas</samp>, plus some
-platform-specific choices (see below).</p>
+order is currently OpenBLAS, BLIS, ATLAS, platform-specific choices (see
+below) and finally a generic <samp>libblas</samp>.</p>
 <h5><a id="FOOT68" href="#DOCF68">(68)</a></h3>
-<p>Using the Oracle Developer Studio
-<code>cc</code> and <code>f95</code> compilers</p>
+<p>Using
+the Oracle Developer Studio <code>cc</code> and <code>f95</code> compilers</p>
 <h5><a id="FOOT69" href="#DOCF69">(69)</a></h3>
 <p>The only way to see
 exactly which CPUs the distributed libraries have been tuned for is to
@@ -6259,24 +6267,24 @@ compilers.</p>
 also needs the OpenMP runtime which has sometimes been distributed
 separately.</p>
 <h5><a id="FOOT83" href="#DOCF83">(83)</a></h3>
-<p>This
-is said to be for Mojave and later but works well enough on High
-Sierra.</p>
+<p>If compiling it from source on
+&lsquo;<samp>arm64</samp>&rsquo;, <code>pcre2</code> (at least up to version 10.39) needs to
+be built without JIT support (the default) as the R build segfaults
+if that is enabled, so do run <code>make check</code> on your build.</p>
 <h5><a id="FOOT84" href="#DOCF84">(84)</a></h3>
-<p>For
-licence reasons this is version 5.2 of <code>readline</code>: for those who
-want a more recent version it is straightforward to compile it from its
-sources.</p>
+<p>For licence reasons this is version
+5.2 of <code>readline</code>: for those who want a more recent version it is
+straightforward to compile it from its sources.</p>
 <h5><a id="FOOT85" href="#DOCF85">(85)</a></h3>
 <p>but as a stub invoking an executable provided by the
 Command Line Tools and the latter is not in versions 11.5 and later of
 the Command Line Tools.</p>
 <h5><a id="FOOT86" href="#DOCF86">(86)</a></h3>
-<p>For example, some Homebrew
-distributions.</p>
-<h5><a id="FOOT87" href="#DOCF87">(87)</a></h3>
 <p>See
 <a href="https://developer.apple.com/documentation/xcode/notarizing_macos_software_before_distribution">https://developer.apple.com/documentation/xcode/notarizing_macos_software_before_distribution</a>.</p>
+<h5><a id="FOOT87" href="#DOCF87">(87)</a></h3>
+<p>such
+as being unable to find <code>-lm</code>.</p>
 <h5><a id="FOOT88" href="#DOCF88">(88)</a></h3>
 <p>with <code>gcc</code> 10.2.</p>
 <h5><a id="FOOT89" href="#DOCF89">(89)</a></h3>
@@ -6299,15 +6307,15 @@ inconsolata texinfo</code> .</p>
 packages needed to check <acronym>CRAN</acronym> increased this to about 600MB.</p>
 <h5><a id="FOOT95" href="#DOCF95">(95)</a></h3>
 <p>which amount to installing MacTeX 2020 (whose
-LaTeX packages are frozen) or TeXLive 2021 (which has been tried and has
+LaTeX packages are frozen) or TeXLive 2022 (which has been tried and has
 current updates).</p>
 <h5><a id="FOOT96" href="#DOCF96">(96)</a></h3>
-<p>Just that component can be
-selected from the installer for R: at the &lsquo;Installation Type&rsquo; screen
-select &lsquo;Customise&rsquo; and then just the &lsquo;Tcl/Tk 8.6.6&rsquo; component.</p>
+<p>Just that component can be selected from the installer
+for R: at the &lsquo;Installation Type&rsquo; screen select &lsquo;Customise&rsquo; and then
+just the &lsquo;Tcl/Tk 8.6.11&rsquo; component.</p>
 <h5><a id="FOOT97" href="#DOCF97">(97)</a></h3>
 <p>At the time of writing the
-Intel distribution used 2.7.11 and the &lsquo;<samp>arm64</samp>&rsquo; used 2.8.1.</p>
+Intel distribution used 2.7.11 and the &lsquo;<samp>arm64</samp>&rsquo; one used 2.8.1.</p>
 <h5><a id="FOOT98" href="#DOCF98">(98)</a></h3>
 <p>Configure
 Tk with <samp>--enable-aqua</samp>.</p>
@@ -6318,11 +6326,6 @@ Java.</p>
 <h5><a id="FOOT100" href="#DOCF100">(100)</a></h3>
 <p>Not at the time of
 writing for &lsquo;<samp>arm64</samp>&rsquo;.</p>
-<h5><a id="FOOT101" href="#DOCF101">(101)</a></h3>
-<p>such
-as being unable to find <code>-lm</code>.</p>
-<h5><a id="FOOT102" href="#DOCF102">(102)</a></h3>
-<p><a href="https://cran.r-project.org/bin/macosx/RMacOSX-FAQ.html#Which-BLAS-is-used-and-how-can-it-be-changed_003f">https://cran.r-project.org/bin/macosx/RMacOSX-FAQ.html#Which-BLAS-is-used-and-how-can-it-be-changed_003f</a></p>
 </div>
 <hr>
 
