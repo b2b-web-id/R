@@ -1,7 +1,7 @@
 #  File src/library/graphics/R/datetime.R
 #  Part of the R package, https://www.R-project.org
 #
-#  Copyright (C) 1995-2016 The R Core Team
+#  Copyright (C) 1995-2022 The R Core Team
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -166,9 +166,10 @@ hist.POSIXt <- function(x, breaks, ..., xlab = deparse1(substitute(x)),
                 if (right)
                     breaks[ind] <- breaks[ind] - 86400
 		if (missing(format)) format <- "%Y-%m-%d"
-           } else { # "days" or "weeks"
+           } else { # anything from "secs" to "weeks"
                 maxx <- max(x, na.rm = TRUE)
                 breaks <- seq(start, maxx + incr, breaks)
+                if (length(breaks) > 2L)
                 breaks <- breaks[seq_len(1L + max(which(breaks < maxx)))]
             }
         }
@@ -183,9 +184,13 @@ hist.POSIXt <- function(x, breaks, ..., xlab = deparse1(substitute(x)),
         ## trick to swallow arguments for hist.default, separate out 'axes'
         myplot <- function(res, xlab, freq, format, breaks,
                            right, include.lowest, labels = FALSE,
+                           density = NULL, angle = 45, col = NULL,
+                           border = NULL, lty = NULL,
                            axes = TRUE, xaxt = par("xaxt"), ...)
         {
 	    plot(res, xlab = xlab, axes = FALSE, freq = freq,
+                 density = density, angle = angle, col = col,
+                 border = border, lty = lty,
 		 labels = labels, ...)
 	    if(axes) {
 		axis(2, ...)
@@ -326,6 +331,7 @@ hist.Date <- function(x, breaks, ..., xlab = deparse1(substitute(x)),
                 start <- as.Date(start)
                 maxx <- max(x, na.rm = TRUE)
                 breaks <- seq(start, maxx + incr, breaks)
+                if (length(breaks) > 2L)
                 breaks <- breaks[seq_len(1L + max(which(breaks < maxx)))]
             }
         } else stop("invalid specification of 'breaks'")
@@ -338,9 +344,13 @@ hist.Date <- function(x, breaks, ..., xlab = deparse1(substitute(x)),
         ## trick to swallow arguments for hist.default, separate out 'axes'
         myplot <- function(res, xlab, freq, format, breaks,
                            right, include.lowest, labels = FALSE,
+                           density = NULL, angle = 45, col = NULL,
+                           border = NULL, lty = NULL,
                            axes = TRUE, xaxt = par("xaxt"), ...)
         {
             plot(res, xlab = xlab, axes = FALSE, freq = freq,
+                 density = density, angle = angle, col = col,
+                 border = border, lty = lty,
                  labels = labels, ...)
             if(axes && xaxt != "n") {
                 axis(2, ...)

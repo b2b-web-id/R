@@ -201,7 +201,7 @@ void onintrNoResume() { onintrEx(FALSE); }
    These do far more processing than is allowed in a signal handler ....
 */
 
-RETSIGTYPE attribute_hidden onsigusr1(int dummy)
+void attribute_hidden onsigusr1(int dummy)
 {
     if (R_interrupts_suspended) {
 	/**** ought to save signal and handle after suspend */
@@ -236,7 +236,7 @@ RETSIGTYPE attribute_hidden onsigusr1(int dummy)
 }
 
 
-RETSIGTYPE attribute_hidden onsigusr2(int dummy)
+void attribute_hidden onsigusr2(int dummy)
 {
     inError = 1;
 
@@ -843,10 +843,10 @@ verrorcall_dflt(SEXP call, const char *format, va_list ap)
 	Rvsnprintf_mbcs(p, max(msg_len - strlen(errbuf), 0), format, ap);
     }
     /* Approximate truncation detection, may produce false positives.  Assumes
-       MB_CUR_MAX > 0. Note: approximation is fine, as the string may include
+       R_MB_CUR_MAX > 0. Note: approximation is fine, as the string may include
        dots, anyway */
     size_t nc = strlen(errbuf); // > 0, ignoring possibility of failure
-    if (nc > BUFSIZE - 1 - (MB_CUR_MAX - 1)) {
+    if (nc > BUFSIZE - 1 - (R_MB_CUR_MAX - 1)) {
 	size_t end = min(nc + 1, (BUFSIZE + 1) - 4); // room for "...\n\0"
 	for(size_t i = end; i <= BUFSIZE + 1; ++i) errbuf[i - 1] = '\0';
 	mbcsTruncateToValid(errbuf);
@@ -1839,7 +1839,7 @@ static void vsignalError(SEXP call, const char *format, va_list ap)
 		/* if we are in the process of handling a C stack
 		   overflow, treat all calling handlers as failed */
 		if (R_OldCStackLimit)
-		    break;
+		    continue;
 		SEXP hooksym, hcall, qcall, qfun;
 		/* protect oldstack here, not outside loop, so handler
 		   stack gets unwound in case error is protect stack
@@ -2542,7 +2542,13 @@ SEXP R_withCallingErrorHandler(SEXP (*body)(void *), void *bdata,
 
 SEXP attribute_hidden do_addGlobHands(SEXP call, SEXP op,SEXP args, SEXP rho)
 {
+    /* check for handlers on the stack before proceeding (PR1826). */
     SEXP oldstk = R_ToplevelContext->handlerstack;
+    for (RCNTXT *cptr = R_GlobalContext;
+	 cptr != R_ToplevelContext;
+	 cptr = cptr->nextcontext)
+	if (cptr->handlerstack != oldstk)
+	    error("should not be called with handlers on the stack");
 
     R_HandlerStack = R_NilValue;
     do_addCondHands(call, op, args, rho);
@@ -2551,19 +2557,13 @@ SEXP attribute_hidden do_addGlobHands(SEXP call, SEXP op,SEXP args, SEXP rho)
        restore the handler stack to the value when begincontext was
        called. This function should only be called in a context where
        there are no handlers on the stack. */
-#ifdef DODO
-    for (RCNTXT *cptr = R_GlobalContext;
-	 cptr != R_ToplevelContext;
-	 cptr = cptr->nextcontext)
-	if (cptr->handlerstack == R_NilValue)
-	    cptr->handlerstack = R_HandlerStack;
-#endif
     for (RCNTXT *cptr = R_GlobalContext;
 	 cptr != R_ToplevelContext;
 	 cptr = cptr->nextcontext)
 	if (cptr->handlerstack == oldstk)
 	    cptr->handlerstack = R_HandlerStack;
-	else error("should not be called with handlers on the stack");
+	else /* should not happen after the check above */
+	    error("should not be called with handlers on the stack");
 
     R_ToplevelContext->handlerstack = R_HandlerStack;
     return R_NilValue;

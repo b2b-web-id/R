@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 1998--2021 The R Core Team
+ *  Copyright (C) 1998--2022 The R Core Team
  *  Copyright (C) 1995, 1996  Robert Gentleman and Ross Ihaka
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -389,6 +389,15 @@ void attribute_hidden R_check_locale(void)
     }
 #endif
     mbcslocale = MB_CUR_MAX > 1;
+    R_MB_CUR_MAX = MB_CUR_MAX;
+#ifdef __sun
+    /* Solaris 10 (at least) has MB_CUR_MAX == 3 in some, but ==4
+       in other UTF-8 locales. The former does not allow working
+       with non-BMP characters using mbrtowc(). Work-around by
+       allowing to use more. */
+    if (utf8locale && R_MB_CUR_MAX < 4)
+	R_MB_CUR_MAX = 4;
+#endif
 #ifdef Win32
     {
 	char *ctype = setlocale(LC_CTYPE, NULL), *p;
@@ -481,11 +490,7 @@ SEXP attribute_hidden do_fileshow(SEXP call, SEXP op, SEXP args, SEXP rho)
     for (i = 0; i < n; i++) {
 	SEXP el = STRING_ELT(fn, i);
 	if (!isNull(el) && el != NA_STRING)
-#ifdef Win32
-	    f[i] = acopy_string(reEnc(CHAR(el), getCharCE(el), CE_UTF8, 1));
-#else
 	    f[i] = acopy_string(translateCharFP(el));
-#endif
 	else
 	    error(_("invalid filename specification"));
 	if (STRING_ELT(hd, i) != NA_STRING)
@@ -1250,6 +1255,7 @@ list_files(const char *dnp, const char *stem, int *count, SEXP *pans,
     DIR *dir;
     struct dirent *de;
     char p[PATH_MAX], stem2[PATH_MAX];
+    int res;
 #ifdef Windows
     /* > 2GB files might be skipped otherwise */
     struct _stati64 sb;
@@ -1270,11 +1276,11 @@ list_files(const char *dnp, const char *stem, int *count, SEXP *pans,
 			snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
 
 #ifdef Windows
-		    _stati64(p, &sb);
+		    res = _stati64(p, &sb);
 #else
-		    stat(p, &sb);
+		    res = stat(p, &sb);
 #endif
-		    if ((sb.st_mode & S_IFDIR) > 0) {
+		    if (!res && (sb.st_mode & S_IFDIR) > 0) {
 			if (not_dot) {
 			    if (idirs) {
 #define IF_MATCH_ADD_TO_ANS						\
@@ -1383,6 +1389,7 @@ static void list_dirs(const char *dnp, const char *nm,
     DIR *dir;
     struct dirent *de;
     char p[PATH_MAX];
+    int res;
 #ifdef Windows
     /* > 2GB files might be skipped otherwise */
     struct _stati64 sb;
@@ -1409,11 +1416,11 @@ static void list_dirs(const char *dnp, const char *nm,
 	    snprintf(p, PATH_MAX, "%s%s%s", dnp, R_FileSep, de->d_name);
 #endif
 #ifdef Windows
-	    _stati64(p, &sb);
+	    res = _stati64(p, &sb);
 #else
-	    stat(p, &sb);
+	    res = stat(p, &sb);
 #endif
-	    if ((sb.st_mode & S_IFDIR) > 0) {
+	    if (!res && (sb.st_mode & S_IFDIR) > 0) {
 		if (strcmp(de->d_name, ".") && strcmp(de->d_name, "..")) {
 		    if(recursive) {
 			char nm2[PATH_MAX];

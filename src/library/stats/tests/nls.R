@@ -44,6 +44,23 @@ logistInit <- function(mCall, LHS, data) {
 }
 logist <- selfStart(logist, initial = logistInit) ##-> Error in R 1.5.0
 str(logist)
+## with parameters  and  getInitial():
+logist <- selfStart(logist, initial = logistInit,
+                    parameters = c("Asym", "xmid", "scal"))
+tools::assertWarning(verbose = TRUE,
+ in1 <- getInitial(circumference ~ logist(age, Asym, xmid, scal), Orange)
+) # no warning previously
+## but this then failed, now gives the same warning:
+tools::assertWarning(verbose = TRUE,
+ fm <- nls(circumference ~ logist(age, Asym, xmid, scal), Orange)
+)
+## in R 4.1.{0,1} gave
+## Error in (attr(object, "initial"))(mCall = mCall, data = data, LHS = LHS,  :
+##  unused arguments (control = list(.......), trace = FALSE)
+## IGNORE_RDIFF_BEGIN
+coef(summary(fm))
+## IGNORE_RDIFF_END
+
 
 ## lower and upper in algorithm="port"
 set.seed(123)
@@ -57,7 +74,9 @@ nls(y ~ a+b*x+c*I(x^2), start = c(a=1, b=1, c=0.1), algorithm = "port")
 (fm <- nls(y ~ a+b*x+c*I(x^2), start = c(a=1, b=1, c=0.1),
            algorithm = "port", lower = c(0, 0, 0)))
 ## IGNORE_RDIFF_END
-if(have_MASS) print(confint(fm))
+if(have_MASS) {
+    print(confint(fm))
+} else message("skipping tests requiring the MASS package")
 
 ## weighted nls fit
 set.seed(123)

@@ -1,6 +1,6 @@
 % File src/library/utils/man/download.file.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2021 R Core Team
 % Distributed under GPL 2 or later
 
 \name{download.file}
@@ -23,9 +23,9 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
     for the \code{"libcurl"} method) naming the URL of a resource to be
     downloaded.}
 
-  \item{destfile}{a character string (or vector, see \code{url}) with
-    the name where the downloaded file is saved.  Tilde-expansion is
-    performed.}
+  \item{destfile}{a character string (or vector, see the \code{url}
+    argument) with the file path where the downloaded file is to be
+    saved.  Tilde-expansion is performed.}
 
   \item{method}{Method to be used for downloading files.  Current
     download methods are \code{"internal"}, \code{"wininet"} (Windows
@@ -60,8 +60,10 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   The function \code{download.file} can be used to download a single
   file as described by \code{url} from the internet and store it in
   \code{destfile}.
-  The \code{url} must start with a scheme such as
-  \samp{http://}, \samp{https://}, \samp{ftp://} or \samp{file://}.
+
+  The \code{url} must start with a scheme such as \samp{http://},
+  \samp{https://}, \samp{ftp://} or \samp{file://}.  Which methods
+  support which schemes varies by \R version.
 
   If \code{method = "auto"} is chosen (the default), the behavior
   depends on the platform:
@@ -71,14 +73,15 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
     uses the library of that name (\url{https://curl.se/libcurl/}).
 
     \item On Windows the \code{"wininet"} method is used apart from for
-    \samp{ftps://} URLs where \code{"libcurl"} is tried.  The
-    \code{"wininet"} method uses the WinINet functions (part of the OS).
+    \samp{ftp://} and \samp{ftps://} URLs where \code{"libcurl"} is
+    tried.  The \code{"wininet"} method uses the WinINet functions (part
+    of the OS).  However, it is deprecated for \samp{http://} and
+    \samp{https://} URLs in favour of \code{"libcurl"}.
     % https://msdn.microsoft.com/en-us/library/windows/desktop/aa383630%28v=vs.85%29.aspx
 
     Support for method \code{"libcurl"} is optional on Windows: use
     \code{\link{capabilities}("libcurl")} to see if it is supported on
-    your build.  It uses an external library of that name
-    (\url{https://curl.se/libcurl/}) against which \R can be compiled.
+    your build (it is on \acronym{CRAN} builds).
   }
 
   When method \code{"libcurl"} is used, it provides
@@ -114,11 +117,13 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \code{"internal"} method but are supported by the \code{"libcurl"}
   method and the \code{"wininet"} method on Windows.
 
+  Support for \samp{ftp://} URLs in the \code{"internal"} method was
+  deprecated in \R 4.1.1.
+
   See \code{\link{url}} for how \samp{file://} URLs are interpreted,
   especially on Windows.  The \code{"internal"} and \code{"wininet"}
-  methods do not percent-decode \samp{file://} URLs, but the
-  \code{"libcurl"} and \code{"curl"} methods do: method \code{"wget"}
-  does not support them.
+  methods do not percent-decode, but the \code{"libcurl"} and
+  \code{"curl"} methods do: method \code{"wget"} does not support them.
 
   Most methods do not percent-encode special characters such as spaces
   in URLs (see \code{\link{URLencode}}), but it seems the
@@ -149,7 +154,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   \code{"libcurl"} method values of the option less than 2 give verbose
   output.
 
-  A progress bar tracks the transfer platform specifically:
+  A progress bar tracks the transfer platform-specifically:
   \describe{
     \item{On Windows}{If the file length is known, the
       full width of the bar is the known length.  Otherwise the initial
@@ -157,7 +162,7 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
       is exceeded.  (In non-interactive use this uses a text version.  If the
       file length is known, an equals sign represents 2\% of the transfer
       completed: otherwise a dot represents 10Kb.)}
-    \item{On a unix-alike}{If the file length is known, an
+    \item{On a Unix-alike}{If the file length is known, an
       equals sign represents 2\% of the transfer completed: otherwise a dot
       represents 10Kb.}
   }
@@ -231,7 +236,6 @@ download.file(url, destfile, method, quiet = FALSE, mode = "w",
   password.  \bold{NB:} you will be given only one opportunity to enter this,
   but if proxy authentication is required and fails there will be one
   further prompt per download.
-
 
   Much the same scheme is supported by \code{method = "libcurl"}, including
   \env{no_proxy}, \env{http_proxy} and \env{ftp_proxy}, and for the last

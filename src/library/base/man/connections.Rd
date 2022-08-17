@@ -1,6 +1,6 @@
 % File src/library/base/man/connections.Rd
 % Part of the R package, https://www.R-project.org
-% Copyright 1995-2020 R Core Team
+% Copyright 1995-2021 R Core Team
 % Distributed under GPL 2 or later
 
 \name{connections}
@@ -110,8 +110,8 @@ socketTimeout(socket, timeout = -1)
     \sQuote{file} may not be seekable.}
   \item{method}{character string, partially matched to
     \code{c("default", "internal", "wininet", "libcurl")}:
-%% FIXME:  Consider  "auto", as in download.file()
     see \sQuote{Details}.}
+%% FIXME:  Consider  "auto", as in download.file()
   \item{headers}{named character vector of HTTP headers to use in HTTP
     requests.  It is ignored for non-HTTP URLs.  The \code{User-Agent}
     header, coming from the \code{HTTPUserAgent} option (see
@@ -144,30 +144,36 @@ socketTimeout(socket, timeout = -1)
   connection created by \code{serverSocket}), but may
   be opened by setting a non-empty value of argument \code{open}.
 
-  For \code{file} the description is a path to the file to be opened or
-  a complete URL (when it is the same as calling \code{url}), or
-  \code{""} (the default) or \code{"clipboard"} (see the
-  \sQuote{Clipboard} section).  Use \code{"stdin"} to refer to the
-  C-level \sQuote{standard input} of the process (which need not be
-  connected to anything in a console or embedded version of \R, and is
-  not in \code{RGui} on Windows).  See also \code{\link{stdin}()} for
-  the subtly different R-level concept of \code{stdin}. See
-  \code{\link{nullfile}()} for a platform-independent way to get
-  filename of the null device.
+  For \code{file} the description is a path to the file to be opened
+  (when \link{tilde expansion} is done) or a complete URL (when it is
+  the same as calling \code{url}), or \code{""} (the default) or
+  \code{"clipboard"} (see the \sQuote{Clipboard} section).  Use
+  \code{"stdin"} to refer to the C-level \sQuote{standard input} of the
+  process (which need not be connected to anything in a console or
+  embedded version of \R, and is not in \code{RGui} on Windows).  See
+  also \code{\link{stdin}()} for the subtly different R-level concept of
+  \code{stdin}. See \code{\link{nullfile}()} for a platform-independent
+  way to get filename of the null device.
 
   For \code{url} the description is a complete URL including scheme
   (such as \samp{http://}, \samp{https://}, \samp{ftp://} or
   \samp{file://}).  Method \code{"internal"} is that available since
-  connections were introduced, method \code{"wininet"} is only available
-  on Windows (it uses the WinINet functions of that OS) and method
-  \code{"libcurl"} (using the library of that name:
+  connections were introduced..  Method \code{"wininet"} is only
+  available on Windows (it uses the WinINet functions of that OS) and
+  method \code{"libcurl"} (using the library of that name:
   \url{https://curl.se/libcurl/}) is required on a Unix-alike but
   optional on Windows.  Method \code{"default"} uses method
-  \code{"internal"} for \samp{file:} URLs and \code{"libcurl"} for
-  \code{ftps:} URLs.  On a Unix-alike it uses \code{"libcurl"} for
-  \samp{http:}, \samp{https:} and \samp{ftp:} URLs; on Windows
-  \code{"wininet"} for \samp{http:}, \samp{ftp:} and \samp{https:} URLs.
-  Proxies can be specified: see \code{\link{download.file}}.
+  \code{"internal"} for \samp{file://} URLs and uses \code{"libcurl"}
+  (if available) for \samp{ftp://} and \samp{ftps://} URLs.  On a
+  Unix-alike it uses \code{"libcurl"} for \samp{http://} and
+  \samp{https://} URLs; on Windows \code{"wininet"} for \samp{http://}
+  and \samp{https://} URLs (and for \samp{ftp://} if \code{"libcurl"} is
+  unavailable).  Which methods support which schemes has varied by \R
+  version -- currently \code{"internal"} supports \samp{file://},
+  \samp{http://} (deprecated) and \samp{ftp://} (deprecated);
+  \code{"wininet"} supports \samp{file://}, \samp{http://},
+  \samp{https://} and \samp{ftp://} (deprecated).  Proxies can be
+  specified: see \code{\link{download.file}}.
 
   For \code{gzfile} the description is the path to a file compressed by
   \command{gzip}: it can also open for reading uncompressed files and
@@ -249,6 +255,9 @@ socketTimeout(socket, timeout = -1)
   is platform-dependent (see \code{\link{libcurlVersion}}), but all
   Unix-alike platforms will support \samp{https://} and most platforms
   will support \samp{ftps://}.
+
+  Support for the \samp{ftp://} scheme by the \code{"internal"} method was
+  deprecated for \R 4.1.1.
 
   Most methods do not percent-encode special characters such as spaces
   in \samp{http://} URLs (see \code{\link{URLencode}}), but it seems the

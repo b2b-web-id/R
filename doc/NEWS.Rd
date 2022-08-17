@@ -5,6 +5,285 @@
 \title{R News}
 \encoding{UTF-8}
 
+\section{\Rlogo CHANGES IN R 4.1.3}{
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item The default version of Bioconductor has been changed to
+      3.14. (This is used by \code{setRepositories} and the menus in
+      GUIs.)
+    }
+  }
+
+  \subsection{UTILITIES}{
+    \itemize{
+      \item \command{R CMD check --as-cran} has a workaround for a bug
+      in versions of \command{file} up to at least 5.41 which
+      mis-identify DBF files last changed in 2022 as executables.
+    }
+  }
+
+  \subsection{C-LEVEL FACILITIES}{
+    \itemize{
+      \item The legacy S-compatibility macros \code{SINGLE_*} in
+      \file{R_ext/Constants.h} (included by \file{R.h}) are deprecated
+      and will be removed in \R 4.2.0.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item Initialization of self-starting \code{nls()} models with
+      initialization functions following the pre-R-4.1.0 API
+      (without the \code{...} argument) works again for now, with a
+      deprecation warning.
+
+      \item Fixed quoting of \code{~autodetect~} in Java setting defaults
+      to avoid inadvertent user lookup due to leading \code{~}, reported
+      in \PR{18231} by Harold Gutch.
+
+      \item \code{substr(., start, stop) <- v} now treats \emph{negative}
+      \code{stop} values correctly.  Reported with a patch in \PR{18228} by
+      Brodie Gaslam.
+
+      \item Subscripting an array \code{x} without dimnames by a
+      \code{length(dim(x))}-column character matrix gave "random"
+      non-sense, now an error; reported in \PR{18244} by Mikael Jagan.
+
+      \item \code{...names()} now matches \code{names(list(...))} closely,
+      fixing \PR{18247}.
+
+      \item \code{all.equal(*, scale = s)} now works as intended when
+      \code{length(s) > 1}, partly thanks to Michael Chirico's \PR{18272}.
+
+      \item \code{print(x)} for long vectors \code{x} now also works for
+      named atomic vectors or lists and prints the correct number when
+      reaching the \code{getOption("max.print")} limit; partly thanks to a
+      report and proposal by Hugh Parsonage to the R-devel list.
+
+      \item \code{all.equal(<selfStart>, *)} no longer signals a deprecation
+      warning.
+
+      \item \code{reformulate(*, response=r)} gives a helpful error message
+      now when \code{length(r) > 1}, thanks to Bill Dunlap's \PR{18281}.
+
+      \item Modifying \code{globalCallingHandlers} inside
+      \code{withCallingHandlers()} now works or fails correctly, thanks to
+      Henrik Bengtsson's \PR{18257}.
+
+      \item \code{hist(<Date>, breaks = "days")} and
+      \code{hist(<POSIXt>, breaks = "secs")}
+      no longer fail for inputs of length 1.
+
+      \item \code{qbeta(.001, .9, .009)} and similar cases now converge
+      correctly thanks to Ben Bolker's report in \PR{17746}.
+
+      \item \code{window(x, start, end)} no longer wrongly signals
+      \dQuote{'start' cannot be after 'end'}, fixing \PR{17527} and
+      \PR{18291}.
+
+      \item \code{data()} now checks that its (rarely used) \code{list}
+      argument is a character vector -- a couple of packages passed other
+      types and gave incorrect results.
+
+      \item \code{which()} now checks its \code{arr.ind} argument is
+      TRUE rather coercing to logical and taking the first element --
+      which gave incorrect results in package code.
+
+      \item \code{model.weights()} and \code{model.offset()} more carefully
+      extract their model components, thanks to Ben Bolker and Tim Taylor's
+      R-devel post.
+
+      \item \code{list.files(recursive = TRUE)} now shows all broken
+      symlinks (previously, some of them may have been omitted, \PR{18296}).
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.1.2}{
+  \subsection{C-LEVEL FACILITIES}{
+    \itemize{
+      \item The workaround in headers \file{R.h} and \file{Rmath.h}
+      (\code{using namespace std;}) for the Oracle Developer Studio
+      compiler is no longer needed now C++11 is required so has been
+      removed.  A couple more usages of \code{log()} (which should have
+      been \code{std::log()}) with an \code{int} argument are reported on
+      Solaris.
+
+      \item The undocumented limit of 4095 bytes on messages from the
+      S-compatibility macros \code{PROBLEM} and \code{MESSAGE} is now
+      documented and longer messages will be silently truncated rather
+      than potentially causing segfaults.
+
+      \item If the \code{R_NO_SEGV_HANDLER} environment variable is
+      non-empty, the signal handler for SEGV/ILL/BUS signals (which
+      offers recovery user interface) is not set. This allows more
+      reliable debugging of crashes that involve the console.
+    }
+  }
+
+  \subsection{DEPRECATED AND DEFUNCT}{
+    \itemize{
+      \item The legacy S-compatibility macros \code{PROBLEM},
+      \code{MESSAGE}, \code{ERROR}, \code{WARN}, \code{WARNING},
+      \code{RECOVER}, \dots{} are deprecated and will be hidden in \R
+      4.2.0. \R{}'s native interface of \code{Rf_error} and
+      \code{Rf_warning} has long been preferred.
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \code{.mapply(F, dots, .)} no longer segfaults when
+      \code{dots} is not a \code{list} and uses \code{match.fun(F)} as
+      always documented; reported by Andrew Simmons in \PR{18164}.
+
+      \item \code{hist(<Date>, ...)} and \code{hist(<POSIXt>, ...)}
+      no longer pass arguments for \code{rect()} (such as \code{col} and
+      \code{density}) to \code{axis()}.  (Thanks to Sebastian Meyer's
+      \PR{18171}.)
+
+      \item \verb{\Sexpr{ch}} now preserves \code{Encoding(ch)}. (Thanks to
+      report and patch by Jeroen Ooms in \PR{18152}.)
+
+      \item Setting the RNG to \code{"Marsaglia-Multicarry"} e.g., by
+      \code{RNGkind()}, now warns in more places, thanks to
+      André Gillibert's report and patch in \PR{18168}.
+
+      \item \code{gray(numeric(), alpha=1/2)} no longer segfaults, fixing
+      \PR{18183}, reported by Till Krenz.
+
+      \item Fixed \code{dnbinom(x, size=<very_small>, .., log=TRUE)}
+      regression, reported by Martin Morgan.
+
+      \item \code{as.Date.POSIXlt(x)} now keeps \code{names(x)}, thanks to
+      Davis Vaughan's report and patch in \PR{18188}.
+
+      \item \code{model.response()} now strips an \code{"AsIs"} class typically,
+      thanks to Duncan Murdoch's report and other discussants in \PR{18190}.
+
+      \item \code{try()} is considerably faster in case of an error and
+      long call, as e.g., from some \code{do.call()}.  Thanks to
+      Alexander Kaever's suggestion posted to R-devel.
+
+      \item \code{qqline(y = <object>)} such as \code{y=I(.)}, now works,
+      see also \PR{18190}.
+
+      \item Non-integer \code{mgp} \code{par()} settings are now handled
+      correctly in \code{axis()} and \code{mtext()}, thanks to Mikael
+      Jagan and Duncan Murdoch's report and suggestion in \PR{18194}.
+
+      \item \code{formatC(x)} returns length zero \code{character()} now,
+      rather than \code{""} when \code{x} is of length zero, as documented,
+      thanks to Davis Vaughan's post to R-devel.
+
+      \item \code{removeSource(fn)} now retains (other) \code{attributes(fn)}.
+    }
+  }
+}
+
+\section{\Rlogo CHANGES IN R 4.1.1}{
+  \subsection{NEW FEATURES}{
+    \itemize{
+      \item \code{require(\var{pkg}, quietly = TRUE)} is quieter and in
+      particular does not warn if the package is not found.
+    }
+  }
+
+  \subsection{DEPRECATED AND DEFUNCT}{
+    \itemize{
+      \item Use of \samp{ftp://} URIs should be regarded as
+      deprecated, with on-going support confined to \code{method =
+	"libcurl"} and not routinely tested.  (Nowadays no major browser
+      supports them.)
+
+      \item The non-default \code{method = "internal"} is deprecated for
+      \samp{http://} and \samp{ftp://} URIs for both
+      \code{download.file} and \code{url}.
+
+      \item On Windows, \code{method = "wininet"} is deprecated for
+      \samp{http://}, \samp{https://} and \samp{ftp://} URIs for both
+      \code{download.file} and \code{url}.  (A warning is only given for
+      \samp{ftp://}.)
+
+      For \samp{ftp://} URIs the default method is now \code{"libcurl"}
+      if available (which it is on \acronym{CRAN} builds).
+
+      \code{method = "wininet"} remains the default for \samp{http://}
+      and \samp{https://} URIs but if \code{libcurl} is available, using
+      \code{method = "libcurl"} is preferred.
+    }
+  }
+
+  \subsection{INSTALLATION}{
+    \itemize{
+      \item \command{make check} now works also without a LaTeX
+      installation.  (Thanks to Sebastian Meyer's \PR{18103}.)
+    }
+  }
+
+  \subsection{BUG FIXES}{
+    \itemize{
+      \item \command{make check-devel} works again in an \R build
+      configured with \option{--without-recommended-packages}.
+
+      \item \code{qnbinom(p, size, mu)} for large \code{size/mu} is correct
+      now in a range of cases (\PR{18095}); similarly for the \code{(size,
+      prob)} parametrization of the negative binomial.  Also \code{qpois()}
+      and \code{qbinom()} are better and or faster for extreme cases.  The
+      underlying C code has been modularized and is common to all four cases
+      of discrete distributions.
+
+      \item \code{gap.axis} is now part of the \code{axis()} arguments which
+      are passed from \code{bxp()}, and hence \code{boxplot()}.  (Thanks to
+      Martin Smith's report and suggestions in \PR{18109}.)
+
+      \item \code{.First} and \code{.Last} can again be set from the site
+      profile.
+
+      \item \code{seq.int(from, to, *)} and \code{seq.default(..)} now work
+      better in large range cases where \code{from-to} is infinite where
+      the two boundaries are finite.
+
+      \item \code{all.equal(x,y)} now returns \code{TRUE} correctly also
+      when several entries of \code{abs(x)} and \code{abs(y)} are close to
+      \code{.Machine$double.xmax}, the largest finite \code{numeric}.
+
+      \item \code{model.frame()} now clears the object bit when removing the
+      \code{class} attribute of a value via \code{na.action} (\PR{18100}).
+
+      \item \code{charClass()} now works with multi-character
+      strings on Windows (\PR{18104}, fixed by Bill Dunlap).
+
+      \item \code{encodeString()} on Solaris now works again in Latin-1
+      encoding on characters represented differently in UTF-8.  Support for
+      surrogate pairs on Solaris has been improved.
+
+      \item \code{file.show()} on Windows now works with non-ASCII path
+      names representable in the current native encoding (\PR{18132}).
+
+      \item Embedded \R on Windows can now find \R home directory via the
+      registry even when installed only for the current user (\PR{18135}).
+
+      \item \code{pretty(x)} with finite \code{x} now returns finite values
+      also in the case where the extreme \code{x} values are close in size
+      to the maximal representable number \code{.Machine$double.xmax}.
+
+      Also, it's been tweaked for very small ranges and when a boundary is
+      close (or equal) to zero; e.g., \code{pretty(c(0,1e-317))} no longer
+      has negative numbers, currently still warning about a very small
+      range, and \code{pretty(2^-(1024 - 2^-1/(c(24,10))))} is more accurate.
+
+      \item The error message for not finding vignette files when weaving
+      has correct file sizes now. (Thanks to Sebastian Meyer's \PR{18154}.)
+
+      \item \code{dnbinom(20, <large>, 1)} now correctly gives 0, and
+      similar cases are more accurate with underflow precaution.
+      (Reported by Francisco Vera Alcivar in \PR{18072}.)
+    }
+  }
+}
+
+
 \section{\Rlogo CHANGES IN R 4.1.0}{
   \subsection{FUTURE DIRECTIONS}{
     \itemize{
@@ -27,6 +306,7 @@
       \item \samp{www.omegahat.net} is no longer one of the repositories
       known by default to \code{setRepositories()}.  (Nowadays it only
       provides source packages and is often unavailable.)
+      %% it had one Windows binary package for 4.0, none for 3.6.
 
       \item Function \code{package_dependencies()} (in package
       \pkg{tools}) can now use different dependency types for direct and
@@ -54,7 +334,7 @@
       \item \code{type.convert()} now warns when its \code{as.is} argument
       is not specified, as the help file always said it \emph{should}.  In
       that case, the default is changed to \code{TRUE} in line with its
-      change in \code{read.table()} (related to \code{stringsAsFactor}) in
+      change in \code{read.table()} (related to \code{stringsAsFactors}) in
       \R 4.0.0.
 
       \item When printing list arrays, classed objects are now shown
@@ -185,7 +465,7 @@
       \item \code{names()} now works for \code{DOTSXP} objects.  On the
       other hand, in \file{R-lang}, the R language manual, we now warn
       against relying on the structure or even existence of such
-      \code{dot-dot-dot} objects.
+      dot-dot-dot objects.
 
       \item \code{all.equal()} no longer gives an error on \code{DOTSXP}
       objects.
@@ -205,7 +485,7 @@
       \code{Sys.getlocale("LC_CTYPE")}.
 
       \item New function \code{gregexec()} which generalizes \code{regexec()}
-      to find \emph{all} disjoint matches and well as all substrings
+      to find \emph{all} disjoint matches and all substrings
       corresponding to parenthesized subexpressions of the given regular
       expression.  (Contributed by Brodie Gaslam.)
 
@@ -233,7 +513,7 @@
 
       \item New palettes \code{"Rocket"} and \code{"Mako"} for
       \code{hcl.colors()} (approximating palettes of the same name
-      from the 'viridisLite' package).
+      from the \pkg{viridisLite} package).
 
       Contributed by Achim Zeileis.
 
@@ -501,7 +781,8 @@
       AIX have been updated to Unicode 13.0.0.
 
       The character-width tables have been updated to include new
-      assignments in Unicode 13.0.0.
+      assignments in Unicode 13.0.0.  This included treating all control
+      characters as having zero width.
 
       \item The code for evaluating default (extended) regular
       expressions now uses the same character-classification functions
@@ -641,14 +922,19 @@
       \item \code{identical(x,y)} is no longer true for differing
       \code{DOTSXP} objects, fixing \PR{18032}.
 
-      \item \code{str()} now works correctly for DOTSXP and related
+      \item \code{str()} now works correctly for \code{DOTSXP} and related
       exotics, even when these are doomed.
 
       Additionally, it no longer fails for \code{list}s with a \code{class} and
       \dQuote{irregular} method definitions such that e.g. \code{lapply(*)} will
       necessarily fail, as currently for different \CRANpkg{igraph} objects.
 
-      \item Too long lines in environment files (e.g. \code{Renviron}) no
+      \item Message translation domains, e.g., for errors and warnings, are
+      now correctly determined also when e.g., a \pkg{base} function is
+      called from \dQuote{top-level} function (i.e., defined in \code{globalenv()}),
+      thanks to a patch from Joris Goosen fixing \PR{17998}.
+
+      \item Too long lines in environment files (e.g., \file{Renviron}) no
       longer crash \R. This limit has been increased to 100,000 bytes.
       (\PR{18001}.)
 
@@ -791,11 +1077,6 @@
       \item \code{checkRdaFiles(ff)$version} is now correct also when
       \code{ff} contains files of different versions, thanks to a report
       and patch from Sebastian Meyer in \PR{18041}.
-
-      \item Message translation domains, e.g., for errors and warnings, are
-      now correctly determined also when e.g., a \pkg{base} function is
-      called from \dQuote{top-level} function (i.e., defined in \code{globalenv()}),
-      thanks to a patch from Joris Goosen fixing \PR{17998}.
 
       \item macOS: Quartz device live drawing could fail (no plot is shown)
       if the system changes the drawing context after view update (often
@@ -1343,7 +1624,7 @@
 	 control = "all")} now include control option \code{"digits17"}
        which typically ensures 1:1 invertibility.  New option
        \code{control = "exact"} ensures numeric exact invertibility
-       via \code{"hexDigits"}.
+       via \code{"hexNumeric"}.
 
       \item When loading data sets via \code{read.table()},
        \code{data()} now uses \samp{LC_COLLATE=C} to ensure
@@ -1454,7 +1735,7 @@
       deprecated provision for 8.20--8.31 has been removed.
 
       \item Defunct functions \code{mem.limits()}, \code{.readRDS()},
-      \code{.saveRDS()},.\code{.find.package()}, and \code{.path.package()}
+      \code{.saveRDS()}, \code{.find.package()}, and \code{.path.package()}
       from package \pkg{base}
       and \code{allGenerics()}, \code{getAccess()}, \code{getAllMethods()},
       \code{getClassName()}, \code{getClassPackage()}, \code{getExtends()},
@@ -1721,7 +2002,7 @@
 
       \item \code{anova.glm()} and \code{anova.glmlist()} computed
       incorrect score (Rao) tests in no-intercept cases. (André
-      Gillibert, \PR{17734})
+      Gillibert, \PR{17735})
 
       \item \code{summaryRprof()} now should work correctly for the
       \code{Rprof(*, memory.profiling=TRUE)} case with small chunk size (and

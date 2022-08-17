@@ -514,7 +514,7 @@ function(file, pdf = FALSE, clean = FALSE, quiet = TRUE,
 ### ** .BioC_version_associated_with_R_version
 
 .BioC_version_associated_with_R_version <-
-    function() numeric_version(Sys.getenv("R_BIOC_VERSION", "3.13"))
+    function() numeric_version(Sys.getenv("R_BIOC_VERSION", "3.14"))
 ## Things are more complicated from R-2.15.x with still two BioC
 ## releases a year, so we do need to set this manually.
 
@@ -1553,13 +1553,17 @@ function(package)
 .load_package_quietly <-
 function(package, lib.loc)
 {
-    ## Load (reload if already loaded) @code{package} from
-    ## @code{lib.loc}, capturing all output and messages.
+    ## Quietly ensure that package @code{package} is loaded and
+    ## attached.
+    ## If not yet loaded, look for the package in @code{lib.loc}.
+    ## Otherwise, we do not attempt reloading: previously we tried at
+    ## least when attached, but reloading namespaces invalidates DLLs
+    ## and S3 registries, see e.g. PR#18130
+    ## <https://bugs.r-project.org/show_bug.cgi?id=18130>.
+    ## Hence if already loaded, we can neither ensure that the package
+    ## came from @code{lib.loc}, nor that we used the currently
+    ## installed versions.
     ## Don't do anything for base.
-    ## Earlier versions did not attempt reloading methods as this used
-    ## to cause trouble, but this now (2009-03-19) seems ok.
-    ## Otoh, it seems that unloading tcltk is a bad idea ...
-    ## Also, do not unload ourselves (but shouldn't we be "in use"?).
     ##
     ## All QC functions use this for loading packages because R CMD
     ## check interprets all output as indicating a problem.
@@ -1567,8 +1571,13 @@ function(package, lib.loc)
         .try_quietly({
             pos <- match(paste0("package:", package), search())
             if(!is.na(pos)) {
-                detach(pos = pos,
-                       unload = package %notin% c("tcltk", "tools"))
+                detach(pos = pos)
+                ## Presumably this should use
+                ## <CODE>
+                ##   detach(pos, force = TRUE)
+                ## </CODE>
+                ## to always detach?
+                ## Or perhaps simply leave things as they are?
             }
             library(package, lib.loc = lib.loc, character.only = TRUE,
                     verbose = FALSE)

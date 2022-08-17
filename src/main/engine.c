@@ -1,6 +1,6 @@
 /*
  *  R : A Computer Language for Statistical Data Analysis
- *  Copyright (C) 2001-2020  The R Core Team.
+ *  Copyright (C) 2001-2021  The R Core Team.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -2450,25 +2450,17 @@ void GEPretty(double *lo, double *up, int *ndiv)
  *	Pre:	    x1 == lo < up == x2      ;  ndiv >= 1
  *	Post: x1 <= y1 := lo < up =: y2 <= x2;	ndiv >= 1
  */
-    double unit, ns, nu;
-    double high_u_fact[2] = { .8, 1.7 };
-#ifdef DEBUG_PLOT
-    double x1,x2;
-#endif
-
     if(*ndiv <= 0)
 	error(_("invalid axis extents [GEPretty(.,.,n=%d)"), *ndiv);
-    if(*lo == R_PosInf || *up == R_PosInf ||
-       *lo == R_NegInf || *up == R_NegInf ||
-       !R_FINITE(*up - *lo)) {
-	error(_("infinite axis extents [GEPretty(%g,%g,%d)]"), *lo, *up, *ndiv);
-	return;/*-Wall*/
-    }
+    if(!R_FINITE(*lo) || !R_FINITE(*up)) // also catch NA etc
+	error(_("non-finite axis extents [GEPretty(%g,%g, n=%d)]"), *lo, *up, *ndiv);
 
-    ns = *lo; nu = *up;
+    // For *finite* boundaries, now allow (*up - *lo) = +/- inf  as R_pretty() now does
+    double ns = *lo, nu = *up;
 #ifdef DEBUG_PLOT
-    x1 = ns; x2 = nu;
+    double x1 = ns, x2 = nu;
 #endif
+    double unit, high_u_fact[2] = { .8, 1.7 };
     // -> ../appl/pretty.c 
     unit = R_pretty(&ns, &nu, ndiv, /* min_n = */ 1,
 		    /* shrink_sml = */ 0.25,
@@ -3340,7 +3332,7 @@ int GEstring_to_pch(SEXP pch)
 	   On Windows this only covers CJK locales, so we could.
 	 */
 	unsigned int ucs = 0;
-	if ( (int) mbtoucs(&ucs, CHAR(pch), MB_CUR_MAX) > 0) ipch = ucs;
+	if ( (int) mbtoucs(&ucs, CHAR(pch), R_MB_CUR_MAX) > 0) ipch = ucs;
 	else error(_("invalid multibyte char in pch=\"c\""));
 	if (ipch > 127) ipch = -ipch;
     }

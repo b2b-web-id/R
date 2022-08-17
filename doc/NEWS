@@ -1,5 +1,247 @@
 R News
 
+CHANGES IN R 4.1.3:
+
+  NEW FEATURES:
+
+    * The default version of Bioconductor has been changed to 3.14.
+      (This is used by setRepositories and the menus in GUIs.)
+
+  UTILITIES:
+
+    * R CMD check --as-cran has a workaround for a bug in versions of
+      file up to at least 5.41 which mis-identify DBF files last
+      changed in 2022 as executables.
+
+  C-LEVEL FACILITIES:
+
+    * The legacy S-compatibility macros SINGLE_* in R_ext/Constants.h
+      (included by R.h) are deprecated and will be removed in R 4.2.0.
+
+  BUG FIXES:
+
+    * Initialization of self-starting nls() models with initialization
+      functions following the pre-R-4.1.0 API (without the ...
+      argument) works again for now, with a deprecation warning.
+
+    * Fixed quoting of ~autodetect~ in Java setting defaults to avoid
+      inadvertent user lookup due to leading ~, reported in PR#18231 by
+      Harold Gutch.
+
+    * substr(., start, stop) <- v now treats _negative_ stop values
+      correctly.  Reported with a patch in PR#18228 by Brodie Gaslam.
+
+    * Subscripting an array x without dimnames by a
+      length(dim(x))-column character matrix gave "random" non-sense,
+      now an error; reported in PR#18244 by Mikael Jagan.
+
+    * ...names() now matches names(list(...)) closely, fixing PR#18247.
+
+    * all.equal(*, scale = s) now works as intended when length(s) > 1,
+      partly thanks to Michael Chirico's PR#18272.
+
+    * print(x) for long vectors x now also works for named atomic
+      vectors or lists and prints the correct number when reaching the
+      getOption("max.print") limit; partly thanks to a report and
+      proposal by Hugh Parsonage to the R-devel list.
+
+    * all.equal(<selfStart>, *) no longer signals a deprecation
+      warning.
+
+    * reformulate(*, response=r) gives a helpful error message now when
+      length(r) > 1, thanks to Bill Dunlap's PR#18281.
+
+    * Modifying globalCallingHandlers inside withCallingHandlers() now
+      works or fails correctly, thanks to Henrik Bengtsson's PR#18257.
+
+    * hist(<Date>, breaks = "days") and hist(<POSIXt>, breaks = "secs")
+      no longer fail for inputs of length 1.
+
+    * qbeta(.001, .9, .009) and similar cases now converge correctly
+      thanks to Ben Bolker's report in PR#17746.
+
+    * window(x, start, end) no longer wrongly signals "'start' cannot
+      be after 'end'", fixing PR#17527 and PR#18291.
+
+    * data() now checks that its (rarely used) list argument is a
+      character vector - a couple of packages passed other types and
+      gave incorrect results.
+
+    * which() now checks its arr.ind argument is TRUE rather coercing
+      to logical and taking the first element - which gave incorrect
+      results in package code.
+
+    * model.weights() and model.offset() more carefully extract their
+      model components, thanks to Ben Bolker and Tim Taylor's R-devel
+      post.
+
+    * list.files(recursive = TRUE) now shows all broken symlinks
+      (previously, some of them may have been omitted, PR#18296).
+
+CHANGES IN R 4.1.2:
+
+  C-LEVEL FACILITIES:
+
+    * The workaround in headers R.h and Rmath.h (using namespace std;)
+      for the Oracle Developer Studio compiler is no longer needed now
+      C++11 is required so has been removed.  A couple more usages of
+      log() (which should have been std::log()) with an int argument
+      are reported on Solaris.
+
+    * The undocumented limit of 4095 bytes on messages from the
+      S-compatibility macros PROBLEM and MESSAGE is now documented and
+      longer messages will be silently truncated rather than
+      potentially causing segfaults.
+
+    * If the R_NO_SEGV_HANDLER environment variable is non-empty, the
+      signal handler for SEGV/ILL/BUS signals (which offers recovery
+      user interface) is not set. This allows more reliable debugging
+      of crashes that involve the console.
+
+  DEPRECATED AND DEFUNCT:
+
+    * The legacy S-compatibility macros PROBLEM, MESSAGE, ERROR, WARN,
+      WARNING, RECOVER, ... are deprecated and will be hidden in R
+      4.2.0. R's native interface of Rf_error and Rf_warning has long
+      been preferred.
+
+  BUG FIXES:
+
+    * .mapply(F, dots, .) no longer segfaults when dots is not a list
+      and uses match.fun(F) as always documented; reported by Andrew
+      Simmons in PR#18164.
+
+    * hist(<Date>, ...) and hist(<POSIXt>, ...)  no longer pass
+      arguments for rect() (such as col and density) to axis().
+      (Thanks to Sebastian Meyer's PR#18171.)
+
+    * \Sexpr{ch} now preserves Encoding(ch). (Thanks to report and
+      patch by Jeroen Ooms in PR#18152.)
+
+    * Setting the RNG to "Marsaglia-Multicarry" e.g., by RNGkind(), now
+      warns in more places, thanks to Andr'e Gillibert's report and
+      patch in PR#18168.
+
+    * gray(numeric(), alpha=1/2) no longer segfaults, fixing PR#18183,
+      reported by Till Krenz.
+
+    * Fixed dnbinom(x, size=<very_small>, .., log=TRUE) regression,
+      reported by Martin Morgan.
+
+    * as.Date.POSIXlt(x) now keeps names(x), thanks to Davis Vaughan's
+      report and patch in PR#18188.
+
+    * model.response() now strips an "AsIs" class typically, thanks to
+      Duncan Murdoch's report and other discussants in PR#18190.
+
+    * try() is considerably faster in case of an error and long call,
+      as e.g., from some do.call().  Thanks to Alexander Kaever's
+      suggestion posted to R-devel.
+
+    * qqline(y = <object>) such as y=I(.), now works, see also
+      PR#18190.
+
+    * Non-integer mgp par() settings are now handled correctly in
+      axis() and mtext(), thanks to Mikael Jagan and Duncan Murdoch's
+      report and suggestion in PR#18194.
+
+    * formatC(x) returns length zero character() now, rather than ""
+      when x is of length zero, as documented, thanks to Davis
+      Vaughan's post to R-devel.
+
+    * removeSource(fn) now retains (other) attributes(fn).
+
+CHANGES IN R 4.1.1:
+
+  NEW FEATURES:
+
+    * require(pkg, quietly = TRUE) is quieter and in particular does
+      not warn if the package is not found.
+
+  DEPRECATED AND DEFUNCT:
+
+    * Use of ftp:// URIs should be regarded as deprecated, with
+      on-going support confined to method = "libcurl" and not routinely
+      tested.  (Nowadays no major browser supports them.)
+
+    * The non-default method = "internal" is deprecated for http:// and
+      ftp:// URIs for both download.file and url.
+
+    * On Windows, method = "wininet" is deprecated for http://,
+      https:// and ftp:// URIs for both download.file and url.  (A
+      warning is only given for ftp://.)
+
+      For ftp:// URIs the default method is now "libcurl" if available
+      (which it is on CRAN builds).
+
+      method = "wininet" remains the default for http:// and https://
+      URIs but if libcurl is available, using method = "libcurl" is
+      preferred.
+
+  INSTALLATION:
+
+    * make check now works also without a LaTeX installation.  (Thanks
+      to Sebastian Meyer's PR#18103.)
+
+  BUG FIXES:
+
+    * make check-devel works again in an R build configured with
+      --without-recommended-packages.
+
+    * qnbinom(p, size, mu) for large size/mu is correct now in a range
+      of cases (PR#18095); similarly for the (size, prob)
+      parametrization of the negative binomial.  Also qpois() and
+      qbinom() are better and or faster for extreme cases.  The
+      underlying C code has been modularized and is common to all four
+      cases of discrete distributions.
+
+    * gap.axis is now part of the axis() arguments which are passed
+      from bxp(), and hence boxplot().  (Thanks to Martin Smith's
+      report and suggestions in PR#18109.)
+
+    * .First and .Last can again be set from the site profile.
+
+    * seq.int(from, to, *) and seq.default(..) now work better in large
+      range cases where from-to is infinite where the two boundaries
+      are finite.
+
+    * all.equal(x,y) now returns TRUE correctly also when several
+      entries of abs(x) and abs(y) are close to .Machine$double.xmax,
+      the largest finite numeric.
+
+    * model.frame() now clears the object bit when removing the class
+      attribute of a value via na.action (PR#18100).
+
+    * charClass() now works with multi-character strings on Windows
+      (PR#18104, fixed by Bill Dunlap).
+
+    * encodeString() on Solaris now works again in Latin-1 encoding on
+      characters represented differently in UTF-8.  Support for
+      surrogate pairs on Solaris has been improved.
+
+    * file.show() on Windows now works with non-ASCII path names
+      representable in the current native encoding (PR#18132).
+
+    * Embedded R on Windows can now find R home directory via the
+      registry even when installed only for the current user
+      (PR#18135).
+
+    * pretty(x) with finite x now returns finite values also in the
+      case where the extreme x values are close in size to the maximal
+      representable number .Machine$double.xmax.
+
+      Also, it's been tweaked for very small ranges and when a boundary
+      is close (or equal) to zero; e.g., pretty(c(0,1e-317)) no longer
+      has negative numbers, currently still warning about a very small
+      range, and pretty(2^-(1024 - 2^-1/(c(24,10)))) is more accurate.
+
+    * The error message for not finding vignette files when weaving has
+      correct file sizes now. (Thanks to Sebastian Meyer's PR#18154.)
+
+    * dnbinom(20, <large>, 1) now correctly gives 0, and similar cases
+      are more accurate with underflow precaution.  (Reported by
+      Francisco Vera Alcivar in PR#18072.)
+
 CHANGES IN R 4.1.0:
 
   FUTURE DIRECTIONS:
@@ -43,7 +285,7 @@ CHANGES IN R 4.1.0:
     * type.convert() now warns when its as.is argument is not
       specified, as the help file always said it _should_.  In that
       case, the default is changed to TRUE in line with its change in
-      read.table() (related to stringsAsFactor) in R 4.0.0.
+      read.table() (related to stringsAsFactors) in R 4.0.0.
 
     * When printing list arrays, classed objects are now shown _via_
       their format() value if this is a short enough character string,
@@ -180,7 +422,7 @@ CHANGES IN R 4.1.0:
       Sys.getlocale("LC_CTYPE").
 
     * New function gregexec() which generalizes regexec() to find _all_
-      disjoint matches and well as all substrings corresponding to
+      disjoint matches and all substrings corresponding to
       parenthesized subexpressions of the given regular expression.
       (Contributed by Brodie Gaslam.)
 
@@ -206,7 +448,7 @@ CHANGES IN R 4.1.0:
     * sprintf now warns on arguments unused by the format string.
 
     * New palettes "Rocket" and "Mako" for hcl.colors() (approximating
-      palettes of the same name from the 'viridisLite' package).
+      palettes of the same name from the viridisLite package).
 
       Contributed by Achim Zeileis.
 
@@ -437,7 +679,8 @@ CHANGES IN R 4.1.0:
       have been updated to Unicode 13.0.0.
 
       The character-width tables have been updated to include new
-      assignments in Unicode 13.0.0.
+      assignments in Unicode 13.0.0.  This included treating all
+      control characters as having zero width.
 
     * The code for evaluating default (extended) regular expressions
       now uses the same character-classification functions as the rest
@@ -569,7 +812,12 @@ CHANGES IN R 4.1.0:
       "irregular" method definitions such that e.g. lapply(*) will
       necessarily fail, as currently for different igraph objects.
 
-    * Too long lines in environment files (e.g. Renviron) no longer
+    * Message translation domains, e.g., for errors and warnings, are
+      now correctly determined also when e.g., a base function is
+      called from "top-level" function (i.e., defined in globalenv()),
+      thanks to a patch from Joris Goosen fixing PR#17998.
+
+    * Too long lines in environment files (e.g., Renviron) no longer
       crash R. This limit has been increased to 100,000 bytes.
       (PR#18001.)
 
@@ -694,11 +942,6 @@ CHANGES IN R 4.0.4:
     * checkRdaFiles(ff)$version is now correct also when ff contains
       files of different versions, thanks to a report and patch from
       Sebastian Meyer in PR#18041.
-
-    * Message translation domains, e.g., for errors and warnings, are
-      now correctly determined also when e.g., a base function is
-      called from "top-level" function (i.e., defined in globalenv()),
-      thanks to a patch from Joris Goosen fixing PR#17998.
 
     * macOS: Quartz device live drawing could fail (no plot is shown)
       if the system changes the drawing context after view update
@@ -1184,7 +1427,7 @@ CHANGES IN R 4.0.0:
     * deparse(..), dump(..), and dput(x, control = "all") now include
       control option "digits17" which typically ensures 1:1
       invertibility.  New option control = "exact" ensures numeric
-      exact invertibility via "hexDigits".
+      exact invertibility via "hexNumeric".
 
     * When loading data sets via read.table(), data() now uses
       LC_COLLATE=C to ensure locale-independent results for possible
@@ -1282,11 +1525,11 @@ CHANGES IN R 4.0.0:
     * Either PCRE2 or PCRE1 >= 8.32 (Nov 2012) is required: the
       deprecated provision for 8.20-8.31 has been removed.
 
-    * Defunct functions mem.limits(), .readRDS(),
-      .saveRDS(),..find.package(), and .path.package() from package
-      base and allGenerics(), getAccess(), getAllMethods(),
-      getClassName(), getClassPackage(), getExtends(), getProperties(),
-      getPrototype(), getSubclasses(), getVirtual(), mlistMetaName(),
+    * Defunct functions mem.limits(), .readRDS(), .saveRDS(),
+      .find.package(), and .path.package() from package base and
+      allGenerics(), getAccess(), getAllMethods(), getClassName(),
+      getClassPackage(), getExtends(), getProperties(), getPrototype(),
+      getSubclasses(), getVirtual(), mlistMetaName(),
       removeMethodsObject(), seemsS4Object(), traceOff(), and traceOn()
       from methods have been removed.
 
@@ -1520,7 +1763,7 @@ CHANGES IN R 4.0.0:
       socket connection, allowing non-blocking read operations.
 
     * anova.glm() and anova.glmlist() computed incorrect score (Rao)
-      tests in no-intercept cases. (Andr'e Gillibert, PR#17734)
+      tests in no-intercept cases. (Andr'e Gillibert, PR#17735)
 
     * summaryRprof() now should work correctly for the Rprof(*,
       memory.profiling=TRUE) case with small chunk size (and "tseries"

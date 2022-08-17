@@ -37,10 +37,6 @@
 #endif
 #if defined(__cplusplus) && !defined(DO_NOT_USE_CXX_HEADERS)
 # include <cmath>
-// See comment in R.h
-# ifdef __SUNPRO_CC
-using namespace std;
-# endif
 #else
 # include <math.h>
 #endif
